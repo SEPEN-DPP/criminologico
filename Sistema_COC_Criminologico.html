@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema COC — Exame Criminológico | DPP-SC</title>
+<style>
+  :root{
+    --navy:#1F3864; --navy2:#2E4C7E; --steel:#5B7BAE; --paper:#F4F6FA; --card:#FFFFFF;
+    --ink:#1B2437; --mut:#5A6478; --line:#D8DFEA;
+    --ok:#1E7D46; --okbg:#E7F4EC; --warn:#9A6A12; --warnbg:#FCF3DF; --crit:#B3261E; --critbg:#FBEAE9;
+    --gold:#8C6D2F;
+    --r:10px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Segoe UI", -apple-system, Roboto, Arial, sans-serif; background:var(--paper); color:var(--ink); font-size:15px;}
+  h1,h2,h3,.serif{font-family:Georgia, "Times New Roman", serif;}
+
+  /* ===== layout ===== */
+  header.app{background:var(--navy); color:#fff; padding:14px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+  header.app .brand{display:flex; flex-direction:column;}
+  header.app .brand b{font-family:Georgia,serif; font-size:18px; letter-spacing:.3px;}
+  header.app .brand span{font-size:11.5px; opacity:.75; letter-spacing:.4px;}
+  header.app .coc-sel{margin-left:auto; display:flex; align-items:center; gap:8px; font-size:13px;}
+  header.app select{background:#fff; border:none; border-radius:6px; padding:7px 10px; font-size:13.5px; min-width:230px;}
+  nav.tabs{background:#fff; border-bottom:2px solid var(--line); display:flex; gap:2px; padding:0 14px; overflow-x:auto;}
+  nav.tabs button{border:none; background:none; padding:13px 16px; font-size:14px; color:var(--mut); cursor:pointer; border-bottom:3px solid transparent; white-space:nowrap; font-weight:600;}
+  nav.tabs button.on{color:var(--navy); border-bottom-color:var(--navy);}
+  main{max-width:1180px; margin:0 auto; padding:22px 18px 60px;}
+  section.view{display:none;} section.view.on{display:block;}
+
+  .grid{display:grid; gap:14px;}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr));}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:16px 18px;}
+  .card h3{font-size:16px; color:var(--navy); margin-bottom:10px;}
+  .kpi b{font-size:30px; font-family:Georgia,serif; display:block;}
+  .kpi span{font-size:12.5px; color:var(--mut);}
+  .kpi.ok b{color:var(--ok);} .kpi.warn b{color:var(--warn);} .kpi.crit b{color:var(--crit);} .kpi.navy b{color:var(--navy);}
+
+  /* ===== forms ===== */
+  label.f{display:block; font-size:12px; font-weight:700; color:var(--navy2); text-transform:uppercase; letter-spacing:.5px; margin:10px 0 4px;}
+  input[type=text],input[type=date],select,textarea{width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px; font-size:14px; font-family:inherit; background:#fff;}
+  textarea{min-height:90px; resize:vertical; line-height:1.5;}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--steel); outline-offset:1px;}
+  .row{display:grid; gap:12px;} .row.c2{grid-template-columns:1fr 1fr;} .row.c3{grid-template-columns:1fr 1fr 1fr;}
+  @media(max-width:720px){.row.c2,.row.c3{grid-template-columns:1fr;}}
+  button.btn{background:var(--navy); color:#fff; border:none; border-radius:7px; padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer;}
+  button.btn:hover{background:var(--navy2);}
+  button.btn.ghost{background:#fff; color:var(--navy); border:1.5px solid var(--navy);}
+  button.btn.danger{background:var(--crit);}
+  button.btn.sm{padding:6px 12px; font-size:12.5px;}
+  .btnrow{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;}
+
+  /* ===== triagem / carimbo ===== */
+  .carimbo{display:inline-block; border:3px dashed; border-radius:8px; padding:10px 22px; font-family:Georgia,serif; font-weight:700; font-size:19px; letter-spacing:1.5px; transform:rotate(-2deg); text-transform:uppercase; margin:8px 0;}
+  .carimbo.ob{color:var(--crit); border-color:var(--crit); background:var(--critbg);}
+  .carimbo.fac{color:var(--ok); border-color:var(--ok); background:var(--okbg);}
+  .carimbo.mis{color:var(--warn); border-color:var(--warn); background:var(--warnbg);}
+  .triagem-exp{font-size:13.5px; color:var(--mut); line-height:1.55; max-width:640px;}
+
+  /* ===== tabela / lista de exames ===== */
+  table{width:100%; border-collapse:collapse; background:#fff; border-radius:var(--r); overflow:hidden; border:1px solid var(--line);}
+  th{background:var(--navy); color:#fff; text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.5px; padding:10px 12px;}
+  td{padding:10px 12px; border-top:1px solid var(--line); font-size:13.5px; vertical-align:middle;}
+  tr:hover td{background:#F0F4FB; cursor:pointer;}
+  .badge{display:inline-block; padding:3px 10px; border-radius:20px; font-size:11.5px; font-weight:700;}
+  .b-ok{background:var(--okbg); color:var(--ok);} .b-warn{background:var(--warnbg); color:var(--warn);}
+  .b-crit{background:var(--critbg); color:var(--crit);} .b-navy{background:#E7EDF7; color:var(--navy);}
+  .b-mut{background:#EEF0F4; color:var(--mut);}
+  .prog{height:7px; background:#E4E9F2; border-radius:4px; overflow:hidden; min-width:70px;}
+  .prog i{display:block; height:100%; background:var(--navy); border-radius:4px;}
+
+  /* ===== etapas ===== */
+  .etapa{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; background:#fff;}
+  .etapa.done{background:var(--okbg); border-color:#BCDCC8;}
+  .etapa input[type=checkbox]{width:19px; height:19px; accent-color:var(--ok); flex-shrink:0;}
+  .etapa .et-t{flex:1;} .etapa .et-t b{font-size:14px; display:block;} .etapa .et-t span{font-size:12px; color:var(--mut);}
+  .etapa input[type=date]{width:150px;}
+
+  /* ===== verificador ===== */
+  .flag{background:var(--critbg); border-left:4px solid var(--crit); border-radius:6px; padding:10px 12px; margin-bottom:8px; font-size:13.5px;}
+  .flag b{color:var(--crit);}
+  .flag .ctx{display:block; color:var(--mut); font-size:12.5px; margin-top:3px; font-style:italic;}
+  .allclear{background:var(--okbg); border-left:4px solid var(--ok); border-radius:6px; padding:14px; font-size:14.5px; color:var(--ok); font-weight:600;}
+  mark{background:#FFD9D6; color:var(--crit); font-weight:700; border-radius:3px; padding:0 2px;}
+  .preview{background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; font-size:14px; line-height:1.65; max-height:340px; overflow:auto; white-space:pre-wrap;}
+
+  .note{font-size:12.5px; color:var(--mut); line-height:1.5; margin-top:6px;}
+  .lawbox{background:#EDF2FA; border:1px solid #C9D6EC; border-left:4px solid var(--navy); border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.55; margin:10px 0;}
+  .cond{border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px; background:#FAFBFE;}
+  .cond .del{float:right;}
+  .muted{color:var(--mut);}
+  .right{text-align:right;}
+  hr.sep{border:none; border-top:1px solid var(--line); margin:16px 0;}
+  .empty{padding:34px; text-align:center; color:var(--mut); font-size:14.5px;}
+
+  /* ===== impressão do relatório ===== */
+  #printArea{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    #printArea, #printArea *{visibility:visible;}
+    #printArea{display:block; position:absolute; left:0; top:0; width:100%; font-family:"Times New Roman",serif; font-size:12pt; color:#000; padding:2cm 2.5cm;}
+    #printArea h2{text-align:center; font-size:13pt; margin-bottom:2px;}
+    #printArea h3{font-size:12pt; margin:14px 0 6px;}
+    #printArea p{text-align:justify; line-height:1.5; margin-bottom:8px;}
+    #printArea .assin{margin-top:40px; text-align:center;}
+  }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="brand">
+    <b>Sistema COC — Exame Criminológico</b>
+    <span>DEPARTAMENTO DE POLÍCIA PENAL · COORDENADORIA DE EXECUÇÃO PENAL · SANTA CATARINA</span>
+  </div>
+  <div class="coc-sel">
+    <span>Centro:</span>
+    <select id="selCoc" onchange="App.setCoc(this.value)"></select>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="on" data-v="dash" onclick="App.tab('dash')">Painel</button>
+  <button data-v="lista" onclick="App.tab('lista')">Exames</button>
+  <button data-v="novo" onclick="App.tab('novo')">Novo exame</button>
+  <button data-v="verif" onclick="App.tab('verif')">Verificador de vedações</button>
+  <button data-v="config" onclick="App.tab('config')">Configurações</button>
+</nav>
+
+<main>
+
+<!-- ============ PAINEL ============ -->
+<section class="view on" id="v-dash">
+  <div class="grid g4" id="kpis"></div>
+  <div class="card" style="margin-top:16px;">
+    <h3>Prazos críticos <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 7º da Portaria; Res. CNPCP 36/2024)</span></h3>
+    <div id="prazosBox"></div>
+  </div>
+  <div class="lawbox">
+    <b>Lembrete legal:</b> o atraso na realização do exame <b>não autoriza</b> a manutenção do condenado em regime mais gravoso, nem impede indulto ou outro benefício (art. 7º, §§ 1º e 2º, da Portaria). O exame tem caráter informativo e não vincula o Juízo da Execução.
+  </div>
+</section>
+
+<!-- ============ LISTA ============ -->
+<section class="view" id="v-lista">
+  <div class="card">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0;">Exames do centro</h3>
+      <select id="fStatus" style="width:auto;" onchange="App.renderLista()">
+        <option value="">Todos os status</option>
+        <option value="andamento">Em andamento</option>
+        <option value="concluido">Concluídos</option>
+      </select>
+      <input type="text" id="fBusca" placeholder="Buscar por nome, matrícula ou processo…" style="max-width:300px;" oninput="App.renderLista()">
+    </div>
+    <div id="listaBox"></div>
+  </div>
+</section>
+
+<!-- ============ NOVO / FICHA ============ -->
+<section class="view" id="v-novo">
+  <div class="card">
+    <h3 id="fichaTitulo">Novo exame criminológico</h3>
+
+    <div class="lawbox" style="background:#F5F2E8; border-color:#DCD3B8; border-left-color:var(--gold);">
+      <b>Importar decisão judicial ou outro documento</b> — o sistema lê o arquivo e preenche automaticamente os dados do apenado (nome, matrícula/IPEN, processo, unidade, data do fato, tipificação). Confira sempre os campos após a extração.
+      <div class="btnrow" style="margin-top:10px;">
+        <button class="btn sm" onclick="document.getElementById('docFile').click()">Selecionar arquivo (PDF ou TXT)</button>
+        <input type="file" id="docFile" accept=".pdf,.txt" style="display:none;" onchange="Extractor.arquivo(this)">
+        <button class="btn sm ghost" onclick="Extractor.togglePaste()">ou colar o texto da decisão</button>
+      </div>
+      <div id="pasteBox" style="display:none; margin-top:10px;">
+        <textarea id="docTexto" style="min-height:110px;" placeholder="Cole aqui o texto da decisão (eProc/SEEU: selecionar tudo e copiar)…"></textarea>
+        <div class="btnrow"><button class="btn sm" onclick="Extractor.extrair(document.getElementById('docTexto').value, 'texto colado')">Extrair dados do texto</button></div>
+      </div>
+      <div id="extResult" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="row c2">
+      <div><label class="f">Nome do avaliado</label><input type="text" id="e_nome"></div>
+      <div><label class="f">Matrícula / IPEN</label><input type="text" id="e_mat"></div>
+    </div>
+    <div class="row c3">
+      <div><label class="f">Unidade prisional de custódia</label><input type="text" id="e_unid"></div>
+      <div><label class="f">Processo de execução (SEEU)</label><input type="text" id="e_proc"></div>
+      <div><label class="f">Finalidade do exame</label>
+        <select id="e_tipo" onchange="App.triagem()">
+          <option value="progressao">Progressão de regime (art. 112, §1º, LEP)</option>
+          <option value="judicial">Determinação judicial motivada (Súm. 439/STJ)</option>
+          <option value="dpp">Requisição do DPP (gestão / representação)</option>
+        </select>
+      </div>
+    </div>
+
+    <hr class="sep">
+    <h3>Condenações (guias de execução) <button class="btn sm ghost" style="float:right;" onclick="App.addCond()">+ adicionar condenação</button></h3>
+    <p class="note">A data do fato de cada condenação define a triagem legal. Preencha uma entrada por guia.</p>
+    <div id="condBox" style="margin-top:10px;"></div>
+
+    <div class="row c2" style="margin-top:6px;">
+      <div><label class="f">Data prevista da progressão (requisito objetivo)</label><input type="date" id="e_dataProg" onchange="App.triagem()"></div>
+      <div><label class="f">Prazo-limite para conclusão do exame (automático: 30 dias antes)</label><input type="text" id="e_prazo" readonly style="background:#F1F4F9; font-weight:700;"></div>
+    </div>
+
+    <div id="triagemBox" style="margin-top:14px;"></div>
+
+    <hr class="sep">
+    <h3>Equipe examinadora <span class="muted" style="font-size:12px; font-weight:normal;">(art. 5º da Portaria — informar nome e registro de classe)</span></h3>
+    <div class="row c2">
+      <div><label class="f">Chefe de serviço 1</label><input type="text" id="q_c1" placeholder="Nome / matrícula"></div>
+      <div><label class="f">Chefe de serviço 2</label><input type="text" id="q_c2" placeholder="Nome / matrícula"></div>
+      <div><label class="f">Psiquiatra</label><input type="text" id="q_psq" placeholder="Nome / CRM"></div>
+      <div><label class="f">Psicólogo(a)</label><input type="text" id="q_psi" placeholder="Nome / CRP"></div>
+      <div><label class="f">Assistente social</label><input type="text" id="q_as" placeholder="Nome / CRESS"></div>
+    </div>
+    <p class="note">Vedações: profissionais temporários contratados só para exames; integrantes de eAPP; referência técnica do próprio avaliado (art. 5º, §§ 2º a 4º, da Portaria).</p>
+
+    <hr class="sep">
+    <h3>Etapas do exame <span class="muted" style="font-size:12px; font-weight:normal;">(Res. CNPCP 36/2024)</span></h3>
+    <div id="etapasBox"></div>
+
+    <hr class="sep">
+    <h3>Conteúdo do relatório <span class="muted" style="font-size:12px; font-weight:normal;">(estrutura do item 8 do Manual)</span></h3>
+    <label class="f">II — Metodologia (declaração expressa dos métodos, instrumentos, datas das entrevistas e remissão fundamentada ao exame de ingresso)</label>
+    <textarea id="r_met"></textarea>
+    <label class="f">III — Análise social</label>
+    <textarea id="r_soc"></textarea>
+    <label class="f">IV — Análise psicológica</label>
+    <textarea id="r_psi"></textarea>
+    <label class="f">V — Análise psiquiátrica (quando houver)</label>
+    <textarea id="r_psq"></textarea>
+    <label class="f">VI — Síntese conclusiva (informativa e descritiva)</label>
+    <textarea id="r_sin"></textarea>
+    <p class="note">Antes de imprimir, o texto passa automaticamente pelo verificador de vedações do art. 9º.</p>
+
+    <label class="f">Observações internas</label>
+    <textarea id="e_obs" style="min-height:60px;"></textarea>
+
+    <div class="btnrow">
+      <button class="btn" onclick="App.salvar()">Salvar exame</button>
+      <button class="btn ghost" onclick="App.verificarRelatorio()">Verificar vedações no relatório</button>
+      <button class="btn ghost" onclick="App.imprimir()">Gerar relatório para impressão</button>
+      <button class="btn ghost" id="btnConcluir" onclick="App.concluir()" style="display:none;">Marcar como concluído</button>
+      <button class="btn danger" id="btnExcluir" onclick="App.excluir()" style="display:none;">Excluir</button>
+    </div>
+    <div id="salvoMsg" class="note" style="color:var(--ok); font-weight:700;"></div>
+    <div id="verifInline" style="margin-top:12px;"></div>
+  </div>
+</section>
+
+<!-- ============ VERIFICADOR ============ -->
+<section class="view" id="v-verif">
+  <div class="card">
+    <h3>Verificador de vedações — art. 9º da Portaria / Res. CNPCP 36/2024</h3>
+    <p class="note">Cole abaixo o texto de qualquer laudo. O sistema varre expressões associadas às cinco vedações: prognóstico de reincidência; termos indeterminados/estigmatizantes; determinismo delito-delinquente; classificação de segurança; fundamentação na gravidade/circunstâncias do delito ou no tempo de pena. O apontamento é um alerta para revisão profissional — o contexto decide.</p>
+    <textarea id="verifTexto" style="min-height:180px;" placeholder="Cole aqui o texto do relatório…"></textarea>
+    <div class="btnrow"><button class="btn" onclick="App.verificarLivre()">Verificar texto</button></div>
+    <div id="verifResult" style="margin-top:14px;"></div>
+  </div>
+</section>
+
+<!-- ============ CONFIG ============ -->
+<section class="view" id="v-config">
+  <div class="grid g2">
+    <div class="card">
+      <h3>Centros de Observação (8 polos regionais)</h3>
+      <p class="note">Os nomes abaixo são sugestões editáveis — os polos oficiais serão definidos por ato do Diretor-Geral (art. 3º da Portaria). Clique no nome para editar.</p>
+      <div id="cocBox" style="margin-top:10px;"></div>
+    </div>
+    <div class="card">
+      <h3>Dados e backup</h3>
+      <p class="note">Os dados ficam salvos apenas neste navegador. Faça backup regularmente e importe no computador do centro.</p>
+      <div class="btnrow">
+        <button class="btn" onclick="App.exportar()">Exportar backup (JSON)</button>
+        <button class="btn ghost" onclick="document.getElementById('impFile').click()">Importar backup</button>
+        <input type="file" id="impFile" accept=".json" style="display:none;" onchange="App.importar(this)">
+      </div>
+      <hr class="sep">
+      <p class="note"><b>Base normativa embarcada:</b> LEP arts. 8º, 96–98, 112 §1º · Lei 14.843/2024 · Res. CNPCP 36/2024 · Súm. Vinculante 26/STF · Súm. 439/STJ · Portaria estadual dos COCs · Manual do Exame Criminológico (CEPEN/DPP-SC).</p>
+      <p class="note" style="margin-top:8px;"><b>Marco temporal da triagem:</b> fatos a partir de <b>11/4/2024</b> → exame obrigatório para progressão; fatos até 10/4/2024 → exame somente por decisão judicial motivada (irretroatividade — art. 5º, XL, CF; STJ HC 932.864/SC).</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div id="printArea"></div>
+
+<script>
+"use strict";
+/* ================= persistência ================= */
+const Store = {
+  KEY: "coc_criminologico_sc_v1",
+  mem: null,
+  load(){
+    try{ const raw = localStorage.getItem(this.KEY); if(raw) return JSON.parse(raw); }catch(e){}
+    return this.mem;
+  },
+  save(data){
+    this.mem = data;
+    try{ localStorage.setItem(this.KEY, JSON.stringify(data)); }catch(e){}
+  }
+};
+
+const DEFAULT_COCS = [
+  {id:"coc1", nome:"COC 1ª Regional — Grande Florianópolis"},
+  {id:"coc2", nome:"COC 2ª Regional — Sul"},
+  {id:"coc3", nome:"COC 3ª Regional — Norte"},
+  {id:"coc4", nome:"COC 4ª Regional — Vale do Itajaí"},
+  {id:"coc5", nome:"COC 5ª Regional — Planalto Serrano"},
+  {id:"coc6", nome:"COC 6ª Regional — Meio-Oeste"},
+  {id:"coc7", nome:"COC 7ª Regional — Oeste"},
+  {id:"coc8", nome:"COC 8ª Regional — Extremo-Oeste"}
+];
+
+/* etapas do fluxo (Res. 36/2024) */
+const ETAPAS = [
+  {k:"defesa",   t:"Defesa técnica assegurada e ciência do direito ao silêncio", s:"Registrar antes de iniciar a avaliação", data:true},
+  {k:"ent1",     t:"1ª entrevista com o avaliado", s:"Mínimo legal: duas entrevistas", data:true},
+  {k:"ent2",     t:"2ª entrevista com o avaliado", s:"Vedado exame com entrevista única", data:true},
+  {k:"entConv",  t:"Entrevista com pessoas do convívio (quando possível)", s:"Familiares e rede externa", data:true},
+  {k:"anSoc",    t:"Análise social concluída", s:"Assistente social", data:false},
+  {k:"anPsi",    t:"Análise psicológica concluída", s:"Psicólogo(a)", data:false},
+  {k:"anPsq",    t:"Análise psiquiátrica concluída (quando houver)", s:"Psiquiatra", data:false},
+  {k:"relat",    t:"Relatório circunstanciado redigido e verificado", s:"Metodologia declarada + remissão ao exame de ingresso", data:false},
+  {k:"encam",    t:"Encaminhado ao Juízo da Execução (e à CTC, no que couber)", s:"Art. 1º, parágrafo único, da Portaria", data:true}
+];
+
+/* termos vedados — art. 9º */
+const VEDADOS = [
+  {re:/prognóstic[a-zà-ÿ]*/gi, ved:"I — prognóstico de reincidência"},
+  {re:/risco\s+de\s+reincid[a-zà-ÿ]+/gi, ved:"I — prognóstico de reincidência"},
+  {re:/reincid[a-zà-ÿ]+/gi, ved:"I — prognóstico de reincidência (verificar contexto)"},
+  {re:/periculosidade/gi, ved:"II — termo indeterminado/estigmatizante"},
+  {re:/perigos[a-zà-ÿ]*/gi, ved:"II — termo indeterminado/estigmatizante (verificar contexto)"},
+  {re:/personalidade\s+(criminosa|voltada|desviada|delinquente)/gi, ved:"II/III — estigmatizante e determinista"},
+  {re:/delinquente/gi, ved:"III — determinismo delito-delinquente"},
+  {re:/índole/gi, ved:"II — termo indeterminado/estigmatizante"},
+  {re:/desvio\s+de\s+car[áa]ter/gi, ved:"II — termo indeterminado/estigmatizante"},
+  {re:/frieza|insensibilidade/gi, ved:"II — termo indeterminado/estigmatizante (verificar contexto)"},
+  {re:/classifica[çc][ãa]o\s+de\s+seguran[çc]a/gi, ved:"IV — sugestão de classificação de segurança"},
+  {re:/gravidade\s+(abstrata\s+)?do\s+(delito|crime)/gi, ved:"V — fundamentação na gravidade do delito"},
+  {re:/circunst[âa]ncias\s+do\s+(delito|crime)/gi, ved:"V — fundamentação nas circunstâncias do delito"},
+  {re:/tempo\s+de\s+pena/gi, ved:"V — fundamentação no tempo de pena"},
+  {re:/natureza\s+hedionda/gi, ved:"V — fundamentação na gravidade do delito (verificar contexto)"}
+];
+
+const MARCO = new Date("2024-04-11T00:00:00");
+
+/* ================= extração de dados de documentos ================= */
+const Extractor = {
+  PDFJS: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+  WORKER: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+
+  togglePaste(){
+    const b=document.getElementById("pasteBox");
+    b.style.display = b.style.display==="none" ? "block" : "none";
+  },
+
+  arquivo(input){
+    const f=input.files[0]; if(!f) return;
+    const out=document.getElementById("extResult");
+    if(/\.txt$/i.test(f.name)){
+      const r=new FileReader();
+      r.onload=()=>this.extrair(r.result, f.name);
+      r.readAsText(f,"utf-8");
+    } else if(/\.pdf$/i.test(f.name)){
+      out.innerHTML=`<p class="note">Lendo PDF…</p>`;
+      this.lerPDF(f).then(t=>this.extrair(t, f.name))
+        .catch(()=>{ out.innerHTML=`<div class="flag"><b>Não foi possível ler o PDF neste computador</b> (leitura de PDF exige conexão na primeira vez, ou o arquivo é imagem digitalizada sem texto). Alternativa garantida: abra a decisão no eProc/SEEU, selecione o texto, copie e use "colar o texto da decisão".</div>`; });
+    } else {
+      out.innerHTML=`<div class="flag">Formato não suportado. Use PDF ou TXT — ou cole o texto.</div>`;
+    }
+    input.value="";
+  },
+
+  lerPDF(file){
+    return new Promise((resolve,reject)=>{
+      const go=()=>{
+        try{
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc=this.WORKER;
+          const fr=new FileReader();
+          fr.onload=async()=>{
+            try{
+              const pdf=await window.pdfjsLib.getDocument({data:new Uint8Array(fr.result)}).promise;
+              let txt="";
+              const max=Math.min(pdf.numPages,20);
+              for(let i=1;i<=max;i++){
+                const pg=await pdf.getPage(i);
+                const tc=await pg.getTextContent();
+                txt+=tc.items.map(it=>it.str).join(" ")+"\n";
+              }
+              if(txt.replace(/\s/g,"").length<40) reject(new Error("sem camada de texto"));
+              else resolve(txt);
+            }catch(e){reject(e);}
+          };
+          fr.onerror=()=>reject(new Error("leitura"));
+          fr.readAsArrayBuffer(file);
+        }catch(e){reject(e);}
+      };
+      if(window.pdfjsLib){ go(); return; }
+      const s=document.createElement("script");
+      s.src=this.PDFJS; s.onload=go; s.onerror=()=>reject(new Error("offline"));
+      document.head.appendChild(s);
+      setTimeout(()=>{ if(!window.pdfjsLib) reject(new Error("timeout")); }, 12000);
+    });
+  },
+
+  /* ---- parser de documentos judiciais brasileiros ---- */
+  titleCase(s){
+    const low=["de","da","do","das","dos","e"];
+    return s.toLowerCase().split(/\s+/).map((w,i)=> low.includes(w)&&i>0 ? w : w.charAt(0).toUpperCase()+w.slice(1)).join(" ");
+  },
+  extrair(texto, fonte){
+    const out=document.getElementById("extResult");
+    if(!texto || texto.replace(/\s/g,"").length<20){ out.innerHTML=`<div class="flag">Texto vazio ou muito curto.</div>`; return; }
+    const t=texto.replace(/\r/g," ").replace(/[ \t]+/g," ");
+    const found=[], missing=[];
+    let m=null;
+
+    /* processo CNJ */
+    const proc=t.match(/\d{7}-?\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4}/);
+    if(proc){ e_proc.value=proc[0]; found.push("Processo: "+proc[0]); } else missing.push("processo");
+
+    /* nome — localiza o rótulo (case-insensitive) e captura o nome em CAIXA ALTA logo após */
+    let nome=null;
+    const rotulo=t.match(/(?:apenad[oa]|reeducand[oa]|executad[oa]|sentenciad[oa]|condenad[oa]|recuperand[oa]|r[ée]u|em\s+favor\s+de|nome)\s*[:\-]?\s*/i);
+    if(rotulo){
+      const resto=t.slice(rotulo.index+rotulo[0].length);
+      const mn=resto.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ]{2,}(?:\s+(?:D[AEO]S?|E|[A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ']{2,})){1,6})/);
+      if(mn) nome=mn[1];
+    }
+    if(!nome){ /* fallback: sequência em caixa alta com 3+ palavras, filtrando cabeçalhos */
+      const mn=t.match(/\b([A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ]{3,}(?:\s+(?:D[AEO]S?|E|[A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ]{2,})){2,5})\b/);
+      if(mn && !/PODER|JUSTI|VARA|COMARCA|ESTADO|MINIST|PENITENCI|TRIBUNAL|EXECU|SANTA CATARINA|POL[ÍI]CIA/.test(mn[1])) nome=mn[1];
+    }
+    if(nome){ e_nome.value=this.titleCase(nome.trim()); found.push("Nome: "+e_nome.value); } else missing.push("nome");
+
+    /* matrícula / IPEN */
+    m=t.match(/(?:IPEN|matr[íi]cula)\s*(?:n[.ºo°]?\s*)?[:\-]?\s*(\d{4,10})/i);
+    if(m){ e_mat.value=m[1]; found.push("Matrícula/IPEN: "+m[1]); } else missing.push("matrícula/IPEN");
+
+    /* unidade prisional */
+    m=t.match(/(Penitenci[áa]ria[^,;.\n]{0,55}|Pres[íi]dio[^,;.\n]{0,55}|Unidade\s+Prisional[^,;.\n]{0,55}|Complexo\s+Penitenci[áa]rio[^,;.\n]{0,55}|Casa\s+do\s+Albergado[^,;.\n]{0,45}|Col[ôo]nia\s+(?:Penal\s+)?Agr[íi]cola[^,;.\n]{0,45}|USM[^,;.\n]{0,35})/i);
+    if(m){ e_unid.value=m[1].trim(); found.push("Unidade: "+e_unid.value); } else missing.push("unidade");
+
+    /* data do fato */
+    m=t.match(/(?:data\s+do\s+fato|fatos?\s+(?:ocorrid[oa]s?|praticad[oa]s?)\s+em|delito\s+praticado\s+em|crime\s+(?:cometido|praticado)\s+em)\s*[:\-]?\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+    let dataISO=null;
+    if(m){ dataISO=m[3]+"-"+m[2]+"-"+m[1]; found.push("Data do fato: "+m[1]+"/"+m[2]+"/"+m[3]); } else missing.push("data do fato");
+
+    /* tipificação — tenta capturar até o diploma legal; senão, versão curta */
+    let artigo=null, crime=null;
+    m=t.match(/art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?[^.;\n]{0,70}?(?:do|da)\s+(?:C[óo]digo\s+Penal|CP\b|Lei\s+n?[.ºo°]?\s*[\d.\/]+)/i);
+    if(!m) m=t.match(/art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?(?:\s*,\s*(?:caput|§+\s*\d+[ºo°]?))*/i);
+    if(m){ artigo=m[0].replace(/\s+/g," ").trim(); found.push("Tipificação: "+artigo); }
+    m=t.match(/\b(roubo(?:\s+majorad[oa])?|homic[íi]dio(?:\s+qualificad[oa])?|latroc[íi]nio|estupro(?:\s+de\s+vulner[áa]vel)?|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|furto(?:\s+qualificad[oa])?|les[ãa]o\s+corporal|amea[çc]a|estelionato|c[áa]rcere\s+privado|extors[ãa]o)\b/i);
+    if(m){ crime=this.titleCase(m[1]); found.push("Crime: "+crime); }
+    /* crimes inequivocamente violentos/hediondos → marca automática do campo (art. 122, §2º, LEP) */
+    const VIOLENTOS=/roubo|homic[íi]dio|latroc[íi]nio|estupro|feminic[íi]dio|les[ãa]o\s+corporal|amea[çc]a|c[áa]rcere\s+privado|extors[ãa]o/i;
+    const autoViol = crime && VIOLENTOS.test(crime);
+    if(!artigo && !crime) missing.push("tipificação");
+
+    /* aplicar à primeira condenação */
+    if(dataISO || artigo || crime){
+      const c0=document.querySelector("#condBox .cond");
+      if(c0){
+        if(crime)  c0.querySelector(".c_crime").value = crime;
+        if(artigo) c0.querySelector(".c_art").value = artigo;
+        if(dataISO)c0.querySelector(".c_data").value = dataISO;
+        if(autoViol){ c0.querySelector(".c_viol").value = "sim"; found.push("Crime com violência/grave ameaça → marcado automaticamente"); }
+      }
+    }
+
+    /* determinação judicial do exame? */
+    if(/determino\s+a\s+realiza[çc][ãa]o\s+do\s+exame\s+criminol[óo]gico|exame\s+criminol[óo]gico[^.]{0,90}?determin/i.test(t)){
+      e_tipo.value="judicial";
+      found.push("Detectada determinação judicial do exame → finalidade ajustada");
+    }
+
+    App.triagem();
+    out.innerHTML =
+      `<div class="allclear" style="margin-bottom:8px;">✓ Extração de <b>${fonte}</b> — ${found.length} campo(s) preenchido(s). Confira antes de salvar.</div>`
+      + (found.length?`<p class="note"><b>Preenchidos:</b> ${found.join(" · ")}</p>`:"")
+      + (missing.length?`<p class="note" style="color:var(--warn);"><b>Não localizados no documento (preencher manualmente):</b> ${missing.join(", ")}.</p>`:"");
+  }
+};
+
+const uid = ()=> "e" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const fmt = d => { if(!d) return "—"; const [y,m,dd]=d.split("-"); return dd+"/"+m+"/"+y; };
+const hoje = ()=> new Date(new Date().toDateString());
+
+const App = {
+  data:null, coc:null, editId:null,
+
+  init(){
+    this.data = Store.load() || { cocs: DEFAULT_COCS.map(c=>({...c})), exames: [] };
+    if(!this.data.cocs || !this.data.cocs.length) this.data.cocs = DEFAULT_COCS.map(c=>({...c}));
+    this.coc = this.data.cocs[0].id;
+    this.renderCocSel(); this.renderConfig(); this.novo(); this.renderDash(); this.renderLista();
+  },
+  persist(){ Store.save(this.data); },
+
+  /* ---------- navegação ---------- */
+  tab(v){
+    document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("on", b.dataset.v===v));
+    document.querySelectorAll("section.view").forEach(s=>s.classList.toggle("on", s.id==="v-"+v));
+    if(v==="dash") this.renderDash();
+    if(v==="lista") this.renderLista();
+  },
+  setCoc(id){ this.coc=id; this.renderDash(); this.renderLista(); },
+
+  renderCocSel(){
+    const sel=document.getElementById("selCoc");
+    sel.innerHTML=this.data.cocs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join("");
+    sel.value=this.coc;
+  },
+
+  /* ---------- condenações ---------- */
+  addCond(c){
+    c = c || {crime:"", artigo:"", dataFato:"", violento:"nao"};
+    const box=document.getElementById("condBox");
+    const div=document.createElement("div");
+    div.className="cond";
+    div.innerHTML=`
+      <button class="btn sm danger del" onclick="this.parentElement.remove(); App.triagem();">remover</button>
+      <div class="row c3">
+        <div><label class="f">Crime / tipificação</label><input type="text" class="c_crime" value="${c.crime||""}" placeholder="ex.: Roubo majorado"></div>
+        <div><label class="f">Artigo</label><input type="text" class="c_art" value="${c.artigo||""}" placeholder="ex.: art. 157, §2º, CP"></div>
+        <div><label class="f">Data do fato</label><input type="date" class="c_data" value="${c.dataFato||""}" onchange="App.triagem()"></div>
+      </div>
+      <label class="f">Crime hediondo ou com violência/grave ameaça contra pessoa?</label>
+      <select class="c_viol" onchange="App.triagem()">
+        <option value="nao" ${c.violento==="nao"?"selected":""}>Não</option>
+        <option value="sim" ${c.violento==="sim"?"selected":""}>Sim</option>
+      </select>`;
+    box.appendChild(div);
+    this.triagem();
+  },
+  lerConds(){
+    return [...document.querySelectorAll("#condBox .cond")].map(d=>({
+      crime:d.querySelector(".c_crime").value.trim(),
+      artigo:d.querySelector(".c_art").value.trim(),
+      dataFato:d.querySelector(".c_data").value,
+      violento:d.querySelector(".c_viol").value
+    }));
+  },
+
+  /* ---------- triagem legal ---------- */
+  triagem(){
+    const tipo=document.getElementById("e_tipo").value;
+    const conds=this.lerConds().filter(c=>c.dataFato);
+    const box=document.getElementById("triagemBox");
+
+    /* prazo automático */
+    const dp=document.getElementById("e_dataProg").value;
+    const prazoEl=document.getElementById("e_prazo");
+    if(dp){ const d=new Date(dp+"T00:00:00"); d.setDate(d.getDate()-30); prazoEl.value=d.toLocaleDateString("pt-BR"); }
+    else prazoEl.value="";
+
+    if(tipo==="judicial"){
+      box.innerHTML=`<span class="carimbo mis">Determinação judicial</span>
+      <p class="triagem-exp">Exame realizado por decisão judicial motivada (Súmula Vinculante 26/STF; Súmula 439/STJ). Cumprir integralmente a metodologia e as vedações da Resolução CNPCP 36/2024.</p>`;
+      return;
+    }
+    if(tipo==="dpp"){
+      box.innerHTML=`<span class="carimbo mis">Requisição do DPP</span>
+      <p class="triagem-exp">Requisição para instruir procedimento de gestão da execução ou subsidiar representação ao Juízo. Não constitui hipótese autônoma de exigência para progressão — observar os limites legais.</p>`;
+      return;
+    }
+    if(!conds.length){ box.innerHTML=`<p class="note">Informe a(s) data(s) do fato para a triagem legal automática.</p>`; return; }
+
+    const pos=conds.filter(c=> new Date(c.dataFato+"T00:00:00") >= MARCO);
+    const ant=conds.filter(c=> new Date(c.dataFato+"T00:00:00") < MARCO);
+
+    if(pos.length && !ant.length){
+      box.innerHTML=`<span class="carimbo ob">Exame obrigatório</span>
+      <p class="triagem-exp">Todos os fatos são posteriores a 11/4/2024 → exame criminológico <b>obrigatório</b> para a progressão (art. 112, §1º, LEP, red. Lei 14.843/2024). Prazo: conclusão com 30 dias de antecedência.</p>`;
+    } else if(ant.length && !pos.length){
+      box.innerHTML=`<span class="carimbo fac">Não obrigatório — Súmula 439/STJ</span>
+      <p class="triagem-exp">Todos os fatos são anteriores a 11/4/2024 → a obrigatoriedade da Lei 14.843/2024 <b>não retroage</b> (art. 5º, XL, CF; STJ, HC 932.864/SC; TJSC). O exame só é exigível por <b>decisão judicial motivada</b>. Confirme nos autos se há determinação antes de mobilizar a equipe.</p>`;
+    } else {
+      box.innerHTML=`<span class="carimbo mis">Execução mista — analisar por guia</span>
+      <p class="triagem-exp"><b>${pos.length}</b> condenação(ões) por fatos a partir de 11/4/2024 (exame obrigatório quanto a elas) e <b>${ant.length}</b> anterior(es) (Súmula 439/STJ). A análise é feita guia por guia — indicar no relatório a data do fato de cada condenação.</p>`;
+    }
+  },
+
+  /* ---------- etapas ---------- */
+  renderEtapas(et){
+    et = et || {};
+    const box=document.getElementById("etapasBox");
+    box.innerHTML = ETAPAS.map(e=>{
+      const v = et[e.k]||{};
+      return `<div class="etapa ${v.ok?"done":""}" id="et_${e.k}">
+        <input type="checkbox" ${v.ok?"checked":""} onchange="App.etToggle('${e.k}',this)">
+        <div class="et-t"><b>${e.t}</b><span>${e.s}</span></div>
+        ${e.data?`<input type="date" class="et-data" value="${v.data||""}">`:""}
+      </div>`;
+    }).join("");
+  },
+  etToggle(k,el){ el.closest(".etapa").classList.toggle("done", el.checked); },
+  lerEtapas(){
+    const out={};
+    ETAPAS.forEach(e=>{
+      const d=document.getElementById("et_"+e.k);
+      out[e.k]={ ok:d.querySelector("input[type=checkbox]").checked,
+                 data:e.data ? d.querySelector(".et-data").value : "" };
+    });
+    return out;
+  },
+  progresso(et){
+    const done=ETAPAS.filter(e=>et[e.k]&&et[e.k].ok).length;
+    return Math.round(100*done/ETAPAS.length);
+  },
+
+  /* ---------- CRUD ---------- */
+  novo(){
+    this.editId=null;
+    document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
+    ["e_nome","e_mat","e_unid","e_proc","e_dataProg","e_prazo","q_c1","q_c2","q_psq","q_psi","q_as","r_met","r_soc","r_psi","r_psq","r_sin","e_obs"].forEach(id=>document.getElementById(id).value="");
+    document.getElementById("e_tipo").value="progressao";
+    document.getElementById("condBox").innerHTML="";
+    this.addCond();
+    this.renderEtapas();
+    document.getElementById("btnExcluir").style.display="none";
+    document.getElementById("btnConcluir").style.display="none";
+    document.getElementById("salvoMsg").textContent="";
+    document.getElementById("verifInline").innerHTML="";
+    this.triagem();
+  },
+  salvar(){
+    const nome=document.getElementById("e_nome").value.trim();
+    if(!nome){ alert("Informe o nome do avaliado."); return; }
+    const ex = this.editId ? this.data.exames.find(x=>x.id===this.editId) : {id:uid(), coc:this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
+    Object.assign(ex,{
+      nome, mat:document.getElementById("e_mat").value.trim(),
+      unid:document.getElementById("e_unid").value.trim(),
+      proc:document.getElementById("e_proc").value.trim(),
+      tipo:document.getElementById("e_tipo").value,
+      dataProg:document.getElementById("e_dataProg").value,
+      conds:this.lerConds(),
+      equipe:{c1:q_c1.value.trim(),c2:q_c2.value.trim(),psq:q_psq.value.trim(),psi:q_psi.value.trim(),as:q_as.value.trim()},
+      etapas:this.lerEtapas(),
+      rel:{met:r_met.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,sin:r_sin.value},
+      obs:document.getElementById("e_obs").value
+    });
+    if(!this.editId){ this.data.exames.push(ex); this.editId=ex.id; }
+    this.persist();
+    document.getElementById("btnExcluir").style.display="inline-block";
+    document.getElementById("btnConcluir").style.display="inline-block";
+    document.getElementById("salvoMsg").textContent="✓ Exame salvo ("+new Date().toLocaleTimeString("pt-BR")+")";
+    this.renderDash();
+  },
+  abrir(id){
+    const ex=this.data.exames.find(x=>x.id===id); if(!ex) return;
+    this.editId=id; this.tab("novo");
+    document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(ex.status==="concluido"?" (concluído)":"");
+    e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_unid.value=ex.unid||""; e_proc.value=ex.proc||"";
+    e_tipo.value=ex.tipo||"progressao"; e_dataProg.value=ex.dataProg||""; e_obs.value=ex.obs||"";
+    q_c1.value=ex.equipe?.c1||""; q_c2.value=ex.equipe?.c2||""; q_psq.value=ex.equipe?.psq||""; q_psi.value=ex.equipe?.psi||""; q_as.value=ex.equipe?.as||"";
+    r_met.value=ex.rel?.met||""; r_soc.value=ex.rel?.soc||""; r_psi.value=ex.rel?.psi||""; r_psq.value=ex.rel?.psq||""; r_sin.value=ex.rel?.sin||"";
+    document.getElementById("condBox").innerHTML="";
+    (ex.conds&&ex.conds.length?ex.conds:[{}]).forEach(c=>this.addCond(c));
+    this.renderEtapas(ex.etapas||{});
+    document.getElementById("btnExcluir").style.display="inline-block";
+    document.getElementById("btnConcluir").style.display=ex.status==="concluido"?"none":"inline-block";
+    document.getElementById("salvoMsg").textContent="";
+    document.getElementById("verifInline").innerHTML="";
+    this.triagem();
+  },
+  concluir(){
+    if(!this.editId) { alert("Salve o exame antes."); return; }
+    const ex=this.data.exames.find(x=>x.id===this.editId);
+    ex.status="concluido"; this.persist(); this.renderDash(); this.renderLista();
+    document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+" (concluído)";
+    document.getElementById("btnConcluir").style.display="none";
+  },
+  excluir(){
+    if(!this.editId) return;
+    if(!confirm("Excluir definitivamente este exame?")) return;
+    this.data.exames=this.data.exames.filter(x=>x.id!==this.editId);
+    this.persist(); this.novo(); this.tab("lista"); this.renderLista(); this.renderDash();
+  },
+
+  /* ---------- prazo/status ---------- */
+  prazoInfo(ex){
+    if(ex.tipo!=="progressao" || !ex.dataProg) return {cls:"b-mut", txt:"sem prazo"};
+    const lim=new Date(ex.dataProg+"T00:00:00"); lim.setDate(lim.getDate()-30);
+    const dias=Math.floor((lim-hoje())/86400000);
+    if(ex.status==="concluido") return {cls:"b-ok", txt:"concluído"};
+    if(dias<0)  return {cls:"b-crit", txt:"vencido há "+Math.abs(dias)+"d"};
+    if(dias<=7) return {cls:"b-crit", txt:dias+"d restantes"};
+    if(dias<=15)return {cls:"b-warn", txt:dias+"d restantes"};
+    return {cls:"b-ok", txt:dias+"d restantes"};
+  },
+  triagemLabel(ex){
+    if(ex.tipo==="judicial") return {cls:"b-navy", txt:"judicial"};
+    if(ex.tipo==="dpp") return {cls:"b-navy", txt:"req. DPP"};
+    const conds=(ex.conds||[]).filter(c=>c.dataFato);
+    if(!conds.length) return {cls:"b-mut", txt:"—"};
+    const pos=conds.some(c=>new Date(c.dataFato+"T00:00:00")>=MARCO);
+    const ant=conds.some(c=>new Date(c.dataFato+"T00:00:00")<MARCO);
+    if(pos&&ant) return {cls:"b-warn", txt:"misto"};
+    if(pos) return {cls:"b-crit", txt:"obrigatório"};
+    return {cls:"b-ok", txt:"Súm. 439"};
+  },
+
+  /* ---------- render dash/lista ---------- */
+  renderDash(){
+    const exs=this.data.exames.filter(e=>e.coc===this.coc);
+    const and=exs.filter(e=>e.status!=="concluido");
+    const crit=and.filter(e=>{const p=this.prazoInfo(e); return p.cls==="b-crit";});
+    const warn=and.filter(e=>{const p=this.prazoInfo(e); return p.cls==="b-warn";});
+    document.getElementById("kpis").innerHTML=`
+      <div class="card kpi navy"><b>${and.length}</b><span>exames em andamento</span></div>
+      <div class="card kpi crit"><b>${crit.length}</b><span>prazo crítico / vencido</span></div>
+      <div class="card kpi warn"><b>${warn.length}</b><span>atenção (≤ 15 dias)</span></div>
+      <div class="card kpi ok"><b>${exs.filter(e=>e.status==="concluido").length}</b><span>concluídos</span></div>`;
+    const urg=and.filter(e=>["b-crit","b-warn"].includes(this.prazoInfo(e).cls))
+      .sort((a,b)=>(a.dataProg||"9999")>(b.dataProg||"9999")?1:-1);
+    document.getElementById("prazosBox").innerHTML = urg.length ?
+      `<table><tr><th>Avaliado</th><th>Unidade</th><th>Progressão prevista</th><th>Prazo do exame</th><th>Situação</th><th>Progresso</th></tr>`+
+      urg.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{});
+        return `<tr onclick="App.abrir('${e.id}')"><td><b>${e.nome}</b></td><td>${e.unid||"—"}</td><td>${fmt(e.dataProg)}</td><td>${(()=>{if(!e.dataProg)return "—";const d=new Date(e.dataProg+"T00:00:00");d.setDate(d.getDate()-30);return d.toLocaleDateString("pt-BR");})()}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
+      : `<div class="empty">Nenhum exame com prazo crítico neste centro. ✓</div>`;
+  },
+  renderLista(){
+    const st=document.getElementById("fStatus").value;
+    const q=(document.getElementById("fBusca").value||"").toLowerCase();
+    let exs=this.data.exames.filter(e=>e.coc===this.coc);
+    if(st) exs=exs.filter(e=> st==="concluido" ? e.status==="concluido" : e.status!=="concluido");
+    if(q) exs=exs.filter(e=>(e.nome+" "+(e.mat||"")+" "+(e.proc||"")).toLowerCase().includes(q));
+    document.getElementById("listaBox").innerHTML = exs.length ?
+      `<table><tr><th>Avaliado</th><th>Matrícula</th><th>Finalidade</th><th>Triagem</th><th>Prazo</th><th>Progresso</th></tr>`+
+      exs.map(e=>{const p=this.prazoInfo(e); const t=this.triagemLabel(e); const pr=this.progresso(e.etapas||{});
+        const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
+        return `<tr onclick="App.abrir('${e.id}')"><td><b>${e.nome}</b></td><td>${e.mat||"—"}</td><td>${fin}</td><td><span class="badge ${t.cls}">${t.txt}</span></td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
+      : `<div class="empty">Nenhum exame cadastrado neste centro. Use a aba <b>Novo exame</b>.</div>`;
+  },
+
+  /* ---------- verificador ---------- */
+  scan(texto){
+    const flags=[];
+    VEDADOS.forEach(v=>{
+      let m; const re=new RegExp(v.re.source, v.re.flags);
+      while((m=re.exec(texto))!==null){
+        const ini=Math.max(0,m.index-45), fim=Math.min(texto.length,m.index+m[0].length+45);
+        flags.push({termo:m[0], ved:v.ved, ctx:"…"+texto.slice(ini,fim).replace(/\s+/g," ")+"…"});
+        if(flags.length>200) return;
+      }
+    });
+    return flags;
+  },
+  highlight(texto){
+    let html=texto.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+    VEDADOS.forEach(v=>{ html=html.replace(new RegExp(v.re.source,"gi"), s=>"<mark>"+s+"</mark>"); });
+    return html;
+  },
+  resultadoHTML(flags, texto){
+    if(!flags.length) return `<div class="allclear">✓ Nenhuma expressão vedada localizada. Revisão profissional continua indispensável — o verificador não substitui a leitura crítica.</div>`;
+    return `<p style="font-weight:700; color:var(--crit); margin-bottom:10px;">${flags.length} apontamento(s) para revisão:</p>`+
+      flags.slice(0,60).map(f=>`<div class="flag"><b>"${f.termo}"</b> — vedação ${f.ved}<span class="ctx">${f.ctx}</span></div>`).join("")+
+      `<h3 style="margin:14px 0 8px; color:var(--navy);">Texto com destaques</h3><div class="preview">${this.highlight(texto)}</div>`;
+  },
+  verificarLivre(){
+    const t=document.getElementById("verifTexto").value;
+    if(!t.trim()){ document.getElementById("verifResult").innerHTML=`<p class="note">Cole um texto para verificar.</p>`; return; }
+    document.getElementById("verifResult").innerHTML=this.resultadoHTML(this.scan(t), t);
+  },
+  verificarRelatorio(){
+    const t=[r_met.value,r_soc.value,r_psi.value,r_psq.value,r_sin.value].join("\n\n");
+    document.getElementById("verifInline").innerHTML=this.resultadoHTML(this.scan(t), t);
+    return this.scan(t);
+  },
+
+  /* ---------- impressão ---------- */
+  imprimir(){
+    const flags=this.verificarRelatorio();
+    if(flags.length && !confirm(flags.length+" expressão(ões) potencialmente vedada(s) foram apontadas. Imprimir mesmo assim?\n\nRecomenda-se revisar antes da emissão (art. 9º da Portaria).")) return;
+    const cocNome=(this.data.cocs.find(c=>c.id===this.coc)||{}).nome||"";
+    const conds=this.lerConds().filter(c=>c.crime||c.dataFato);
+    const fin={progressao:"progressão de regime (art. 112, §1º, da LEP)",judicial:"determinação judicial motivada",dpp:"requisição do Departamento de Polícia Penal"}[e_tipo.value];
+    const et=this.lerEtapas();
+    const entrevistas=[et.ent1,et.ent2,et.entConv].filter(x=>x&&x.ok&&x.data).map(x=>fmt(x.data)).join(", ")||"—";
+    const eq=[["Chefe de serviço",q_c1.value],["Chefe de serviço",q_c2.value],["Psiquiatra",q_psq.value],["Psicólogo(a)",q_psi.value],["Assistente social",q_as.value]].filter(x=>x[1]);
+    const pa=document.getElementById("printArea");
+    pa.innerHTML=`
+      <h2>ESTADO DE SANTA CATARINA</h2>
+      <h2>DEPARTAMENTO DE POLÍCIA PENAL — ${cocNome.toUpperCase()}</h2>
+      <h2 style="margin-top:14px;">RELATÓRIO DE EXAME CRIMINOLÓGICO</h2>
+      <h3>I — Identificação</h3>
+      <p><b>Avaliado:</b> ${e_nome.value} &nbsp; <b>Matrícula/IPEN:</b> ${e_mat.value||"—"}<br>
+      <b>Unidade de custódia:</b> ${e_unid.value||"—"} &nbsp; <b>Processo de execução:</b> ${e_proc.value||"—"}<br>
+      <b>Finalidade:</b> exame criminológico para ${fin}.</p>
+      ${conds.length?`<p><b>Condenações (data do fato):</b><br>${conds.map(c=>`— ${c.crime||"(crime)"} ${c.artigo?("("+c.artigo+")"):""} — fato em ${fmt(c.dataFato)}`).join("<br>")}</p>`:""}
+      <h3>II — Metodologia</h3><p>${(r_met.value||"—").replace(/\n/g,"<br>")}</p>
+      <p><b>Entrevistas realizadas em:</b> ${entrevistas}. Assegurada a defesa técnica e cientificado o avaliado do direito ao silêncio${et.defesa&&et.defesa.data?(" em "+fmt(et.defesa.data)):""}.</p>
+      <h3>III — Análise social</h3><p>${(r_soc.value||"—").replace(/\n/g,"<br>")}</p>
+      <h3>IV — Análise psicológica</h3><p>${(r_psi.value||"—").replace(/\n/g,"<br>")}</p>
+      ${r_psq.value.trim()?`<h3>V — Análise psiquiátrica</h3><p>${r_psq.value.replace(/\n/g,"<br>")}</p>`:""}
+      <h3>VI — Síntese conclusiva</h3><p>${(r_sin.value||"—").replace(/\n/g,"<br>")}</p>
+      <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução.</p>
+      <p style="margin-top:16px;">${cocNome}, ${new Date().toLocaleDateString("pt-BR")}.</p>
+      <div class="assin">${eq.map(x=>`<p style="margin-top:34px;">_______________________________________<br>${x[1]}<br><i>${x[0]}</i></p>`).join("")}</div>`;
+    window.print();
+  },
+
+  /* ---------- config ---------- */
+  renderConfig(){
+    document.getElementById("cocBox").innerHTML=this.data.cocs.map((c,i)=>
+      `<label class="f">Centro ${i+1}</label><input type="text" value="${c.nome}" onchange="App.renomearCoc('${c.id}',this.value)">`).join("");
+  },
+  renomearCoc(id,nome){
+    const c=this.data.cocs.find(x=>x.id===id); if(c&&nome.trim()){ c.nome=nome.trim(); this.persist(); this.renderCocSel(); }
+  },
+  exportar(){
+    const blob=new Blob([JSON.stringify(this.data,null,2)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="backup_coc_criminologico_"+new Date().toISOString().slice(0,10)+".json";
+    a.click(); URL.revokeObjectURL(a.href);
+  },
+  importar(input){
+    const f=input.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{ try{
+        const d=JSON.parse(r.result);
+        if(!d.cocs||!d.exames) throw new Error("estrutura inválida");
+        this.data=d; this.persist(); this.coc=this.data.cocs[0].id;
+        this.renderCocSel(); this.renderConfig(); this.renderDash(); this.renderLista();
+        alert("Backup importado: "+d.exames.length+" exame(s).");
+      }catch(e){ alert("Arquivo inválido: "+e.message); } };
+    r.readAsText(f); input.value="";
+  }
+};
+App.init();
+</script>
+</body>
+</html>
