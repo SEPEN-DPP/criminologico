@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sistema COC — Exame Criminológico | DPP-SC</title>
+<title>Sistema do Centro de Observação — Exame Criminológico | DPP-SC</title>
 <style>
   :root{
     --navy:#1F3864; --navy2:#2E4C7E; --steel:#5B7BAE; --paper:#F4F6FA; --card:#FFFFFF;
@@ -112,7 +112,7 @@
 
 <header class="app">
   <div class="brand">
-    <b>Sistema COC — Exame Criminológico</b>
+    <b>Sistema do Centro de Observação — Exame Criminológico</b>
     <span>DEPARTAMENTO DE POLÍCIA PENAL · COORDENADORIA DE EXECUÇÃO PENAL · SANTA CATARINA</span>
   </div>
   <div class="coc-sel">
@@ -135,11 +135,11 @@
 <section class="view on" id="v-dash">
   <div class="grid g4" id="kpis"></div>
   <div class="card" style="margin-top:16px;">
-    <h3>Prazos críticos <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 7º da Portaria; Res. CNPCP 36/2024)</span></h3>
+    <h3>Prazos críticos <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 8º da Portaria; Res. CNPCP 36/2024)</span></h3>
     <div id="prazosBox"></div>
   </div>
   <div class="lawbox">
-    <b>Lembrete legal:</b> o atraso na realização do exame <b>não autoriza</b> a manutenção do condenado em regime mais gravoso, nem impede indulto ou outro benefício (art. 7º, §§ 1º e 2º, da Portaria). O exame tem caráter informativo e não vincula o Juízo da Execução.
+    <b>Lembrete legal:</b> o atraso na realização do exame <b>não autoriza</b> a manutenção do condenado em regime mais gravoso, nem impede indulto ou outro benefício (entendimento consolidado na jurisprudência). O exame tem caráter informativo e não vincula o Juízo da Execução (art. 10, parágrafo único, da Portaria).
   </div>
 </section>
 
@@ -183,7 +183,12 @@
       <div><label class="f">Matrícula / IPEN</label><input type="text" id="e_mat"></div>
     </div>
     <div class="row c3">
-      <div><label class="f">Unidade prisional de custódia</label><input type="text" id="e_unid"></div>
+      <div><label class="f">Unidade prisional de custódia</label>
+        <select id="e_unid" onchange="App.unidChange()"></select>
+        <div id="e_unidOutraWrap" style="display:none; margin-top:6px;">
+          <input type="text" id="e_unidOutra" placeholder="Nome da unidade (não listada)">
+        </div>
+      </div>
       <div><label class="f">Processo de execução (SEEU)</label><input type="text" id="e_proc"></div>
       <div><label class="f">Finalidade do exame</label>
         <select id="e_tipo" onchange="App.triagem()">
@@ -216,6 +221,10 @@
       <div><label class="f">Assistente social</label><input type="text" id="q_as" placeholder="Nome / CRESS"></div>
     </div>
     <p class="note">Vedações: profissionais temporários contratados só para exames; integrantes de eAPP; referência técnica do próprio avaliado (art. 5º, §§ 2º a 4º, da Portaria).</p>
+    <label style="display:flex; align-items:flex-start; gap:8px; margin-top:10px; font-size:13.5px;">
+      <input type="checkbox" id="q_semPsq" style="width:18px; height:18px; margin-top:2px; flex-shrink:0;">
+      <span>Sem psiquiatra disponível na equipe (art. 5º, §5º, da Portaria) — o exame é realizado por psicólogo(a) e assistente social, sem prejuízo da validade, devendo a ausência ser registrada expressamente no laudo.</span>
+    </label>
 
     <hr class="sep">
     <h3>Etapas do exame <span class="muted" style="font-size:12px; font-weight:normal;">(Res. CNPCP 36/2024)</span></h3>
@@ -233,7 +242,12 @@
     <textarea id="r_psq"></textarea>
     <label class="f">VI — Síntese conclusiva (informativa e descritiva)</label>
     <textarea id="r_sin"></textarea>
-    <p class="note">Antes de imprimir, o texto passa automaticamente pelo verificador de vedações do art. 9º.</p>
+    <p class="note">Antes de imprimir, o texto passa automaticamente pelo verificador de vedações do art. 10.</p>
+
+    <label style="display:flex; align-items:flex-start; gap:8px; margin-top:6px; font-size:13.5px; background:#F5F2E8; border:1px solid #DCD3B8; border-radius:8px; padding:10px 12px;">
+      <input type="checkbox" id="e_semIA" style="width:18px; height:18px; margin-top:2px; flex-shrink:0;">
+      <span>Declaro que este relatório <b>não</b> foi elaborado, total ou parcialmente, com uso de inteligência artificial generativa ou tecnologia preditiva (art. 10, VI, da Portaria) — obrigatório para gerar o documento.</span>
+    </label>
 
     <label class="f">Observações internas</label>
     <textarea id="e_obs" style="min-height:60px;"></textarea>
@@ -253,8 +267,11 @@
 <!-- ============ VERIFICADOR ============ -->
 <section class="view" id="v-verif">
   <div class="card">
-    <h3>Verificador de vedações — art. 9º da Portaria / Res. CNPCP 36/2024</h3>
-    <p class="note">Cole abaixo o texto de qualquer laudo. O sistema varre expressões associadas às cinco vedações: prognóstico de reincidência; termos indeterminados/estigmatizantes; determinismo delito-delinquente; classificação de segurança; fundamentação na gravidade/circunstâncias do delito ou no tempo de pena. O apontamento é um alerta para revisão profissional — o contexto decide.</p>
+    <h3>Verificador de vedações — art. 10 da Portaria / Res. CNPCP 36/2024</h3>
+    <p class="note">Cole abaixo o texto de qualquer laudo. O sistema varre expressões associadas às cinco primeiras vedações (incisos I a V): prognóstico de reincidência; termos indeterminados/estigmatizantes; determinismo delito-delinquente; classificação de segurança; fundamentação na gravidade/circunstâncias do delito ou no tempo de pena. O apontamento é um alerta para revisão profissional — o contexto decide.</p>
+    <div class="lawbox" style="background:#F5F2E8; border-color:#DCD3B8; border-left-color:var(--gold);">
+      <b>Inciso VI (não detectável por varredura de texto):</b> é vedado utilizar, total ou parcialmente, inteligência artificial generativa ou tecnologia preditiva na elaboração do laudo. Isso diz respeito ao método de produção do texto, não ao vocabulário usado — confirme o cumprimento pela declaração exigida na ficha do exame antes de gerar o relatório.
+    </div>
     <textarea id="verifTexto" style="min-height:180px;" placeholder="Cole aqui o texto do relatório…"></textarea>
     <div class="btnrow"><button class="btn" onclick="App.verificarLivre()">Verificar texto</button></div>
     <div id="verifResult" style="margin-top:14px;"></div>
@@ -265,8 +282,8 @@
 <section class="view" id="v-config">
   <div class="grid g2">
     <div class="card">
-      <h3>Centros de Observação (8 polos regionais)</h3>
-      <p class="note">Os nomes abaixo são sugestões editáveis — os polos oficiais serão definidos por ato do Diretor-Geral (art. 3º da Portaria). Clique no nome para editar.</p>
+      <h3>Centros de Observação — Superintendências Regionais (SR01–SR08)</h3>
+      <p class="note">As 8 regionais abaixo seguem a divisão administrativa vigente do Departamento de Polícia Penal. A vinculação de cada Centro de Observação às unidades listadas será formalizada por ato do Diretor-Geral (art. 3º, §2º, da Portaria) — edite nomes e unidades aqui se necessário.</p>
       <div id="cocBox" style="margin-top:10px;"></div>
     </div>
     <div class="card">
@@ -278,7 +295,7 @@
         <input type="file" id="impFile" accept=".json" style="display:none;" onchange="App.importar(this)">
       </div>
       <hr class="sep">
-      <p class="note"><b>Base normativa embarcada:</b> LEP arts. 8º, 96–98, 112 §1º · Lei 14.843/2024 · Res. CNPCP 36/2024 · Súm. Vinculante 26/STF · Súm. 439/STJ · Portaria estadual dos COCs · Manual do Exame Criminológico (CEPEN/DPP-SC).</p>
+      <p class="note"><b>Base normativa embarcada:</b> LEP arts. 5º a 9º, 96 a 98, 112 §1º · Lei 14.843/2024 · Res. CNPCP 36/2024 · Súm. Vinculante 26/STF · Súm. 439/STJ · Portaria estadual dos Centros de Observação · Manual do Exame Criminológico (CEPEN/DPP-SC).</p>
       <p class="note" style="margin-top:8px;"><b>Marco temporal da triagem:</b> fatos a partir de <b>11/4/2024</b> → exame obrigatório para progressão; fatos até 10/4/2024 → exame somente por decisão judicial motivada (irretroatividade — art. 5º, XL, CF; STJ HC 932.864/SC).</p>
     </div>
   </div>
@@ -305,14 +322,44 @@ const Store = {
 };
 
 const DEFAULT_COCS = [
-  {id:"coc1", nome:"COC 1ª Regional — Grande Florianópolis"},
-  {id:"coc2", nome:"COC 2ª Regional — Sul"},
-  {id:"coc3", nome:"COC 3ª Regional — Norte"},
-  {id:"coc4", nome:"COC 4ª Regional — Vale do Itajaí"},
-  {id:"coc5", nome:"COC 5ª Regional — Planalto Serrano"},
-  {id:"coc6", nome:"COC 6ª Regional — Meio-Oeste"},
-  {id:"coc7", nome:"COC 7ª Regional — Oeste"},
-  {id:"coc8", nome:"COC 8ª Regional — Extremo-Oeste"}
+  {id:"coc1", nome:"SR01 — Grande Florianópolis", unidades:[
+    "Colônia Agroindustrial de Palhoça","Complexo Penitenciário do Estado",
+    "Hospital de Custódia e Tratamento Psiquiátrico – HCTP","Penitenciária de Florianópolis",
+    "Presídio Feminino Regional de Florianópolis","Presídio Masculino Regional de Florianópolis",
+    "Presídio Regional de Biguaçu","Presídio Regional de Tijucas","Unidade de Monitoramento Eletrônico"
+  ]},
+  {id:"coc2", nome:"SR02 — Sul", unidades:[
+    "Penitenciária Feminina de Criciúma","Penitenciária Masculina de Tubarão","Penitenciária Sul",
+    "Presídio Regional de Araranguá","Presídio Regional de Criciúma","Presídio Regional de Imbituba",
+    "Presídio Regional de Laguna","Presídio Regional de Tubarão"
+  ]},
+  {id:"coc3", nome:"SR03 — Norte", unidades:[
+    "Penitenciária Industrial de Joinville","Presídio Feminino Regional de Joinville",
+    "Presídio Regional de Barra Velha","Presídio Regional de Joinville","Presídio Regional de São Francisco do Sul"
+  ]},
+  {id:"coc4", nome:"SR04 — Vale do Itajaí", unidades:[
+    "Penitenciária de Itajaí","Presídio Feminino Regional de Itajaí","Presídio Regional de Brusque",
+    "Presídio Regional de Itajaí","Presídio Regional de Itapema"
+  ]},
+  {id:"coc5", nome:"SR05 — Serrana", unidades:[
+    "Penitenciária Industrial de São Cristóvão do Sul","Penitenciária Regional de Curitibanos",
+    "Presídio Masculino de Lages","Presídio Regional de Caçador","Presídio Regional de Campos Novos",
+    "Presídio Regional de Lages","Presídio Regional de Videira","Unidade de Segurança Máxima de São Cristóvão do Sul"
+  ]},
+  {id:"coc6", nome:"SR06 — Oeste", unidades:[
+    "Penitenciária Agrícola de Chapecó","Penitenciária Industrial de Chapecó",
+    "Presídio Feminino Regional de Chapecó","Presídio Regional de Chapecó","Presídio Regional de Concórdia",
+    "Presídio Regional de Joaçaba","Presídio Regional de Maravilha","Presídio Regional de São José do Cedro",
+    "Presídio Regional de São Miguel do Oeste","Presídio Regional de Xanxerê"
+  ]},
+  {id:"coc7", nome:"SR07 — Médio Vale do Itajaí", unidades:[
+    "Penitenciária Industrial de Blumenau","Presídio Regional de Blumenau","Presídio Regional de Indaial",
+    "Presídio Regional de Ituporanga","Presídio Regional de Rio do Sul"
+  ]},
+  {id:"coc8", nome:"SR08 — Planalto Norte", unidades:[
+    "Penitenciária Industrial de São Bento do Sul","Presídio Regional de Canoinhas",
+    "Presídio Regional de Jaraguá do Sul","Presídio Regional de Mafra","Presídio Regional de Porto União"
+  ]}
 ];
 
 /* etapas do fluxo (Res. 36/2024) */
@@ -328,7 +375,7 @@ const ETAPAS = [
   {k:"encam",    t:"Encaminhado ao Juízo da Execução (e à CTC, no que couber)", s:"Art. 1º, parágrafo único, da Portaria", data:true}
 ];
 
-/* termos vedados — art. 9º */
+/* termos vedados — art. 10, incisos I a V (o inciso VI, sobre uso de IA generativa/tecnologia preditiva, é uma declaração e não é detectável por varredura de texto) */
 const VEDADOS = [
   {re:/prognóstic[a-zà-ÿ]*/gi, ved:"I — prognóstico de reincidência"},
   {re:/risco\s+de\s+reincid[a-zà-ÿ]+/gi, ved:"I — prognóstico de reincidência"},
@@ -444,7 +491,7 @@ const Extractor = {
 
     /* unidade prisional */
     m=t.match(/(Penitenci[áa]ria[^,;.\n]{0,55}|Pres[íi]dio[^,;.\n]{0,55}|Unidade\s+Prisional[^,;.\n]{0,55}|Complexo\s+Penitenci[áa]rio[^,;.\n]{0,55}|Casa\s+do\s+Albergado[^,;.\n]{0,45}|Col[ôo]nia\s+(?:Penal\s+)?Agr[íi]cola[^,;.\n]{0,45}|USM[^,;.\n]{0,35})/i);
-    if(m){ e_unid.value=m[1].trim(); found.push("Unidade: "+e_unid.value); } else missing.push("unidade");
+    if(m){ App.setUnidadeValor(m[1].trim()); found.push("Unidade: "+App.getUnidadeValor()); } else missing.push("unidade");
 
     /* data do fato */
     m=t.match(/(?:data\s+do\s+fato|fatos?\s+(?:ocorrid[oa]s?|praticad[oa]s?)\s+em|delito\s+praticado\s+em|crime\s+(?:cometido|praticado)\s+em)\s*[:\-]?\s*(\d{2})\/(\d{2})\/(\d{4})/i);
@@ -498,6 +545,16 @@ const App = {
   init(){
     this.data = Store.load() || { cocs: DEFAULT_COCS.map(c=>({...c})), exames: [] };
     if(!this.data.cocs || !this.data.cocs.length) this.data.cocs = DEFAULT_COCS.map(c=>({...c}));
+    /* migração: registros antigos (nomes placeholder "COC…", sem lista de unidades) ganham os
+       dados oficiais das SR, preservando o id para não perder exames já vinculados a ele */
+    this.data.cocs.forEach(c=>{
+      if(!c.unidades){
+        const ref=DEFAULT_COCS.find(d=>d.id===c.id);
+        if(ref){ c.unidades=[...ref.unidades]; if(/^COC\s/i.test(c.nome||"")) c.nome=ref.nome; }
+        else c.unidades=[];
+      }
+    });
+    this.persist();
     this.coc = this.data.cocs[0].id;
     this.renderCocSel(); this.renderConfig(); this.novo(); this.renderDash(); this.renderLista();
   },
@@ -510,7 +567,38 @@ const App = {
     if(v==="dash") this.renderDash();
     if(v==="lista") this.renderLista();
   },
-  setCoc(id){ this.coc=id; this.renderDash(); this.renderLista(); },
+  setCoc(id){ this.coc=id; this.renderDash(); this.renderLista(); this.renderUnidadeSel(this.getUnidadeValor()); },
+
+  /* ---------- unidade prisional (seletor vinculado ao centro ativo) ---------- */
+  renderUnidadeSel(selVal){
+    const centro=this.data.cocs.find(c=>c.id===this.coc)||{unidades:[]};
+    const lista=centro.unidades||[];
+    const sel=document.getElementById("e_unid");
+    sel.innerHTML = `<option value="">Selecione a unidade…</option>`
+      + lista.map(u=>`<option value="${u}">${u}</option>`).join("")
+      + `<option value="_outra">Outra / não listada…</option>`;
+    this.setUnidadeValor(selVal||"");
+  },
+  setUnidadeValor(txt){
+    const sel=document.getElementById("e_unid");
+    const wrap=document.getElementById("e_unidOutraWrap");
+    const outra=document.getElementById("e_unidOutra");
+    if(!txt){ sel.value=""; wrap.style.display="none"; outra.value=""; return; }
+    const lista=[...sel.options].map(o=>o.value).filter(v=>v && v!=="_outra");
+    const exato=lista.find(u=>u.toLowerCase()===txt.toLowerCase());
+    const parcial=!exato ? lista.find(u=>u.toLowerCase().includes(txt.toLowerCase())||txt.toLowerCase().includes(u.toLowerCase())) : null;
+    if(exato){ sel.value=exato; wrap.style.display="none"; outra.value=""; }
+    else if(parcial){ sel.value=parcial; wrap.style.display="none"; outra.value=""; }
+    else { sel.value="_outra"; wrap.style.display="block"; outra.value=txt; }
+  },
+  unidChange(){
+    document.getElementById("e_unidOutraWrap").style.display =
+      document.getElementById("e_unid").value==="_outra" ? "block" : "none";
+  },
+  getUnidadeValor(){
+    const sel=document.getElementById("e_unid");
+    return sel.value==="_outra" ? document.getElementById("e_unidOutra").value.trim() : sel.value;
+  },
 
   renderCocSel(){
     const sel=document.getElementById("selCoc");
@@ -619,8 +707,11 @@ const App = {
   novo(){
     this.editId=null;
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
-    ["e_nome","e_mat","e_unid","e_proc","e_dataProg","e_prazo","q_c1","q_c2","q_psq","q_psi","q_as","r_met","r_soc","r_psi","r_psq","r_sin","e_obs"].forEach(id=>document.getElementById(id).value="");
+    ["e_nome","e_mat","e_proc","e_dataProg","e_prazo","q_c1","q_c2","q_psq","q_psi","q_as","r_met","r_soc","r_psi","r_psq","r_sin","e_obs"].forEach(id=>document.getElementById(id).value="");
     document.getElementById("e_tipo").value="progressao";
+    document.getElementById("q_semPsq").checked=false;
+    document.getElementById("e_semIA").checked=false;
+    this.renderUnidadeSel("");
     document.getElementById("condBox").innerHTML="";
     this.addCond();
     this.renderEtapas();
@@ -636,14 +727,15 @@ const App = {
     const ex = this.editId ? this.data.exames.find(x=>x.id===this.editId) : {id:uid(), coc:this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
     Object.assign(ex,{
       nome, mat:document.getElementById("e_mat").value.trim(),
-      unid:document.getElementById("e_unid").value.trim(),
+      unid:this.getUnidadeValor(),
       proc:document.getElementById("e_proc").value.trim(),
       tipo:document.getElementById("e_tipo").value,
       dataProg:document.getElementById("e_dataProg").value,
       conds:this.lerConds(),
-      equipe:{c1:q_c1.value.trim(),c2:q_c2.value.trim(),psq:q_psq.value.trim(),psi:q_psi.value.trim(),as:q_as.value.trim()},
+      equipe:{c1:q_c1.value.trim(),c2:q_c2.value.trim(),psq:q_psq.value.trim(),psi:q_psi.value.trim(),as:q_as.value.trim(),semPsq:document.getElementById("q_semPsq").checked},
       etapas:this.lerEtapas(),
       rel:{met:r_met.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,sin:r_sin.value},
+      semIA:document.getElementById("e_semIA").checked,
       obs:document.getElementById("e_obs").value
     });
     if(!this.editId){ this.data.exames.push(ex); this.editId=ex.id; }
@@ -657,9 +749,12 @@ const App = {
     const ex=this.data.exames.find(x=>x.id===id); if(!ex) return;
     this.editId=id; this.tab("novo");
     document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(ex.status==="concluido"?" (concluído)":"");
-    e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_unid.value=ex.unid||""; e_proc.value=ex.proc||"";
+    e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_proc.value=ex.proc||"";
+    this.renderUnidadeSel(ex.unid||"");
     e_tipo.value=ex.tipo||"progressao"; e_dataProg.value=ex.dataProg||""; e_obs.value=ex.obs||"";
     q_c1.value=ex.equipe?.c1||""; q_c2.value=ex.equipe?.c2||""; q_psq.value=ex.equipe?.psq||""; q_psi.value=ex.equipe?.psi||""; q_as.value=ex.equipe?.as||"";
+    document.getElementById("q_semPsq").checked=!!ex.equipe?.semPsq;
+    document.getElementById("e_semIA").checked=!!ex.semIA;
     r_met.value=ex.rel?.met||""; r_soc.value=ex.rel?.soc||""; r_psi.value=ex.rel?.psi||""; r_psq.value=ex.rel?.psq||""; r_sin.value=ex.rel?.sin||"";
     document.getElementById("condBox").innerHTML="";
     (ex.conds&&ex.conds.length?ex.conds:[{}]).forEach(c=>this.addCond(c));
@@ -777,22 +872,27 @@ const App = {
 
   /* ---------- impressão ---------- */
   imprimir(){
+    if(!document.getElementById("e_semIA").checked){
+      alert("Antes de gerar o relatório, marque a declaração de que o texto não foi elaborado com uso de IA generativa/tecnologia preditiva (art. 10, VI, da Portaria).");
+      return;
+    }
     const flags=this.verificarRelatorio();
-    if(flags.length && !confirm(flags.length+" expressão(ões) potencialmente vedada(s) foram apontadas. Imprimir mesmo assim?\n\nRecomenda-se revisar antes da emissão (art. 9º da Portaria).")) return;
+    if(flags.length && !confirm(flags.length+" expressão(ões) potencialmente vedada(s) foram apontadas. Imprimir mesmo assim?\n\nRecomenda-se revisar antes da emissão (art. 10 da Portaria).")) return;
     const cocNome=(this.data.cocs.find(c=>c.id===this.coc)||{}).nome||"";
     const conds=this.lerConds().filter(c=>c.crime||c.dataFato);
     const fin={progressao:"progressão de regime (art. 112, §1º, da LEP)",judicial:"determinação judicial motivada",dpp:"requisição do Departamento de Polícia Penal"}[e_tipo.value];
     const et=this.lerEtapas();
+    const semPsq=document.getElementById("q_semPsq").checked;
     const entrevistas=[et.ent1,et.ent2,et.entConv].filter(x=>x&&x.ok&&x.data).map(x=>fmt(x.data)).join(", ")||"—";
     const eq=[["Chefe de serviço",q_c1.value],["Chefe de serviço",q_c2.value],["Psiquiatra",q_psq.value],["Psicólogo(a)",q_psi.value],["Assistente social",q_as.value]].filter(x=>x[1]);
     const pa=document.getElementById("printArea");
     pa.innerHTML=`
       <h2>ESTADO DE SANTA CATARINA</h2>
-      <h2>DEPARTAMENTO DE POLÍCIA PENAL — ${cocNome.toUpperCase()}</h2>
+      <h2>DEPARTAMENTO DE POLÍCIA PENAL — CENTRO DE OBSERVAÇÃO — ${cocNome.toUpperCase()}</h2>
       <h2 style="margin-top:14px;">RELATÓRIO DE EXAME CRIMINOLÓGICO</h2>
       <h3>I — Identificação</h3>
       <p><b>Avaliado:</b> ${e_nome.value} &nbsp; <b>Matrícula/IPEN:</b> ${e_mat.value||"—"}<br>
-      <b>Unidade de custódia:</b> ${e_unid.value||"—"} &nbsp; <b>Processo de execução:</b> ${e_proc.value||"—"}<br>
+      <b>Unidade de custódia:</b> ${this.getUnidadeValor()||"—"} &nbsp; <b>Processo de execução:</b> ${e_proc.value||"—"}<br>
       <b>Finalidade:</b> exame criminológico para ${fin}.</p>
       ${conds.length?`<p><b>Condenações (data do fato):</b><br>${conds.map(c=>`— ${c.crime||"(crime)"} ${c.artigo?("("+c.artigo+")"):""} — fato em ${fmt(c.dataFato)}`).join("<br>")}</p>`:""}
       <h3>II — Metodologia</h3><p>${(r_met.value||"—").replace(/\n/g,"<br>")}</p>
@@ -800,8 +900,9 @@ const App = {
       <h3>III — Análise social</h3><p>${(r_soc.value||"—").replace(/\n/g,"<br>")}</p>
       <h3>IV — Análise psicológica</h3><p>${(r_psi.value||"—").replace(/\n/g,"<br>")}</p>
       ${r_psq.value.trim()?`<h3>V — Análise psiquiátrica</h3><p>${r_psq.value.replace(/\n/g,"<br>")}</p>`:""}
+      ${semPsq?`<p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:""}
       <h3>VI — Síntese conclusiva</h3><p>${(r_sin.value||"—").replace(/\n/g,"<br>")}</p>
-      <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução.</p>
+      <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução. Declara-se, nos termos do art. 10, VI, da Portaria, que não foi utilizada inteligência artificial generativa ou tecnologia preditiva em sua elaboração.</p>
       <p style="margin-top:16px;">${cocNome}, ${new Date().toLocaleDateString("pt-BR")}.</p>
       <div class="assin">${eq.map(x=>`<p style="margin-top:34px;">_______________________________________<br>${x[1]}<br><i>${x[0]}</i></p>`).join("")}</div>`;
     window.print();
@@ -809,17 +910,44 @@ const App = {
 
   /* ---------- config ---------- */
   renderConfig(){
-    document.getElementById("cocBox").innerHTML=this.data.cocs.map((c,i)=>
-      `<label class="f">Centro ${i+1}</label><input type="text" value="${c.nome}" onchange="App.renomearCoc('${c.id}',this.value)">`).join("");
+    document.getElementById("cocBox").innerHTML=this.data.cocs.map((c,i)=>`
+      <div class="cond" style="margin-bottom:14px;">
+        <label class="f">Centro ${i+1}</label>
+        <input type="text" value="${c.nome}" onchange="App.renomearCoc('${c.id}',this.value)">
+        <label class="f" style="margin-top:10px;">Unidades prisionais vinculadas</label>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin:6px 0;">
+          ${(c.unidades||[]).map((u,ui)=>`<span class="badge b-navy" style="display:inline-flex; align-items:center; gap:6px;">${u}
+            <button type="button" onclick="App.removerUnidade('${c.id}',${ui})" style="border:none; background:none; color:inherit; cursor:pointer; font-weight:700; font-size:13px; line-height:1;">×</button></span>`).join("") || `<span class="muted" style="font-size:12.5px;">nenhuma unidade cadastrada</span>`}
+        </div>
+        <div class="btnrow" style="margin-top:0;">
+          <input type="text" id="novaUnid_${c.id}" placeholder="Nome da nova unidade…" style="max-width:280px;">
+          <button class="btn sm ghost" onclick="App.addUnidade('${c.id}')">+ adicionar unidade</button>
+        </div>
+      </div>`).join("");
   },
   renomearCoc(id,nome){
     const c=this.data.cocs.find(x=>x.id===id); if(c&&nome.trim()){ c.nome=nome.trim(); this.persist(); this.renderCocSel(); }
+  },
+  addUnidade(id){
+    const inp=document.getElementById("novaUnid_"+id);
+    const v=inp.value.trim(); if(!v) return;
+    const c=this.data.cocs.find(x=>x.id===id); if(!c) return;
+    c.unidades=c.unidades||[]; c.unidades.push(v);
+    this.persist(); this.renderConfig();
+    if(id===this.coc) this.renderUnidadeSel(this.getUnidadeValor());
+  },
+  removerUnidade(id,idx){
+    if(!confirm("Remover esta unidade da lista?")) return;
+    const c=this.data.cocs.find(x=>x.id===id); if(!c) return;
+    c.unidades.splice(idx,1);
+    this.persist(); this.renderConfig();
+    if(id===this.coc) this.renderUnidadeSel(this.getUnidadeValor());
   },
   exportar(){
     const blob=new Blob([JSON.stringify(this.data,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
-    a.download="backup_coc_criminologico_"+new Date().toISOString().slice(0,10)+".json";
+    a.download="backup_centro_observacao_"+new Date().toISOString().slice(0,10)+".json";
     a.click(); URL.revokeObjectURL(a.href);
   },
   importar(input){
@@ -828,8 +956,10 @@ const App = {
     r.onload=()=>{ try{
         const d=JSON.parse(r.result);
         if(!d.cocs||!d.exames) throw new Error("estrutura inválida");
-        this.data=d; this.persist(); this.coc=this.data.cocs[0].id;
-        this.renderCocSel(); this.renderConfig(); this.renderDash(); this.renderLista();
+        this.data=d;
+        this.data.cocs.forEach(c=>{ if(!c.unidades) c.unidades = (DEFAULT_COCS.find(x=>x.id===c.id)||{unidades:[]}).unidades; });
+        this.persist(); this.coc=this.data.cocs[0].id;
+        this.renderCocSel(); this.renderConfig(); this.renderDash(); this.renderLista(); this.renderUnidadeSel("");
         alert("Backup importado: "+d.exames.length+" exame(s).");
       }catch(e){ alert("Arquivo inválido: "+e.message); } };
     r.readAsText(f); input.value="";
