@@ -1850,7 +1850,8 @@ const App = {
     if(coordNome) eq.push(["Responsável/Coordenação do Centro", coordNome]);
     const assinExtra=[];
     if(defesaNome) assinExtra.push(["Defesa técnica — ciência", defesaNome+(defesaOAB?" ("+defesaOAB+")":"")]);
-    if(pessoaCiencia) assinExtra.push(["Pessoa examinada — ciência", e_nome.value]);
+    /* a pessoa examinada não assina o relatório em si (não está presente no momento da emissão) —
+       a ciência dela é só registrada no texto, não como linha de assinatura */
 
     return `
       <h2>ESTADO DE SANTA CATARINA</h2>
@@ -1875,7 +1876,7 @@ const App = {
       <b>Defesa técnica presente:</b> ${defesaNome?defesaNome+(defesaOAB?" ("+defesaOAB+")":""):"não informada"}<br>
       <b>Ministério Público apresentou quesitos:</b> ${document.getElementById("q_mpQuesitos").value==="sim"?"Sim":"Não"} &nbsp; <b>Defesa apresentou quesitos:</b> ${document.getElementById("q_defQuesitos").value==="sim"?"Sim":"Não"}<br>
       ${document.getElementById("q_impedimento").value.trim()?`<b>Impedimento/suspeição arguido:</b> ${document.getElementById("q_impedimento").value.trim()}<br>`:""}
-      Assegurados os direitos ao silêncio e à afirmação de inocência, sem valoração desfavorável${et.defesa&&et.defesa.data?(" — ciência em "+fmt(et.defesa.data)):""}.</p>
+      Assegurados os direitos ao silêncio e à afirmação de inocência, sem valoração desfavorável${et.defesa&&et.defesa.data?(" — ciência em "+fmt(et.defesa.data)):""}.${pessoaCiencia?" O(a) avaliado(a) tomou ciência da realização do exame.":""}</p>
       ${quesitos.length?quesitos.map((q,i)=>`<p><b>Quesito ${i+1} (${origemLabel[q.origem]||q.origem}):</b> ${q.pergunta||"—"}<br><b>Resposta:</b> ${(q.resposta||"—").replace(/\n/g,"<br>")}</p>`).join(""):""}
 
       <h3>III — Metodologia</h3><p>${(r_met.value||"—").replace(/\n/g,"<br>")}</p>
