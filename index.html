@@ -1495,7 +1495,7 @@ const App = {
     document.getElementById("e_semIA").checked=false;
     document.getElementById("e_modal").value="presencial"; this.modalChange();
     const eqp=(this.data.cocs.find(c=>c.id===this.coc)||{}).equipePadrao||{};
-    q_c1.value=eqp.c1||""; q_c1Funcao.value=eqp.c1Funcao||""; q_c2.value=eqp.c2||""; q_c2Funcao.value=eqp.c2Funcao||""; q_psq.value=eqp.psq||""; q_psi.value=eqp.psi||""; q_as.value=eqp.as||"";
+    q_c1.value=eqp.c1||""; q_c1Funcao.value=eqp.c1Funcao||""; q_c2.value=eqp.c2||""; q_c2Funcao.value=eqp.c2Funcao||""; q_psq.value=eqp.psq||""; q_psi.value=eqp.psi||""; q_as.value=eqp.as||""; document.getElementById("q_coord").value=eqp.coord||"";
     this.renderUnidadeSel("");
     document.getElementById("condBox").innerHTML="";
     this.addCond();
@@ -1881,6 +1881,7 @@ const App = {
           <input type="text" placeholder="Psiquiatra" value="${(c.equipePadrao||{}).psq||""}" onchange="App.atualizarEquipePadrao('${c.id}','psq',this.value)">
           <input type="text" placeholder="Psicólogo(a)" value="${(c.equipePadrao||{}).psi||""}" onchange="App.atualizarEquipePadrao('${c.id}','psi',this.value)">
           <input type="text" placeholder="Assistente social" value="${(c.equipePadrao||{}).as||""}" onchange="App.atualizarEquipePadrao('${c.id}','as',this.value)">
+          <input type="text" placeholder="Responsável/Coordenação do Centro" value="${(c.equipePadrao||{}).coord||""}" onchange="App.atualizarEquipePadrao('${c.id}','coord',this.value)">
         </div>
       </div>`).join("");
   },
