@@ -1979,10 +1979,14 @@ const App = {
     if(!this.checarAntesDeExportar("baixar")) return;
     this.montarRelatorioHTML();
     const paginas=this._relPaginas;
-    const corpoPaginas=paginas.map((p,i)=>`<div class="Section1" style="page-break-before:${i===0?"auto":"always"};">${p}</div>`).join("");
     /* cabeçalho/rodapé de verdade no Word (mso-element), em vez de repetir o bloco em cada página como
        fazemos na impressão do navegador — o Chrome ignora mso-header/mso-footer, mas o Word reconhece
-       e cria as áreas de cabeçalho/rodapé nativas, repetidas automaticamente em toda página. */
+       e cria as áreas de cabeçalho/rodapé nativas, repetidas automaticamente em toda página.
+       Importante: tudo fica numa ÚNICA <div class="Section1"> — se cada página tiver sua própria
+       div "de seção", o Word entende isso como uma nova seção do documento a cada página, o que
+       reinicia a vinculação do cabeçalho/rodapé (só a 1ª página ficava com eles). As quebras de
+       página entre uma seção e outra são só marcadores de page-break-before, sem criar seção nova. */
+    const corpoPaginas=paginas.map((p,i)=>i===0?p:`<p style="page-break-before:always; margin:0;"></p>${p}`).join("");
     const html=`<!DOCTYPE html>
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
       <head><meta charset="UTF-8"><title>Relatório</title>
@@ -1995,7 +1999,9 @@ const App = {
       </head><body>
       <div style="mso-element:header;" id="h1">${this._relHeaderHtml}</div>
       <div style="mso-element:footer;" id="f1">${this._relFooterHtml}</div>
+      <div class="Section1">
       ${corpoPaginas}
+      </div>
       </body></html>`;
     const blob=new Blob(['﻿'+html],{type:"application/msword"});
     const a=document.createElement("a");
