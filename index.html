@@ -37,10 +37,11 @@
   nav.subtabs button.on{background:var(--navy); color:#fff;}
   .relpanel{display:none;} .relpanel.on{display:block;}
   .novopanel{display:none;} .novopanel.on{display:block;}
-  .reportPreview{background:#fff; border:1px solid var(--line); border-radius:8px; padding:24px 28px; font-family:"Times New Roman",serif; font-size:13.5px; line-height:1.6; color:#111;}
-  .reportPreview h2{text-align:center; font-size:16px; margin:2px 0;}
-  .reportPreview h3{font-size:14.5px; margin:14px 0 6px;}
-  .reportPreview p{text-align:justify; margin-bottom:8px;}
+  .reportPreview{background:#fff; border:1px solid var(--line); border-radius:8px; padding:24px 28px; font-family:Arial,Helvetica,sans-serif; font-size:11pt; line-height:1; color:#111;}
+  .reportPreview h2{text-align:center; font-size:14pt; margin:2px 0;}
+  .reportPreview h3{font-size:12pt; margin:14px 0 6px;}
+  .reportPreview p{text-align:justify; margin:0 0 1em;}
+  .reportPreview.editing{outline:2px dashed var(--gold); outline-offset:4px; cursor:text;}
   .reportPreview .pageBox{padding-top:18px;}
   .reportPreview .pageBox + .pageBox{margin-top:30px; padding-top:28px; border-top:3px dashed var(--line);}
   .resp-tag{background:#E3F1E9; color:var(--navy); border-radius:6px; padding:2px 8px; font-weight:700;}
@@ -169,10 +170,18 @@
        fluxo normal do documento) — em vez de sobrepor tudo, removemos o resto do
        app do layout com display:none e deixamos o printArea fluir normalmente. */
     body > *:not(#printArea){display:none !important;}
-    #printArea{display:block; width:100%; font-family:"Times New Roman",serif; font-size:12pt; color:#000; padding:2cm 2.5cm;}
+    /* margem por pagina de verdade: padding no #printArea so vale para o inicio/fim do bloco
+       inteiro (que atravessa varias paginas), nao repete pagina a pagina — quem repete a
+       margem em toda folha impressa e a regra @page. */
+    @page{margin:2cm 2.5cm;}
+    #printArea{display:block; width:100%; font-family:Arial,Helvetica,sans-serif; font-size:11pt; color:#000; padding:0;}
+    /* altura minima de uma folha A4 (menos a margem do @page) — com o corpo em flex:1, o
+       rodape fica de verdade no fim da pagina em vez de logo depois do texto curto. */
+    #printArea .pageBox{min-height:25.4cm; display:flex; flex-direction:column; box-sizing:border-box;}
+    #printArea .pgBody{flex:1 0 auto;}
     #printArea h2{text-align:center; font-size:13pt; margin-bottom:2px;}
     #printArea h3{font-size:12pt; margin:14px 0 6px;}
-    #printArea p{text-align:justify; line-height:1.5; margin-bottom:8px;}
+    #printArea p{text-align:justify; line-height:1; margin:0 0 1em;}
     #printArea .assin{margin-top:40px; text-align:center;}
   }
 </style>
@@ -545,8 +554,7 @@
     <div class="btnrow">
       <button class="btn" onclick="App.salvar()">Salvar exame</button>
       <button class="btn ghost" onclick="App.verificarRelatorio()">Verificar vedações no relatório</button>
-      <button class="btn ghost" onclick="App.imprimir()">Gerar relatório para impressão</button>
-      <button class="btn ghost" onclick="App.baixarDoc()">Baixar .doc (pronto para assinar)</button>
+      <button class="btn ghost" onclick="App.imprimir()">Gerar PDF / imprimir</button>
       <button class="btn ghost" id="btnConcluir" onclick="App.concluir()" style="display:none;">Marcar como concluído</button>
       <button class="btn danger" id="btnExcluir" onclick="App.excluir()" style="display:none;">Excluir</button>
     </div>
@@ -555,7 +563,10 @@
     </div>
 
     <div class="novopanel" id="np-preview">
-      <div class="lawbox">Pré-visualização do relatório com os dados já preenchidos até agora. Ela é atualizada toda vez que esta aba é aberta.</div>
+      <div class="lawbox" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <span>Pré-visualização do relatório com os dados já preenchidos até agora. Clique em <b>Editar</b> para ajustar o texto diretamente aqui antes de gerar o PDF.</span>
+        <button class="btn sm ghost" type="button" id="btnEditarPreview" onclick="App.toggleEditarPreview()">✎ Editar</button>
+      </div>
       <div class="reportPreview" id="previewBox"></div>
     </div>
   </div>
@@ -649,62 +660,74 @@ const DEFAULT_COCS = [
    compor o timbre do relatório com a unidade específica, além do Centro de Observação
    regional. Dados portados do sistema PAD (2026-07-14). Nomes de diretor(a) e contatos
    mudam com o tempo — mantenha atualizado ou reconstrua a partir da mesma fonte. */
+/* Dados portados de fonte oficial atualizada (unidades.json, 2026-08-06) — inclui diretor(a)
+   e a Superintendência Regional (sr) de cada unidade, usados no timbre do relatório. */
+const SR_INFO = {
+  SR01:{nome:"Superintendência Regional da Grande Florianópolis", superintendente:"Kelvyn Diehl", email:"sr01@pp.sc.gov.br", tel:"(48) 3665‑9131"},
+  SR02:{nome:"Superintendência Regional Sul", superintendente:"Marcos Aurélio Spinardi", email:"sr02@pp.sc.gov.br", tel:"(48) 3403‑1501"},
+  SR03:{nome:"Superintendência Regional do Norte Catarinense", superintendente:"André Felippe Dias", email:"sr03@pp.sc.gov.br", tel:"(47) 3481‑3993"},
+  SR04:{nome:"Superintendência Regional do Vale do Itajaí", superintendente:"Anderson Luiz Teodoro", email:"sr04@pp.sc.gov.br", tel:"(47) 3398‑6704"},
+  SR05:{nome:"Superintendência Regional Serrana", superintendente:"Fabiano Deitos Rech", email:"sr05@pp.sc.gov.br", tel:"(49) 3412‑3300"},
+  SR06:{nome:"Superintendência Regional Oeste", superintendente:"Guimorvan Boita", email:"sr06@pp.sc.gov.br", tel:"(49) 2049‑9768"},
+  SR07:{nome:"Superintendência Regional do Médio Vale do Itajaí", superintendente:"Ricardo da Silva Morlo", email:"sr07@pp.sc.gov.br", tel:"(47) 3378‑8594"},
+  SR08:{nome:"Superintendência Regional do Planalto Norte", superintendente:"Edenilson Schelbauer", email:"sr08@pp.sc.gov.br", tel:"(47) 3647‑0229"},
+};
 const UNIDADES_INFO = {
-  "Colônia Agroindustrial de Palhoça":{cidade:"Palhoça",diretor:"Renata de Souza de Oliveira",email:"cogridir@pp.sc.gov.br",telefone:"(48) 3664‑5580",endereco:"Rua José João Barcelos, s/n – Bela Vista – Palhoça/SC – CEP 88132‑770"},
-  "Complexo Penitenciário do Estado":{cidade:"São Pedro de Alcântara",diretor:"Flávio Brasil Ganciné",email:"pe02dir@pp.sc.gov.br",telefone:"(48) 3664‑2750",endereco:"Rua Adriano Enning, s/n – Bairro Santa Tereza – São Pedro de Alcântara/SC – CEP 88125‑000"},
-  "Hospital de Custódia e Tratamento Psiquiátrico – HCTP":{cidade:"Florianópolis",diretor:"Fábio Medeiros Wiese",email:"hctpdir@pp.sc.gov.br",telefone:"(48) 3665‑9191",endereco:"Rua Delminda da Silveira, s/n – Agronômica – Florianópolis/SC – CEP 88025‑500"},
-  "Penitenciária Agrícola de Chapecó":{cidade:"Chapecó",diretor:"Itacir Ricieri Cella",email:"pe10dir@pp.sc.gov.br",telefone:"(49) 2049‑9760",endereco:"Rua Cunha Porã, 1600‑E – Bairro Efapi – Chapecó/SC – CEP 89809‑500"},
-  "Penitenciária Feminina de Criciúma":{cidade:"Criciúma",diretor:"Virginia Gabriela Gonzales",email:"pe04dir@pp.sc.gov.br",telefone:"(48) 3403‑1737",endereco:"Rua José Marinho Teixeira, s/n – São Domingos – Criciúma/SC – CEP 88812‑680"},
-  "Penitenciária Industrial de Blumenau":{cidade:"Blumenau",diretor:"Luciano Cardoso",email:"pe12dir@pp.sc.gov.br",telefone:"(47) 3378‑8600",endereco:"Rua Silvano Candido da Silva, 4601 – Ponta Aguda – Blumenau/SC – CEP 89050‑287"},
-  "Penitenciária Industrial de Chapecó":{cidade:"Chapecó",diretor:"Iuri Elias Berwanger",email:"pe11dir@pp.sc.gov.br",telefone:"(49) 2049‑9713",endereco:"Rua Cunha Porã, 1600‑E – Bairro Efapi – Chapecó/SC – CEP 89809‑500"},
-  "Penitenciária Industrial de Joinville":{cidade:"Joinville",diretor:"Márcio Simbalista",email:"pe06dir@pp.sc.gov.br",telefone:"(47) 3481‑3948",endereco:"Servidão Antônio Deglmann Júnior, 245 – Parque Guarani – Joinville/SC – CEP 89209‑240"},
-  "Penitenciária Industrial de São Bento do Sul":{cidade:"São Bento do Sul",diretor:"Leó Da Silva Feliciano",email:"pe13dir@pp.sc.gov.br",telefone:"(47) 3647‑0240",endereco:"Rua Miguel Hubl, 400 – Lençol – São Bento do Sul/SC – CEP 89289‑580"},
-  "Penitenciária Industrial de São Cristóvão do Sul":{cidade:"São Cristóvão do Sul",diretor:"Giselle Cordeiro Demeneck Remor",email:"pe09dir@pp.sc.gov.br",telefone:"(49) 3412‑3190",endereco:"Estrada Geral Paredão, s/n – São Cristóvão do Sul/SC – CEP 89533‑000"},
-  "Penitenciária Masculina de Tubarão":{cidade:"Tubarão",diretor:"Deiveison Querino Batista",email:"pe05dir@pp.sc.gov.br",telefone:"(48) 3631‑9777",endereco:"Rua Maria Menegaz, 735 – São João – Tubarão/SC – CEP 88708‑570"},
-  "Penitenciária Masculina do Vale do Itajaí":{cidade:"Itajaí",diretor:"Bruno Domingos Gabriel",email:"pe07dir@pp.sc.gov.br",telefone:"(47) 3398‑6700",endereco:"Estrada Geral João Tomaz Pinto, s/n – Canhanduba – Itajaí/SC – CEP 88307‑770"},
-  "Penitenciária Regional de Curitibanos":{cidade:"São Cristóvão do Sul",diretor:"Fabio Marcelo Palhano",email:"pe08dir@pp.sc.gov.br",telefone:"(49) 3412‑3300",endereco:"Rua Juventino França de Moraes, s/n – São Cristóvão do Sul/SC – CEP 89533‑000"},
-  "Penitenciária Sul":{cidade:"Criciúma",diretor:"Juliana Borges Medeiros",email:"pe03dir@pp.sc.gov.br",telefone:"(48) 3403‑1485",endereco:"Rua José Marinho Teixeira, 5005 – São Domingos – Criciúma/SC – CEP 88812‑680"},
-  "Penitenciária de Florianópolis":{cidade:"Florianópolis",diretor:"Max Cleber Orth",email:"pe01dir@pp.sc.gov.br",telefone:"(48) 3665‑9123",endereco:"Rua Delminda da Silveira, 960 – Agronômica – Florianópolis/SC – CEP 88025‑500"},
-  "Presídio Feminino Regional de Chapecó":{cidade:"Chapecó",diretor:"Agda Remus",email:"pr25dir@pp.sc.gov.br",telefone:"(49) 2049‑9813",endereco:"Rua Cunha Porã, 1600‑E – Bairro Efapi – Chapecó/SC – CEP 89809‑500"},
-  "Presídio Feminino Regional de Florianópolis":{cidade:"Florianópolis",diretor:"Marina Pamplona Coelho",email:"pr02dir@pp.sc.gov.br",telefone:"(48) 3665‑9107",endereco:"Rua Lauro Linhares, s/n – Trindade – Florianópolis/SC – CEP 88036‑001"},
-  "Presídio Feminino Regional de Itajaí":{cidade:"Itajaí",diretor:"Michele Rebello de Mesquita",email:"pr16dir@pp.sc.gov.br",telefone:"(47) 3398‑6185",endereco:"Estrada Geral João Tomaz Pinto, s/n – Canhanduba – Itajaí/SC – CEP 88307‑770"},
-  "Presídio Feminino Regional de Joinville":{cidade:"Joinville",diretor:"Eliana Eloi",email:"pr12dir@pp.sc.gov.br",telefone:"(47) 3481‑2369",endereco:"Servidão Antônio Deglmann Júnior, 245 – Parque Guarani – Joinville/SC – CEP 89209‑240"},
-  "Presídio Masculino Regional de Florianópolis":{cidade:"Florianópolis",diretor:"Joana Mahfuz Vicini",email:"pr01dir@pp.sc.gov.br",telefone:"(48) 3665‑9256",endereco:"Rua Delminda da Silveira, 900 – Agronômica – Florianópolis/SC – CEP 88025‑500"},
-  "Presídio Masculino de Lages":{cidade:"Lages",diretor:"Rodrigo Araújo Aquino",email:"pr19dir@pp.sc.gov.br",telefone:"(49) 3289‑8467",endereco:"Rua Ricardo Marin, s/n – Bairro Santa Clara – Lages/SC – CEP 88513‑210"},
-  "Presídio Regional de Araranguá":{cidade:"Araranguá",diretor:"Daniel Possamai Vieira",email:"pr08dir@pp.sc.gov.br",telefone:"(48) 3529‑0441",endereco:"Rua Renato Carbonera, 500 – Araranguá/SC – CEP 88900‑000"},
-  "Presídio Regional de Barra Velha":{cidade:"Barra Velha",diretor:"Léia Cristina Steffen Fuck",email:"pr14dir@pp.sc.gov.br",telefone:"(47) 3481‑2885",endereco:"Rua João Anselmo Breniensen, s/n – Vila Nova – Barra Velha/SC – CEP 88390‑000"},
-  "Presídio Regional de Biguaçu":{cidade:"Biguaçu",diretor:"Fabiano Oliveira Suares",email:"pr04dir@pp.sc.gov.br",telefone:"(48) 3664‑2700",endereco:"Rua Hermógenes Prazeres, 49 – Centro – Biguaçu/SC – CEP 88160‑152"},
-  "Presídio Regional de Blumenau":{cidade:"Blumenau",diretor:"Augusto Gregory Hilgenberg Ijaille",email:"pr32dir@pp.sc.gov.br",telefone:"(47) 3378‑8716",endereco:"Rua General Osório, 4585 – Passo Manso – Blumenau/SC – CEP 89032‑239"},
-  "Presídio Regional de Brusque":{cidade:"Brusque",diretor:"Giovani Manfredini Queiroz",email:"pr17dir@pp.sc.gov.br",telefone:"(47) 3251‑8280",endereco:"Rod. SC‑408, km 02 – Bairro Santa Luzia – Brusque/SC – CEP 88357‑340"},
-  "Presídio Regional de Campos Novos":{cidade:"Campos Novos",diretor:"Evalcir Morais dos Santos",email:"pr22dir@pp.sc.gov.br",telefone:"(49) 3541‑3588",endereco:"Estrada Geral Usina Velha, s/n – Interior – Campos Novos/SC – CEP 89620‑000"},
-  "Presídio Regional de Canoinhas":{cidade:"Canoinhas",diretor:"Alexander Marcelo Costa",email:"pr38dir@pp.sc.gov.br",telefone:"(47) 3627‑4352",endereco:"Rua Catarina de Souza Hubner, 1035 – Bairro Piedade – Canoinhas/SC – CEP 89460‑613"},
-  "Presídio Regional de Caçador":{cidade:"Caçador",diretor:"André Luiz Pierdona",email:"pr21dir@pp.sc.gov.br",telefone:"(49) 3561‑6945",endereco:"Av. Albino Felipe Potrick, 50 – Bom Sucesso – Caçador/SC – CEP 89501‑335"},
-  "Presídio Regional de Chapecó":{cidade:"Chapecó",diretor:"José Lauri Pelizzari",email:"pr24dir@pp.sc.gov.br",telefone:"(49) 2049‑9602",endereco:"Rua Cunha Porã, 1600‑E – Bairro Efapi – Chapecó/SC – CEP 89809‑500"},
-  "Presídio Regional de Concórdia":{cidade:"Concórdia",diretor:"Rafael Schlegel Rodrigues Salgado",email:"pr26dir@pp.sc.gov.br",telefone:"(49) 3482‑6222",endereco:"Rua Adílio Hilário Mutzemberg, s/n – Guilherme Reich – Concórdia/SC – CEP 89709‑132"},
-  "Presídio Regional de Criciúma":{cidade:"Criciúma",diretor:"Júnior Rodrigo Fagundes",email:"pr05dir@pp.sc.gov.br",telefone:"(48) 3403‑1516",endereco:"Rua Odonel Bianchi, 330 – Santa Augusta – Criciúma/SC – CEP 88805‑265"},
-  "Presídio Regional de Imbituba":{cidade:"Imbituba",diretor:"Filipe Gonzaga Lopes",email:"pr09dir@pp.sc.gov.br",telefone:"(48) 3647‑7409",endereco:"Rua 13 de Setembro, s/n – Vila Nova Alvorada – Imbituba/SC – CEP 88780‑000"},
-  "Presídio Regional de Indaial":{cidade:"Indaial",diretor:"Ivã Carlos Fuck",email:"pr34dir@pp.sc.gov.br",telefone:"(47) 3399‑3193",endereco:"Rua Otto Stange, 127 – Bairro Estados – Indaial/SC – CEP 89086‑045"},
-  "Presídio Regional de Itajaí":{cidade:"Itajaí",diretor:"Rogério José Bizatto",email:"pr15dir@pp.sc.gov.br",telefone:"(47) 3398‑6750",endereco:"Estrada Geral João Tomaz Pinto, s/n – Canhanduba – Itajaí/SC – CEP 88307‑770"},
-  "Presídio Regional de Itapema":{cidade:"Itapema",diretor:"Eduardo Weber Xavier",email:"pr18dir@pp.sc.gov.br",telefone:"(47) 3398‑6684",endereco:"Rua 440, s/n – Bairro Morretes – Itapema/SC – CEP 88220‑000"},
-  "Presídio Regional de Ituporanga":{cidade:"Ituporanga",diretor:"Marisoni dos Santos",email:"pr35dir@pp.sc.gov.br",telefone:"(47) 3533‑8797",endereco:"Rua Governador Jorge Lacerda, 72 – Centro – Ituporanga/SC – CEP 88400‑000"},
-  "Presídio Regional de Jaraguá do Sul":{cidade:"Jaraguá do Sul",diretor:"Carlos de Almeida Rossato",email:"pr36dir@pp.sc.gov.br",telefone:"(47) 3276‑9409",endereco:"Rua Alvino Flor da Silva, 901 – Jaraguá do Sul/SC – CEP 89260‑875"},
-  "Presídio Regional de Joaçaba":{cidade:"Joaçaba",diretor:"Liliam Wiest",email:"pr27dir@pp.sc.gov.br",telefone:"(49) 3527‑9829",endereco:"BR‑282, km 391 – Vila Remor – Joaçaba/SC – CEP 89600‑000"},
-  "Presídio Regional de Joinville":{cidade:"Joinville",diretor:"André Felippe Dias",email:"pr11dir@pp.sc.gov.br",telefone:"(47) 3481‑3900",endereco:"Servidão Antônio Deglmann Júnior, 245 – Parque Guarani – Joinville/SC – CEP 89209‑240"},
-  "Presídio Regional de Lages":{cidade:"Lages",diretor:"Ricardo Fernando Moreira Floriani",email:"pr20dir@pp.sc.gov.br",telefone:"(49) 3289‑8403",endereco:"Rua Mato Grosso, 247 – Bairro São Cristóvão – Lages/SC – CEP 88509‑220"},
-  "Presídio Regional de Laguna":{cidade:"Laguna",diretor:"Rafael Nunes de Oliveira",email:"pr10dir@pp.sc.gov.br",telefone:"(48) 3647‑7425",endereco:"Rua Idelfonso Batista, s/n – Progresso – Laguna/SC – CEP 88790‑000"},
-  "Presídio Regional de Mafra":{cidade:"Mafra",diretor:"Gabriel Henning",email:"pr37dir@pp.sc.gov.br",telefone:"(47) 3647‑0222",endereco:"Rua Getúlio Vargas, 604 – Centro – Mafra/SC – CEP 89300‑210"},
-  "Presídio Regional de Maravilha":{cidade:"Maravilha",diretor:"Marcelo Rodrigo Langaro",email:"pr29dir@pp.sc.gov.br",telefone:"(49) 3664‑6672",endereco:"Av. Sul Brasil, 1607 – Centro – Maravilha/SC – CEP 89874‑000"},
-  "Presídio Regional de Porto União":{cidade:"Porto União",diretor:"Josmar Mattos e Santos",email:"pr39dir@pp.sc.gov.br",telefone:"(47) 3627‑4340",endereco:"Rua Matos Costa, 772 – Centro – Porto União/SC – CEP 89400‑000"},
-  "Presídio Regional de Rio do Sul":{cidade:"Rio do Sul",diretor:"Victor Hugo Vanelli",email:"pr33dir@pp.sc.gov.br",telefone:"(47) 3526‑3308",endereco:"Estrada Geral Serra Canoas, s/n – Fundo Canoas – Rio do Sul/SC"},
-  "Presídio Regional de São Francisco do Sul":{cidade:"São Francisco do Sul",diretor:"Lamartine Ximenes Fernandes",email:"pr13dir@pp.sc.gov.br",telefone:"(47) 3481‑3932",endereco:"Estrada Geral da Pedreira – Bairro Miranda – São Francisco do Sul/SC – CEP 89240‑000"},
-  "Presídio Regional de São José do Cedro":{cidade:"São José do Cedro",diretor:"Rejane Birci Schrader de Mattos",email:"pr30dir@pp.sc.gov.br",telefone:"(49) 3644‑3436",endereco:"Rua Amambuy esq. Dom Pedro, 673 – Jardim – São José do Cedro/SC – CEP 89930‑000"},
-  "Presídio Regional de São Miguel do Oeste":{cidade:"São Miguel do Oeste",diretor:"Eduardo Francisco Bregola Junior",email:"pr31dir@pp.sc.gov.br",telefone:"(49) 3631‑3754",endereco:"Rua Oiapoc, 1795 – Centro – São Miguel do Oeste/SC – CEP 89900‑000"},
-  "Presídio Regional de Tijucas":{cidade:"Tijucas",diretor:"Nathasha Daberkow Vieira",email:"pr03dir@pp.sc.gov.br",telefone:"(48) 3665‑9280",endereco:"Rua Alberto Tomazi, s/n – Bairro Itinga – Tijucas/SC – CEP 88200‑000"},
-  "Presídio Regional de Tubarão":{cidade:"Tubarão",diretor:"Gladson Antônio da Silva",email:"pr06dir@pp.sc.gov.br",telefone:"(48) 3631‑9780",endereco:"Rua Maria Menegaz, 635 – São João – Tubarão/SC – CEP 88708‑570"},
-  "Presídio Regional de Videira":{cidade:"Videira",diretor:"Fabio Antunes Ramos",email:"pr23dir@pp.sc.gov.br",telefone:"(49) 3533‑5915",endereco:"Rodovia SC‑303, Linha Scussiato, Interior – Videira/SC – CEP 89560‑000"},
-  "Presídio Regional de Xanxerê":{cidade:"Xanxerê",diretor:"Vitor Matte",email:"pr28dir@pp.sc.gov.br",telefone:"(49) 3382‑2269",endereco:"Rua Maranhão, 1780 – Castelo Branco – Xanxerê/SC – CEP 89820‑000"},
-  "Unidade de Monitoramento Eletrônico":{cidade:"Florianópolis",diretor:"Gustavo Costa Vieira",email:"umedir@pp.sc.gov.br",telefone:"(48) 3665‑7327",endereco:"Rua Fúlvio Aducci, 1214 – Estreito – Florianópolis/SC"},
-  "Unidade de Segurança Máxima de São Cristóvão do Sul":{cidade:"São Cristóvão do Sul",diretor:"Daniel de Sena",email:"umaxdir@pp.sc.gov.br",telefone:"(49) 3412‑3241",endereco:"Rua Juventino França de Moraes, s/n – São Cristóvão do Sul/SC – CEP 89533‑000"},
+  "Penitenciária de Florianópolis":{cidade:"Florianópolis",diretor:"Max Cleber Orth",email:"pe01@pp.sc.gov.br",telefone:"(48) 3665‑9123",endereco:"Rua Delminda da Silveira, 960 – Agronômica – Florianópolis/SC – CEP 88025‑500",sr:"SR01"},
+  "Complexo Penitenciário do Estado":{cidade:"São Pedro de Alcântara",diretor:"Flávio Brasil Ganciné",email:"pe02@pp.sc.gov.br",telefone:"(48) 3664‑2750",endereco:"Rua Adriano Enning, s/n – Bairro Santa Tereza – São Pedro de Alcântara/SC – CEP 88125‑000",sr:"SR01"},
+  "Presídio Regional de Tijucas":{cidade:"Tijucas",diretor:"Joana Mahfuz Vicini",email:"pr03@pp.sc.gov.br",telefone:"(48) 3665‑9280",endereco:"Rua Alberto Tomazi, s/n – Bairro Itinga – Tijucas/SC – CEP 88200‑000",sr:"SR01"},
+  "Hospital de Custódia e Tratamento Psiquiátrico – HCTP":{cidade:"Florianópolis",diretor:"Fábio Medeiros Wiese",email:"hctp@pp.sc.gov.br",telefone:"(48) 3665‑9191",endereco:"Rua Delminda da Silveira, s/n – Agronômica – Florianópolis/SC – CEP 88025‑500",sr:"SR01"},
+  "Presídio Regional de Biguaçu":{cidade:"Biguaçu",diretor:"Fabiano Oliveira Suares",email:"pr04@pp.sc.gov.br",telefone:"(48) 3664‑2700",endereco:"Rua Hermógenes Prazeres, 49 – Centro – Biguaçu/SC – CEP 88160‑152",sr:"SR01"},
+  "Presídio Masculino Regional de Florianópolis":{cidade:"Florianópolis",diretor:"Elison Ivan Soares",email:"pr01@pp.sc.gov.br",telefone:"(48) 3665‑9256",endereco:"Rua Delminda da Silveira, 900 – Agronômica – Florianópolis/SC – CEP 88025‑500",sr:"SR01"},
+  "Presídio Feminino Regional de Florianópolis":{cidade:"Florianópolis",diretor:"Marina Pamplona Coelho",email:"pr02@pp.sc.gov.br",telefone:"(48) 3665‑9107",endereco:"Rua Lauro Linhares, s/n – Trindade – Florianópolis/SC – CEP 88036‑001",sr:"SR01"},
+  "Unidade de Monitoramento Eletrônico":{cidade:"Florianópolis",diretor:"Gustavo Costa Vieira",email:"ume@pp.sc.gov.br",telefone:"(48) 3665‑7327",endereco:"Rua Fúlvio Aducci, 1214 – Estreito – Florianópolis/SC",sr:"SR01"},
+  "Colônia Agroindustrial de Palhoça":{cidade:"Palhoça",diretor:"Rodrigo Alves Teixeira",email:"cogri@pp.sc.gov.br",telefone:"(48) 3664‑5580",endereco:"Rua José João Barcelos, s/n – Bela Vista – Palhoça/SC – CEP 88132‑770",sr:"SR01"},
+  "Penitenciária Feminina de Criciúma":{cidade:"Criciúma",diretor:"Virginia Gabriela Gonzales",email:"pe04@pp.sc.gov.br",telefone:"(48) 3403‑1737",endereco:"Rua José Marinho Teixeira, s/n – São Domingos – Criciúma/SC – CEP 88812‑680",sr:"SR02"},
+  "Penitenciária Masculina de Tubarão":{cidade:"Tubarão",diretor:"Deiveison Querino Batista",email:"pe05@pp.sc.gov.br",telefone:"(48) 3631‑9777",endereco:"Rua Maria Menegaz, 735 – São João – Tubarão/SC – CEP 88708‑570",sr:"SR02"},
+  "Penitenciária Sul":{cidade:"Criciúma",diretor:"Juliana Borges Medeiros",email:"pe03@pp.sc.gov.br",telefone:"(48) 3403‑1485",endereco:"Rua José Marinho Teixeira, 5005 – São Domingos – Criciúma/SC – CEP 88812‑680",sr:"SR02"},
+  "Presídio Regional de Araranguá":{cidade:"Araranguá",diretor:"Daniel Possamai Vieira",email:"pr08@pp.sc.gov.br",telefone:"(48) 3529‑0441",endereco:"Rua Renato Carbonera, 500 – Araranguá/SC – CEP 88900‑000",sr:"SR02"},
+  "Presídio Regional de Criciúma":{cidade:"Criciúma",diretor:"Júnior Rodrigo Fagundes",email:"pr05@pp.sc.gov.br",telefone:"(48) 3403‑1516",endereco:"Rua Odonel Bianchi, 330 – Santa Augusta – Criciúma/SC – CEP 88805‑265",sr:"SR02"},
+  "Presídio Regional de Imbituba":{cidade:"Imbituba",diretor:"Filipe Gonzaga Lopes",email:"pr09@pp.sc.gov.br",telefone:"(48) 3647‑7409",endereco:"Rua 13 de Setembro, s/n – Vila Nova Alvorada – Imbituba/SC – CEP 88780‑000",sr:"SR02"},
+  "Presídio Regional de Laguna":{cidade:"Laguna",diretor:"Rafael Nunes de Oliveira",email:"pr10@pp.sc.gov.br",telefone:"(48) 3647‑7425",endereco:"Rua Idelfonso Batista, s/n – Progresso – Laguna/SC – CEP 88790‑000",sr:"SR02"},
+  "Presídio Regional de Tubarão":{cidade:"Tubarão",diretor:"Gladson Antônio da Silva",email:"pr06@pp.sc.gov.br",telefone:"(48) 3631‑9780",endereco:"Rua Maria Menegaz, 635 – São João – Tubarão/SC – CEP 88708‑570",sr:"SR02"},
+  "Penitenciária Industrial de Joinville":{cidade:"Joinville",diretor:"Juliano Cesar Camargo",email:"pe06@pp.sc.gov.br",telefone:"(47) 3481‑3948",endereco:"Servidão Antônio Deglmann Júnior, 245 – Parque Guarani – Joinville/SC – CEP 89209‑240",sr:"SR03"},
+  "Presídio Feminino Regional de Joinville":{cidade:"Joinville",diretor:"Léia Cristina Steffen Fuck",email:"pr12@pp.sc.gov.br",telefone:"(47) 3481‑2369",endereco:"Servidão Antônio Deglmann Júnior, 245 – Parque Guarani – Joinville/SC – CEP 89209‑240",sr:"SR03"},
+  "Presídio Regional de Joinville":{cidade:"Joinville",diretor:"Odirlei de Col",email:"pr11@pp.sc.gov.br",telefone:"(47) 3481‑3900",endereco:"Servidão Antônio Deglmann Júnior, 245 – Parque Guarani – Joinville/SC – CEP 89209‑240",sr:"SR03"},
+  "Presídio Regional de Barra Velha":{cidade:"Barra Velha",diretor:"Nathasha Daberkow Vieira",email:"pr14@pp.sc.gov.br",telefone:"(47) 3481‑2885",endereco:"Rua João Anselmo Breniensen, s/n – Vila Nova – Barra Velha/SC – CEP 88390‑000",sr:"SR03"},
+  "Presídio Regional de São Francisco do Sul":{cidade:"São Francisco do Sul",diretor:"Lamartine Ximenes Fernandes",email:"pr13@pp.sc.gov.br",telefone:"(47) 3481‑3932",endereco:"Estrada Geral da Pedreira – Bairro Miranda – São Francisco do Sul/SC – CEP 89240‑000",sr:"SR03"},
+  "Penitenciária Masculina do Vale do Itajaí":{cidade:"Itajaí",diretor:"Bruno Domingos Gabriel",email:"pe07@pp.sc.gov.br",telefone:"(47) 3398‑6700",endereco:"Estrada Geral João Tomaz Pinto, s/n – Canhanduba – Itajaí/SC – CEP 88307‑770",sr:"SR04"},
+  "Presídio Feminino Regional de Itajaí":{cidade:"Itajaí",diretor:"Michele Rebello de Mesquita",email:"pr16@pp.sc.gov.br",telefone:"(47) 3398‑6185",endereco:"Estrada Geral João Tomaz Pinto, s/n – Canhanduba – Itajaí/SC – CEP 88307‑770",sr:"SR04"},
+  "Presídio Regional de Brusque":{cidade:"Brusque",diretor:"Giovani Manfredini Queiroz",email:"pr17@pp.sc.gov.br",telefone:"(47) 3251‑8280",endereco:"Rod. SC‑408, km 02 – Bairro Santa Luzia – Brusque/SC – CEP 88357‑340",sr:"SR04"},
+  "Presídio Regional de Itajaí":{cidade:"Itajaí",diretor:"Rogério José Bizatto",email:"pr15@pp.sc.gov.br",telefone:"(47) 3398‑6750",endereco:"Estrada Geral João Tomaz Pinto, s/n – Canhanduba – Itajaí/SC – CEP 88307‑770",sr:"SR04"},
+  "Presídio Regional de Itapema":{cidade:"Itapema",diretor:"Eduardo Weber Xavier",email:"pr18@pp.sc.gov.br",telefone:"(47) 3398‑6684",endereco:"Rua 440, s/n – Bairro Morretes – Itapema/SC – CEP 88220‑000",sr:"SR04"},
+  "Penitenciária Industrial de São Cristóvão do Sul":{cidade:"São Cristóvão do Sul",diretor:"Mario Machado Rosa",email:"pe09@pp.sc.gov.br",telefone:"(49) 3412‑3190",endereco:"Estrada Geral Paredão, s/n – São Cristóvão do Sul/SC – CEP 89533‑000",sr:"SR05"},
+  "Penitenciária Regional de Curitibanos":{cidade:"São Cristóvão do Sul",diretor:"Sinara Ortiz dos Santos",email:"pe08@pp.sc.gov.br",telefone:"(49) 3412‑3300",endereco:"Rua Juventino França de Moraes, s/n – São Cristóvão do Sul/SC – CEP 89533‑000",sr:"SR05"},
+  "Presídio Masculino de Lages":{cidade:"Lages",diretor:"Rodrigo Araújo Aquino",email:"pr19@pp.sc.gov.br",telefone:"(49) 3289‑8467",endereco:"Rua Ricardo Marin, s/n – Bairro Santa Clara – Lages/SC – CEP 88513‑210",sr:"SR05"},
+  "Presídio Regional de Lages":{cidade:"Lages",diretor:"Ricardo Fernando Moreira Floriani",email:"pr20@pp.sc.gov.br",telefone:"(49) 3289‑8403",endereco:"Rua Mato Grosso, 247 – Bairro São Cristóvão – Lages/SC – CEP 88509‑220",sr:"SR05"},
+  "Presídio Regional de Caçador":{cidade:"Caçador",diretor:"André Luiz Pierdona",email:"pr21@pp.sc.gov.br",telefone:"(49) 3561‑6945",endereco:"Av. Albino Felipe Potrick, 50 – Bom Sucesso – Caçador/SC – CEP 89501‑335",sr:"SR05"},
+  "Presídio Regional de Campos Novos":{cidade:"Campos Novos",diretor:"Evalcir Morais dos Santos",email:"pr22@pp.sc.gov.br",telefone:"(49) 3541‑3588",endereco:"Estrada Geral Usina Velha, s/n – Interior – Campos Novos/SC – CEP 89620‑000",sr:"SR05"},
+  "Presídio Regional de Videira":{cidade:"Videira",diretor:"Fabio Antunes Ramos",email:"pr23@pp.sc.gov.br",telefone:"(49) 3533‑5915",endereco:"Rodovia SC‑303, Linha Scussiato, Interior – Videira/SC – CEP 89560‑000",sr:"SR05"},
+  "Unidade de Segurança Máxima de São Cristóvão do Sul":{cidade:"São Cristóvão do Sul",diretor:"Daniel de Sena",email:"umax@pp.sc.gov.br",telefone:"(49) 3412‑3241",endereco:"Rua Juventino França de Moraes, s/n – São Cristóvão do Sul/SC – CEP 89533‑000",sr:"SR05"},
+  "Penitenciária Agrícola de Chapecó":{cidade:"Chapecó",diretor:"Itacir Ricieri Cella",email:"pe10@pp.sc.gov.br",telefone:"(49) 2049‑9760",endereco:"Rua Cunha Porã, 1600‑E – Bairro Efapi – Chapecó/SC – CEP 89809‑500",sr:"SR06"},
+  "Penitenciária Industrial de Chapecó":{cidade:"Chapecó",diretor:"Iuri Elias Berwanger",email:"pe11@pp.sc.gov.br",telefone:"(49) 2049‑9713",endereco:"Rua Cunha Porã, 1600‑E – Bairro Efapi – Chapecó/SC – CEP 89809‑500",sr:"SR06"},
+  "Presídio Feminino Regional de Chapecó":{cidade:"Chapecó",diretor:"Agda Remus",email:"pr25@pp.sc.gov.br",telefone:"(49) 2049‑9813",endereco:"Rua Cunha Porã, 1600‑E – Bairro Efapi – Chapecó/SC – CEP 89809‑500",sr:"SR06"},
+  "Presídio Regional de Chapecó":{cidade:"Chapecó",diretor:"José Lauri Pelizzari",email:"pr24@pp.sc.gov.br",telefone:"(49) 2049‑9602",endereco:"Rua Cunha Porã, 1600‑E – Bairro Efapi – Chapecó/SC – CEP 89809‑500",sr:"SR06"},
+  "Presídio Regional de Concórdia":{cidade:"Concórdia",diretor:"Rafael Schlegel Rodrigues Salgado",email:"pr26@pp.sc.gov.br",telefone:"(49) 3482‑6222",endereco:"Rua Adílio Hilário Mutzemberg, s/n – Guilherme Reich – Concórdia/SC – CEP 89709‑132",sr:"SR06"},
+  "Presídio Regional de Joaçaba":{cidade:"Joaçaba",diretor:"Silvio André Gutz",email:"pr27@pp.sc.gov.br",telefone:"(49) 3527‑9829",endereco:"BR‑282, km 391 – Vila Remor – Joaçaba/SC – CEP 89600‑000",sr:"SR06"},
+  "Presídio Regional de Maravilha":{cidade:"Maravilha",diretor:"Marcos Borgaro",email:"pr29@pp.sc.gov.br",telefone:"(49) 3664‑6672",endereco:"Av. Sul Brasil, 1607 – Centro – Maravilha/SC – CEP 89874‑000",sr:"SR06"},
+  "Presídio Regional de São José do Cedro":{cidade:"São José do Cedro",diretor:"Rejane Birci Schrader de Mattos",email:"pr30@pp.sc.gov.br",telefone:"(49) 3644‑3436",endereco:"Rua Amambuy esq. Dom Pedro, 673 – Jardim – São José do Cedro/SC – CEP 89930‑000",sr:"SR06"},
+  "Presídio Regional de São Miguel do Oeste":{cidade:"São Miguel do Oeste",diretor:"João Batista Lopes",email:"pr31@pp.sc.gov.br",telefone:"(49) 3631‑3754",endereco:"Rua Oiapoc, 1795 – Centro – São Miguel do Oeste/SC – CEP 89900‑000",sr:"SR06"},
+  "Presídio Regional de Xanxerê":{cidade:"Xanxerê",diretor:"Vitor Matte",email:"pr28@pp.sc.gov.br",telefone:"(49) 3382‑2269",endereco:"Rua Maranhão, 1780 – Castelo Branco – Xanxerê/SC – CEP 89820‑000",sr:"SR06"},
+  "Penitenciária Industrial de Blumenau":{cidade:"Blumenau",diretor:"Luciano Cardoso",email:"pe12@pp.sc.gov.br",telefone:"(47) 3378‑8600",endereco:"Rua Silvano Candido da Silva, 4601 – Ponta Aguda – Blumenau/SC – CEP 89050‑287",sr:"SR07"},
+  "Presídio Regional de Blumenau":{cidade:"Blumenau",diretor:"Augusto Gregory Hilgenberg Ijaille",email:"pr32@pp.sc.gov.br",telefone:"(47) 3378‑8716",endereco:"Rua General Osório, 4585 – Passo Manso – Blumenau/SC – CEP 89032‑239",sr:"SR07"},
+  "Presídio Regional de Indaial":{cidade:"Indaial",diretor:"Ivã Carlos Fuck",email:"pr34@pp.sc.gov.br",telefone:"(47) 3399‑3193",endereco:"Rua Otto Stange, 127 – Bairro Estados – Indaial/SC – CEP 89086‑045",sr:"SR07"},
+  "Presídio Regional de Ituporanga":{cidade:"Ituporanga",diretor:"Marisoni dos Santos",email:"pr35@pp.sc.gov.br",telefone:"(47) 3533‑8797",endereco:"Rua Governador Jorge Lacerda, 72 – Centro – Ituporanga/SC – CEP 88400‑000",sr:"SR07"},
+  "Presídio Regional de Rio do Sul":{cidade:"Rio do Sul",diretor:"Victor Hugo Vanelli",email:"pr33@pp.sc.gov.br",telefone:"(47) 3526‑3308",endereco:"Estrada Geral Serra Canoas, s/n – Fundo Canoas – Rio do Sul/SC",sr:"SR07"},
+  "Penitenciária Industrial de São Bento do Sul":{cidade:"São Bento do Sul",diretor:"Fabio José Kolb",email:"pe13@pp.sc.gov.br",telefone:"(47) 3647‑0240",endereco:"Rua Miguel Hubl, 400 – Lençol – São Bento do Sul/SC – CEP 89289‑580",sr:"SR08"},
+  "Presídio Regional de Canoinhas":{cidade:"Canoinhas",diretor:"Alexander Marcelo Costa",email:"pr38@pp.sc.gov.br",telefone:"(47) 3627‑4352",endereco:"Rua Catarina de Souza Hubner, 1035 – Bairro Piedade – Canoinhas/SC – CEP 89460‑613",sr:"SR08"},
+  "Presídio Regional de Jaraguá do Sul":{cidade:"Jaraguá do Sul",diretor:"Carlos de Almeida Rossato",email:"pr36@pp.sc.gov.br",telefone:"(47) 3276‑9409",endereco:"Rua Alvino Flor da Silva, 901 – Jaraguá do Sul/SC – CEP 89260‑875",sr:"SR08"},
+  "Presídio Regional de Mafra":{cidade:"Mafra",diretor:"Gabriel Henning",email:"pr37@pp.sc.gov.br",telefone:"(47) 3647‑0222",endereco:"Rua Getúlio Vargas, 604 – Centro – Mafra/SC – CEP 89300‑210",sr:"SR08"},
+  "Presídio Regional de Porto União":{cidade:"Porto União",diretor:"Josmar Mattos e Santos",email:"pr39@pp.sc.gov.br",telefone:"(47) 3627‑4340",endereco:"Rua Matos Costa, 772 – Centro – Porto União/SC – CEP 89400‑000",sr:"SR08"},
 };
 
 /* etapas do fluxo (Res. 36/2024) */
@@ -1109,7 +1132,15 @@ const App = {
   novoTab(n){
     document.querySelectorAll("#novoTabs button").forEach(b=>b.classList.toggle("on", b.dataset.n===n));
     document.querySelectorAll(".novopanel").forEach(p=>p.classList.toggle("on", p.id==="np-"+n));
-    if(n==="preview") document.getElementById("previewBox").innerHTML=this.montarRelatorioHTML();
+    /* não sobrescreve a pré-visualização se o usuário estiver no meio de uma edição manual */
+    if(n==="preview" && !this._previewEditing) document.getElementById("previewBox").innerHTML=this.montarRelatorioHTML();
+  },
+  toggleEditarPreview(){
+    const box=document.getElementById("previewBox");
+    this._previewEditing=!this._previewEditing;
+    box.contentEditable=this._previewEditing?"true":"false";
+    box.classList.toggle("editing", this._previewEditing);
+    document.getElementById("btnEditarPreview").textContent=this._previewEditing?"✓ Concluir edição":"✎ Editar";
   },
 
   /* ---------- calendário de entrevistas ---------- */
@@ -1881,17 +1912,6 @@ const App = {
         </tr>
       </table>`;
     const footerHtml=`<div style="margin-top:26px; padding-top:8px; border-top:1px solid #999; text-align:center; font-size:9pt; color:#444;">${capaCidade}, ${new Date().getFullYear()}</div>`;
-    /* variante só texto (sem o brasão) para o cabeçalho nativo do .doc — imagem em base64
-       dentro de mso-element:header quebra no Word (aparece como ícone de imagem ausente) */
-    const headerHtmlDoc=`
-      <div style="text-align:left; line-height:1.35; border-bottom:1px solid #999; padding-bottom:8px; margin-bottom:14px;">
-        <div style="font-weight:bold; font-size:12pt;">ESTADO DE SANTA CATARINA</div>
-        <div style="font-weight:bold; font-size:12pt;">SECRETARIA DE ESTADO DE JUSTIÇA E REINTEGRAÇÃO SOCIAL</div>
-        <div style="font-weight:bold; font-size:12pt;">DEPARTAMENTO DE POLÍCIA PENAL — CENTRO DE OBSERVAÇÃO — ${cocNome.toUpperCase()}</div>
-        <div style="font-weight:bold; font-size:12pt;">${unidLinha}</div>
-      </div>`;
-    const pagina=(corpo,ultima)=>`<div class="pageBox" style="page-break-after:${ultima?"auto":"always"};">${headerHtml}${corpo}${footerHtml}</div>`;
-
     const pgCapa=`
       <div style="text-align:center;">
         <div style="margin-top:90px; font-size:20pt; font-weight:bold; line-height:1.4;">RELATÓRIO DE<br>EXAME CRIMINOLÓGICO</div>
@@ -1905,7 +1925,7 @@ const App = {
 
     const pgIdent=`
       <h3 style="text-align:center; margin-top:2px;">UNIDADE PRISIONAL DE CUSTÓDIA: ${(unidNome||"—").toUpperCase()}</h3>
-      ${unidInfo?`<p style="text-align:center; font-size:10pt; margin-top:-6px; color:#333;">${unidInfo.endereco}${unidInfo.telefone?(" — Fone: "+unidInfo.telefone):""}${unidInfo.email?(" — E-mail: "+unidInfo.email):""}</p>`:""}
+      ${unidInfo?`<p style="text-align:center; font-size:10pt; margin-top:-6px; color:#333;">${unidInfo.diretor?("Diretor(a): "+unidInfo.diretor+" — "):""}${unidInfo.endereco}${unidInfo.telefone?(" — Fone: "+unidInfo.telefone):""}${unidInfo.email?(" — E-mail: "+unidInfo.email):""}</p>`:""}
       <h2 style="margin-top:14px;">RELATÓRIO DE EXAME CRIMINOLÓGICO</h2>
       <h3>I — Identificação e dados da execução</h3>
       <p><b>Avaliado:</b> ${e_nome.value} &nbsp; <b>Matrícula/IPEN/Prontuário:</b> ${e_mat.value||"—"}<br>
@@ -1929,24 +1949,24 @@ const App = {
       ${quesitos.length?quesitos.map((q,i)=>`<p><b>Quesito ${i+1} (${origemLabel[q.origem]||q.origem}):</b> ${q.pergunta||"—"}<br><b>Resposta:</b> ${(q.resposta||"—").replace(/\n/g,"<br>")}</p>`).join(""):""}`;
 
     const pgMetodologia=`
-      <h3>III — Metodologia</h3><p>${(r_met.value||"—").replace(/\n/g,"<br>")}</p>
+      <h3>III — Metodologia</h3><p style="text-indent:1.5cm;">${(r_met.value||"—").replace(/\n/g,"<br>")}</p>
       <p><b>Entrevistas realizadas em:</b> ${entrevistas} (modalidade: ${document.getElementById("e_modal").value==="video"?"por videoconferência, nos termos do art. 9º, §§1º e 2º, da Portaria":"presencial"}).</p>
       ${metMarcados.length?`<p><b>Procedimentos realizados:</b> ${metMarcados.join("; ")}.</p>`:""}
       ${fontesMarcadas.length||fontesOutras?`<p><b>Fontes documentais consultadas:</b> ${[...fontesMarcadas, fontesOutras].filter(Boolean).join("; ")}.</p>`:""}`;
 
-    const pgCheI=`<h3>IV — Chefia de Serviço I (segurança/rotina institucional)</h3><p>${(r_cheI.value||"—").replace(/\n/g,"<br>")}</p>`;
-    const pgCheII=`<h3>V — Chefia de Serviço II (trabalho/educação)</h3><p>${(r_cheII.value||"—").replace(/\n/g,"<br>")}</p>`;
-    const pgSoc=`<h3>VI — Análise social</h3><p>${(r_soc.value||"—").replace(/\n/g,"<br>")}</p>`;
-    const pgPsi=`<h3>VII — Análise psicológica</h3><p>${(r_psi.value||"—").replace(/\n/g,"<br>")}</p>`;
-    const pgPsq=r_psq.value.trim()?`<h3>VIII — Análise psiquiátrica</h3><p>${r_psq.value.replace(/\n/g,"<br>")}</p>`:(semPsq?`<h3>Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:"");
+    const pgCheI=`<h3>IV — Chefia de Serviço I (segurança/rotina institucional)</h3><p style="text-indent:1.5cm;">${(r_cheI.value||"—").replace(/\n/g,"<br>")}</p>`;
+    const pgCheII=`<h3>V — Chefia de Serviço II (trabalho/educação)</h3><p style="text-indent:1.5cm;">${(r_cheII.value||"—").replace(/\n/g,"<br>")}</p>`;
+    const pgSoc=`<h3>VI — Análise social</h3><p style="text-indent:1.5cm;">${(r_soc.value||"—").replace(/\n/g,"<br>")}</p>`;
+    const pgPsi=`<h3>VII — Análise psicológica</h3><p style="text-indent:1.5cm;">${(r_psi.value||"—").replace(/\n/g,"<br>")}</p>`;
+    const pgPsq=r_psq.value.trim()?`<h3>VIII — Análise psiquiátrica</h3><p style="text-indent:1.5cm;">${r_psq.value.replace(/\n/g,"<br>")}</p>`:(semPsq?`<h3>Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:"");
 
     const pgReal=`
       <h3>IX — Realidade institucional e efeitos do encarceramento</h3>
       ${realMarcados.length?`<p><b>Fatores considerados:</b> ${realMarcados.join("; ")}.</p>`:""}
-      <p>${(r_real.value||"—").replace(/\n/g,"<br>")}</p>`;
+      <p style="text-indent:1.5cm;">${(r_real.value||"—").replace(/\n/g,"<br>")}</p>`;
 
     const pgSintese=`
-      <h3>X — Síntese conclusiva</h3><p>${(r_sin.value||"—").replace(/\n/g,"<br>")}</p>
+      <h3>X — Síntese conclusiva</h3><p style="text-indent:1.5cm;">${(r_sin.value||"—").replace(/\n/g,"<br>")}</p>
       ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${r_diverg.value.replace(/\n/g,"<br>")}</p>`:""}
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${r_limit.value.replace(/\n/g,"<br>")}</p>`:""}
       <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução. Declara-se, nos termos do art. 10, VI, da Portaria, que não foi utilizada inteligência artificial generativa ou tecnologia preditiva em sua elaboração.</p>
@@ -1954,9 +1974,7 @@ const App = {
       <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${x[1]}<br><i>${x[0]}</i></p>`).join("")}</div>`;
 
     const paginas=[pgCapa,pgIdent,pgMetodologia,pgCheI,pgCheII,pgSoc,pgPsi,pgPsq,pgReal,pgSintese].filter(Boolean);
-    /* guardados para o export .doc, que usa cabeçalho/rodapé nativos do Word em vez de repetir por página */
-    this._relHeaderHtml=headerHtmlDoc; this._relFooterHtml=footerHtml; this._relPaginas=paginas;
-    return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};">${headerHtml}${corpo}${footerHtml}</div>`).join("");
+    return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};"><div class="pgHead">${headerHtml}</div><div class="pgBody">${corpo}</div><div class="pgFoot">${footerHtml}</div></div>`).join("");
   },
   checarAntesDeExportar(acao){
     if(!document.getElementById("e_semIA").checked){
@@ -1972,44 +1990,13 @@ const App = {
   },
   imprimir(){
     if(!this.checarAntesDeExportar("imprimir")) return;
-    document.getElementById("printArea").innerHTML=this.montarRelatorioHTML();
+    /* usa o conteúdo da pré-visualização (com eventuais edições manuais do usuário);
+       só recalcula do zero se ela nunca foi aberta ou não está em edição */
+    const preview=document.getElementById("previewBox");
+    if(!this._previewEditing) preview.innerHTML=this.montarRelatorioHTML();
+    document.getElementById("printArea").innerHTML=preview.innerHTML;
     window.print();
   },
-  baixarDoc(){
-    if(!this.checarAntesDeExportar("baixar")) return;
-    this.montarRelatorioHTML();
-    const paginas=this._relPaginas;
-    /* cabeçalho/rodapé de verdade no Word (mso-element), em vez de repetir o bloco em cada página como
-       fazemos na impressão do navegador — o Chrome ignora mso-header/mso-footer, mas o Word reconhece
-       e cria as áreas de cabeçalho/rodapé nativas, repetidas automaticamente em toda página.
-       Importante: tudo fica numa ÚNICA <div class="Section1"> — se cada página tiver sua própria
-       div "de seção", o Word entende isso como uma nova seção do documento a cada página, o que
-       reinicia a vinculação do cabeçalho/rodapé (só a 1ª página ficava com eles). As quebras de
-       página entre uma seção e outra são só marcadores de page-break-before, sem criar seção nova. */
-    const corpoPaginas=paginas.map((p,i)=>i===0?p:`<p style="page-break-before:always; margin:0;"></p>${p}`).join("");
-    const html=`<!DOCTYPE html>
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-      <head><meta charset="UTF-8"><title>Relatório</title>
-      <style>
-        @page Section1 { size:21cm 29.7cm; margin:2cm 2.5cm; mso-header-margin:1cm; mso-footer-margin:1cm; mso-header:h1; mso-footer:f1; }
-        div.Section1 { page:Section1; }
-        body{font-family:"Times New Roman",serif; font-size:12pt; color:#000;}
-        h2{text-align:center;} h3{margin:14px 0 6px;} p{text-align:justify; line-height:1.5;} .assin{margin-top:40px; text-align:center;}
-      </style>
-      </head><body>
-      <div style="mso-element:header;" id="h1">${this._relHeaderHtml}</div>
-      <div style="mso-element:footer;" id="f1">${this._relFooterHtml}</div>
-      <div class="Section1">
-      ${corpoPaginas}
-      </div>
-      </body></html>`;
-    const blob=new Blob(['﻿'+html],{type:"application/msword"});
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download="exame_criminologico_"+(e_nome.value||"avaliado").trim().replace(/\s+/g,"_")+".doc";
-    a.click(); URL.revokeObjectURL(a.href);
-  },
-
   /* ---------- config ---------- */
   renderConfig(){
     document.getElementById("cocBox").innerHTML=this.data.cocs.map((c,i)=>`
