@@ -1888,6 +1888,15 @@ const App = {
         </tr>
       </table>`;
     const footerHtml=`<div style="margin-top:26px; padding-top:8px; border-top:1px solid #999; text-align:center; font-size:9pt; color:#444;">${capaCidade}, ${new Date().getFullYear()}</div>`;
+    /* variante só texto (sem o brasão) para o cabeçalho nativo do .doc — imagem em base64
+       dentro de mso-element:header quebra no Word (aparece como ícone de imagem ausente) */
+    const headerHtmlDoc=`
+      <div style="text-align:left; line-height:1.35; border-bottom:1px solid #999; padding-bottom:8px; margin-bottom:14px;">
+        <div style="font-weight:bold; font-size:12pt;">ESTADO DE SANTA CATARINA</div>
+        <div style="font-weight:bold; font-size:12pt;">SECRETARIA DE ESTADO DE JUSTIÇA E REINTEGRAÇÃO SOCIAL</div>
+        <div style="font-weight:bold; font-size:12pt;">DEPARTAMENTO DE POLÍCIA PENAL — CENTRO DE OBSERVAÇÃO — ${cocNome.toUpperCase()}</div>
+        <div style="font-weight:bold; font-size:12pt;">${unidLinha}</div>
+      </div>`;
     const pagina=(corpo,ultima)=>`<div class="pageBox" style="page-break-after:${ultima?"auto":"always"};">${headerHtml}${corpo}${footerHtml}</div>`;
 
     const pgCapa=`
@@ -1951,7 +1960,7 @@ const App = {
 
     const paginas=[pgCapa,pgIdent,pgMetodologia,pgCheI,pgCheII,pgSoc,pgPsi,pgPsq,pgReal,pgSintese].filter(Boolean);
     /* guardados para o export .doc, que usa cabeçalho/rodapé nativos do Word em vez de repetir por página */
-    this._relHeaderHtml=headerHtml; this._relFooterHtml=footerHtml; this._relPaginas=paginas;
+    this._relHeaderHtml=headerHtmlDoc; this._relFooterHtml=footerHtml; this._relPaginas=paginas;
     return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};">${headerHtml}${corpo}${footerHtml}</div>`).join("");
   },
   checarAntesDeExportar(acao){
