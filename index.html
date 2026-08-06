@@ -188,7 +188,6 @@
   <button data-v="lista" onclick="App.tab('lista')">Exames</button>
   <button data-v="cal" onclick="App.tab('cal')">Calendário</button>
   <button data-v="novo" onclick="App.tab('novo')">Novo exame</button>
-  <button data-v="equipe" onclick="App.tab('equipe')">Quesitos e Relatório</button>
   <button data-v="config" onclick="App.tab('config')">Configurações</button>
 </nav>
 
@@ -265,6 +264,7 @@
     <nav class="subtabs" id="novoTabs">
       <button class="on" data-n="ident" onclick="App.novoTab('ident')">Identificação e condenações</button>
       <button data-n="equipe" onclick="App.novoTab('equipe')">Equipe examinadora</button>
+      <button data-n="quesitos" onclick="App.novoTab('quesitos')">Quesitos e Relatório</button>
     </nav>
 
     <div class="novopanel on" id="np-ident">
@@ -400,17 +400,7 @@
       </div>
     </div>
 
-    <hr class="sep">
-    <div class="lawbox" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-      <span>As etapas do exame e o conteúdo do relatório são preenchidos na aba própria.</span>
-      <button class="btn sm ghost" type="button" onclick="App.tab('equipe')">Ir para Quesitos e Relatório →</button>
-    </div>
-  </div>
-</section>
-
-<!-- ============ EQUIPE EXAMINADORA ============ -->
-<section class="view" id="v-equipe">
-  <div class="card">
+    <div class="novopanel" id="np-quesitos">
     <h3>Quesitos e garantias processuais <span class="muted" style="font-size:12px; font-weight:normal;">(art. 9º, I, da Portaria; Res. CNPCP 36/2024)</span></h3>
     <p class="note">A Resolução CNPCP nº 36/2024 prevê a prévia intimação do Ministério Público e da defesa para apresentação de quesitos e arguição de impedimento/suspeição, além da presença da defesa técnica na realização do exame.</p>
     <div class="row c2">
@@ -547,10 +537,10 @@
       <button class="btn ghost" onclick="App.baixarDoc()">Baixar .doc (pronto para assinar)</button>
       <button class="btn ghost" id="btnConcluir" onclick="App.concluir()" style="display:none;">Marcar como concluído</button>
       <button class="btn danger" id="btnExcluir" onclick="App.excluir()" style="display:none;">Excluir</button>
-      <button class="btn ghost" type="button" onclick="App.tab('novo')">← Voltar para Novo exame</button>
     </div>
     <div id="salvoMsg" class="note" style="color:var(--ok); font-weight:700;"></div>
     <div id="verifInline" style="margin-top:12px;"></div>
+    </div>
   </div>
 </section>
 
@@ -1088,7 +1078,7 @@ const App = {
 
   /* ---------- navegação ---------- */
   tab(v){
-    if((v==="novo"||v==="equipe") && this.coc==="_cepen"){
+    if(v==="novo" && this.coc==="_cepen"){
       alert("Selecione um Centro de Observação (CO 01–CO 08) no seletor \"Centro\" antes de cadastrar ou editar um exame. O CEPEN/DPP — Painel geral é só uma visão consolidada, não uma unidade.");
       v="dash";
     }
@@ -1096,7 +1086,7 @@ const App = {
     document.querySelectorAll("section.view").forEach(s=>s.classList.toggle("on", s.id==="v-"+v));
     if(v==="dash") this.renderDash();
     if(v==="lista") this.renderLista();
-    if(v==="novo"||v==="equipe") this.renderEqBanner();
+    if(v==="novo") this.renderEqBanner();
     if(v==="cal") this.renderCalendario();
   },
   novoTab(n){
