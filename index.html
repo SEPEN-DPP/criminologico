@@ -312,6 +312,9 @@
         </select>
       </div>
     </div>
+    <div class="row c2">
+      <div><label class="f">Número do SGPE</label><input type="text" id="e_sgpe" placeholder="ex.: SGPE 00012345/2026"></div>
+    </div>
     <div class="row c3">
       <div><label class="f">Filiação</label><input type="text" id="e_filiacao" placeholder="Nome do pai e da mãe"></div>
       <div><label class="f">Data de nascimento</label><input type="date" id="e_nasc"></div>
@@ -1570,7 +1573,7 @@ const App = {
   novo(){
     this.editId=null;
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
-    ["e_nome","e_mat","e_proc","e_dataProg","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_beneficio","e_dataIni","e_dataConcl",
+    ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_beneficio","e_dataIni","e_dataConcl",
      "q_c1","q_c1Funcao","q_c2","q_c2Funcao","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB","q_fontesOutras",
      "r_met","r_cheI","r_cheII","r_soc","r_psi","r_psq","r_real","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
     document.getElementById("e_tipo").value="progressao";
@@ -1628,6 +1631,7 @@ const App = {
       nome, mat:document.getElementById("e_mat").value.trim(),
       unid:this.getUnidadeValor(),
       proc:document.getElementById("e_proc").value.trim(),
+      sgpe:document.getElementById("e_sgpe").value.trim(),
       tipo:document.getElementById("e_tipo").value,
       dataProg:document.getElementById("e_dataProg").value,
       faltaNaoReab:document.getElementById("e_faltaNaoReab").value,
@@ -1675,7 +1679,7 @@ const App = {
     if(ex.coc && ex.coc!==this.coc){ this.coc=ex.coc; document.getElementById("selCoc").value=ex.coc; }
     this.editId=id; this.tab("novo");
     document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(ex.status==="concluido"?" (concluído)":"");
-    e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_proc.value=ex.proc||"";
+    e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_proc.value=ex.proc||""; document.getElementById("e_sgpe").value=ex.sgpe||"";
     this.renderUnidadeSel(ex.unid||"");
     e_tipo.value=ex.tipo||"progressao"; e_dataProg.value=ex.dataProg||""; e_obs.value=ex.obs||"";
     document.getElementById("e_faltaNaoReab").value=ex.faltaNaoReab||"";
@@ -1745,17 +1749,6 @@ const App = {
     if(dias<=15)return {cls:"b-warn", txt:dias+"d restantes"};
     return {cls:"b-ok", txt:dias+"d restantes"};
   },
-  triagemLabel(ex){
-    if(ex.tipo==="judicial") return {cls:"b-navy", txt:"judicial"};
-    if(ex.tipo==="dpp") return {cls:"b-navy", txt:"req. DPP"};
-    const conds=(ex.conds||[]).filter(c=>c.dataFato);
-    if(!conds.length) return {cls:"b-mut", txt:"—"};
-    const pos=conds.some(c=>new Date(c.dataFato+"T00:00:00")>=MARCO);
-    const ant=conds.some(c=>new Date(c.dataFato+"T00:00:00")<MARCO);
-    if(pos&&ant) return {cls:"b-warn", txt:"misto"};
-    if(pos) return {cls:"b-crit", txt:"obrigatório"};
-    return {cls:"b-ok", txt:"Súm. 439"};
-  },
 
   /* ---------- render dash/lista ---------- */
   renderDash(){
@@ -1803,10 +1796,10 @@ const App = {
     if(q) exs=exs.filter(e=>(e.nome+" "+(e.mat||"")+" "+(e.proc||"")).toLowerCase().includes(q));
     const nomeRegional = id => (this.data.cocs.find(c=>c.id===id)||{}).nome || "—";
     document.getElementById("listaBox").innerHTML = exs.length ?
-      `<table><tr><th>Avaliado</th>${geral?"<th>Regional</th>":""}<th>Matrícula</th><th>Finalidade</th><th>Triagem</th><th>Prazo</th><th>Progresso</th></tr>`+
-      exs.map(e=>{const p=this.prazoInfo(e); const t=this.triagemLabel(e); const pr=this.progresso(e.etapas||{});
+      `<table><tr><th>Avaliado</th>${geral?"<th>Regional</th>":""}<th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th></tr>`+
+      exs.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{});
         const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
-        return `<tr onclick="App.abrir('${e.id}')"><td><b>${e.nome}</b></td>${geral?`<td>${nomeRegional(e.coc)}</td>`:""}<td>${e.mat||"—"}</td><td>${fin}</td><td><span class="badge ${t.cls}">${t.txt}</span></td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
+        return `<tr onclick="App.abrir('${e.id}')"><td><b>${e.nome}</b></td>${geral?`<td>${nomeRegional(e.coc)}</td>`:""}<td>${e.mat||"—"}</td><td>${fin}</td><td>${e.sgpe||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
       : `<div class="empty">Nenhum exame cadastrado${geral?"":" neste centro"}. ${geral?"":'Use a aba <b>Novo exame</b>.'}</div>`;
   },
 
@@ -1906,6 +1899,7 @@ const App = {
           <p style="margin:5px 0;"><b>Avaliado:</b> ${e_nome.value||"—"}</p>
           <p style="margin:5px 0;"><b>Matrícula/IPEN/Prontuário:</b> ${e_mat.value||"—"}</p>
           <p style="margin:5px 0;"><b>Processo de execução:</b> ${e_proc.value||"—"}</p>
+          <p style="margin:5px 0;"><b>SGPE:</b> ${document.getElementById("e_sgpe").value.trim()||"—"}</p>
         </div>
       </div>`;
 
@@ -1919,6 +1913,7 @@ const App = {
       ${document.getElementById("e_nasc").value?`<b>Data de nascimento:</b> ${fmt(document.getElementById("e_nasc").value)}<br>`:""}
       <b>Unidade de custódia:</b> ${this.getUnidadeValor()||"—"} &nbsp; <b>Regime atual:</b> ${regimeLabel}<br>
       <b>Processo de execução:</b> ${e_proc.value||"—"}${document.getElementById("e_juizo").value.trim()?(" &nbsp; <b>Juízo da execução:</b> "+document.getElementById("e_juizo").value.trim()):""}<br>
+      ${document.getElementById("e_sgpe").value.trim()?`<b>SGPE:</b> ${document.getElementById("e_sgpe").value.trim()}<br>`:""}
       ${document.getElementById("e_penaTotal").value.trim()?`<b>Pena total:</b> ${document.getElementById("e_penaTotal").value.trim()}<br>`:""}
       ${document.getElementById("e_beneficio").value.trim()?`<b>Benefício pretendido:</b> ${document.getElementById("e_beneficio").value.trim()}<br>`:""}
       ${document.getElementById("e_dataIni").value||document.getElementById("e_dataConcl").value?`<b>Avaliação:</b> início em ${fmt(document.getElementById("e_dataIni").value)} — conclusão em ${fmt(document.getElementById("e_dataConcl").value)}<br>`:""}
