@@ -1869,8 +1869,27 @@ const App = {
     /* a pessoa examinada não assina o relatório em si (não está presente no momento da emissão) —
        a ciência dela é só registrada no texto, não como linha de assinatura */
 
+    const capaCidade=(unidInfo&&unidInfo.cidade)||cocNome||"—";
     return `
-      <div style="display:flex; align-items:center; gap:16px; margin-bottom:6px;">
+      <div style="text-align:center;">
+        <div style="display:flex; align-items:center; gap:16px; text-align:left;">
+          <img src="${logoSrc}" alt="Brasão da Polícia Penal de Santa Catarina" style="height:72px; width:auto; flex-shrink:0;">
+          <div style="line-height:1.35;">
+            <div style="font-weight:bold; font-size:12pt;">ESTADO DE SANTA CATARINA</div>
+            <div style="font-weight:bold; font-size:12pt;">SECRETARIA DE ESTADO DE JUSTIÇA E REINTEGRAÇÃO SOCIAL</div>
+            <div style="font-weight:bold; font-size:12pt;">DEPARTAMENTO DE POLÍCIA PENAL — CENTRO DE OBSERVAÇÃO — ${cocNome.toUpperCase()}</div>
+          </div>
+        </div>
+        <div style="margin-top:110px; font-size:20pt; font-weight:bold; line-height:1.4;">RELATÓRIO DE<br>EXAME CRIMINOLÓGICO</div>
+        <div style="margin-top:70px; font-size:13pt;">
+          <p style="margin:5px 0;"><b>Avaliado:</b> ${e_nome.value||"—"}</p>
+          <p style="margin:5px 0;"><b>Matrícula/IPEN/Prontuário:</b> ${e_mat.value||"—"}</p>
+          <p style="margin:5px 0;"><b>Processo de execução:</b> ${e_proc.value||"—"}</p>
+        </div>
+        <div style="margin-top:260px; font-weight:bold;">${capaCidade}, ${new Date().getFullYear()}</div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:16px; margin-bottom:6px; page-break-before:always;">
         <img src="${logoSrc}" alt="Brasão da Polícia Penal de Santa Catarina" style="height:72px; width:auto; flex-shrink:0;">
         <div style="text-align:left; line-height:1.35;">
           <div style="font-weight:bold; font-size:12pt;">ESTADO DE SANTA CATARINA</div>
@@ -1901,23 +1920,23 @@ const App = {
       Assegurados os direitos ao silêncio e à afirmação de inocência, sem valoração desfavorável${et.defesa&&et.defesa.data?(" — ciência em "+fmt(et.defesa.data)):""}.${pessoaCiencia?" O(a) avaliado(a) tomou ciência da realização do exame.":""}</p>
       ${quesitos.length?quesitos.map((q,i)=>`<p><b>Quesito ${i+1} (${origemLabel[q.origem]||q.origem}):</b> ${q.pergunta||"—"}<br><b>Resposta:</b> ${(q.resposta||"—").replace(/\n/g,"<br>")}</p>`).join(""):""}
 
-      <h3>III — Metodologia</h3><p>${(r_met.value||"—").replace(/\n/g,"<br>")}</p>
+      <h3 style="page-break-before:always;">III — Metodologia</h3><p>${(r_met.value||"—").replace(/\n/g,"<br>")}</p>
       <p><b>Entrevistas realizadas em:</b> ${entrevistas} (modalidade: ${document.getElementById("e_modal").value==="video"?"por videoconferência, nos termos do art. 9º, §§1º e 2º, da Portaria":"presencial"}).</p>
       ${metMarcados.length?`<p><b>Procedimentos realizados:</b> ${metMarcados.join("; ")}.</p>`:""}
       ${fontesMarcadas.length||fontesOutras?`<p><b>Fontes documentais consultadas:</b> ${[...fontesMarcadas, fontesOutras].filter(Boolean).join("; ")}.</p>`:""}
 
-      <h3>IV — Chefia de Serviço I (segurança/rotina institucional)</h3><p>${(r_cheI.value||"—").replace(/\n/g,"<br>")}</p>
-      <h3>V — Chefia de Serviço II (trabalho/educação)</h3><p>${(r_cheII.value||"—").replace(/\n/g,"<br>")}</p>
-      <h3>VI — Análise social</h3><p>${(r_soc.value||"—").replace(/\n/g,"<br>")}</p>
-      <h3>VII — Análise psicológica</h3><p>${(r_psi.value||"—").replace(/\n/g,"<br>")}</p>
-      ${r_psq.value.trim()?`<h3>VIII — Análise psiquiátrica</h3><p>${r_psq.value.replace(/\n/g,"<br>")}</p>`:""}
+      <h3 style="page-break-before:always;">IV — Chefia de Serviço I (segurança/rotina institucional)</h3><p>${(r_cheI.value||"—").replace(/\n/g,"<br>")}</p>
+      <h3 style="page-break-before:always;">V — Chefia de Serviço II (trabalho/educação)</h3><p>${(r_cheII.value||"—").replace(/\n/g,"<br>")}</p>
+      <h3 style="page-break-before:always;">VI — Análise social</h3><p>${(r_soc.value||"—").replace(/\n/g,"<br>")}</p>
+      <h3 style="page-break-before:always;">VII — Análise psicológica</h3><p>${(r_psi.value||"—").replace(/\n/g,"<br>")}</p>
+      ${r_psq.value.trim()?`<h3 style="page-break-before:always;">VIII — Análise psiquiátrica</h3><p>${r_psq.value.replace(/\n/g,"<br>")}</p>`:""}
       ${semPsq?`<p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:""}
 
-      <h3>IX — Realidade institucional e efeitos do encarceramento</h3>
+      <h3 style="page-break-before:always;">IX — Realidade institucional e efeitos do encarceramento</h3>
       ${realMarcados.length?`<p><b>Fatores considerados:</b> ${realMarcados.join("; ")}.</p>`:""}
       <p>${(r_real.value||"—").replace(/\n/g,"<br>")}</p>
 
-      <h3>X — Síntese conclusiva</h3><p>${(r_sin.value||"—").replace(/\n/g,"<br>")}</p>
+      <h3 style="page-break-before:always;">X — Síntese conclusiva</h3><p>${(r_sin.value||"—").replace(/\n/g,"<br>")}</p>
       ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${r_diverg.value.replace(/\n/g,"<br>")}</p>`:""}
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${r_limit.value.replace(/\n/g,"<br>")}</p>`:""}
       <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução. Declara-se, nos termos do art. 10, VI, da Portaria, que não foi utilizada inteligência artificial generativa ou tecnologia preditiva em sua elaboração.</p>
