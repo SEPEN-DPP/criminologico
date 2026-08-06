@@ -37,6 +37,10 @@
   nav.subtabs button.on{background:var(--navy); color:#fff;}
   .relpanel{display:none;} .relpanel.on{display:block;}
   .novopanel{display:none;} .novopanel.on{display:block;}
+  .reportPreview{background:#fff; border:1px solid var(--line); border-radius:8px; padding:24px 28px; font-family:"Times New Roman",serif; font-size:13.5px; line-height:1.6; color:#111;}
+  .reportPreview h2{text-align:center; font-size:16px; margin:2px 0;}
+  .reportPreview h3{font-size:14.5px; margin:14px 0 6px;}
+  .reportPreview p{text-align:justify; margin-bottom:8px;}
   .resp-tag{background:#E3F1E9; color:var(--navy); border-radius:6px; padding:2px 8px; font-weight:700;}
 
   /* ===== síntese de orientação ===== */
@@ -265,6 +269,7 @@
       <button class="on" data-n="ident" onclick="App.novoTab('ident')">Identificação e condenações</button>
       <button data-n="equipe" onclick="App.novoTab('equipe')">Equipe examinadora</button>
       <button data-n="quesitos" onclick="App.novoTab('quesitos')">Quesitos e Relatório</button>
+      <button data-n="preview" onclick="App.novoTab('preview')">Pré-visualização</button>
     </nav>
 
     <div class="novopanel on" id="np-ident">
@@ -540,6 +545,11 @@
     </div>
     <div id="salvoMsg" class="note" style="color:var(--ok); font-weight:700;"></div>
     <div id="verifInline" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="novopanel" id="np-preview">
+      <div class="lawbox">Pré-visualização do relatório com os dados já preenchidos até agora. Ela é atualizada toda vez que esta aba é aberta.</div>
+      <div class="reportPreview" id="previewBox"></div>
     </div>
   </div>
 </section>
@@ -1092,6 +1102,7 @@ const App = {
   novoTab(n){
     document.querySelectorAll("#novoTabs button").forEach(b=>b.classList.toggle("on", b.dataset.n===n));
     document.querySelectorAll(".novopanel").forEach(p=>p.classList.toggle("on", p.id==="np-"+n));
+    if(n==="preview") document.getElementById("previewBox").innerHTML=this.montarRelatorioHTML();
   },
 
   /* ---------- calendário de entrevistas ---------- */
