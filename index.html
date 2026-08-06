@@ -165,9 +165,11 @@
   /* ===== impressão do relatório ===== */
   #printArea{display:none;}
   @media print{
-    body *{visibility:hidden;}
-    #printArea, #printArea *{visibility:visible;}
-    #printArea{display:block; position:absolute; left:0; top:0; width:100%; font-family:"Times New Roman",serif; font-size:12pt; color:#000; padding:2cm 2.5cm;}
+    /* position:absolute quebrava a paginação (page-break-after não funciona fora do
+       fluxo normal do documento) — em vez de sobrepor tudo, removemos o resto do
+       app do layout com display:none e deixamos o printArea fluir normalmente. */
+    body > *:not(#printArea){display:none !important;}
+    #printArea{display:block; width:100%; font-family:"Times New Roman",serif; font-size:12pt; color:#000; padding:2cm 2.5cm;}
     #printArea h2{text-align:center; font-size:13pt; margin-bottom:2px;}
     #printArea h3{font-size:12pt; margin:14px 0 6px;}
     #printArea p{text-align:justify; line-height:1.5; margin-bottom:8px;}
@@ -1874,15 +1876,17 @@ const App = {
     const capaCidade=(unidInfo&&unidInfo.cidade)||cocNome||"—";
     const unidLinha=(unidNome||"UNIDADE NÃO INFORMADA").toUpperCase();
     const headerHtml=`
-      <div style="display:flex; align-items:center; gap:16px; margin-bottom:6px; text-align:left;">
-        <img src="${logoSrc}" alt="Brasão da Polícia Penal de Santa Catarina" style="height:72px; width:auto; flex-shrink:0;">
-        <div style="line-height:1.35;">
-          <div style="font-weight:bold; font-size:12pt;">ESTADO DE SANTA CATARINA</div>
-          <div style="font-weight:bold; font-size:12pt;">SECRETARIA DE ESTADO DE JUSTIÇA E REINTEGRAÇÃO SOCIAL</div>
-          <div style="font-weight:bold; font-size:12pt;">DEPARTAMENTO DE POLÍCIA PENAL — CENTRO DE OBSERVAÇÃO — ${cocNome.toUpperCase()}</div>
-          <div style="font-weight:bold; font-size:12pt;">${unidLinha}</div>
-        </div>
-      </div>`;
+      <table style="width:100%; border-collapse:collapse; margin-bottom:6px;" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="width:88px; vertical-align:middle; padding-right:16px;"><img src="${logoSrc}" alt="Brasão da Polícia Penal de Santa Catarina" style="height:72px; width:auto;"></td>
+          <td style="vertical-align:middle; text-align:left; line-height:1.35;">
+            <div style="font-weight:bold; font-size:12pt;">ESTADO DE SANTA CATARINA</div>
+            <div style="font-weight:bold; font-size:12pt;">SECRETARIA DE ESTADO DE JUSTIÇA E REINTEGRAÇÃO SOCIAL</div>
+            <div style="font-weight:bold; font-size:12pt;">DEPARTAMENTO DE POLÍCIA PENAL — CENTRO DE OBSERVAÇÃO — ${cocNome.toUpperCase()}</div>
+            <div style="font-weight:bold; font-size:12pt;">${unidLinha}</div>
+          </td>
+        </tr>
+      </table>`;
     const pagina=(corpo,ultima)=>`<div class="pageBox" style="page-break-after:${ultima?"auto":"always"};">${headerHtml}${corpo}</div>`;
 
     const pgCapa=`
