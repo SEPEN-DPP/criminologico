@@ -1876,7 +1876,7 @@ const App = {
     const capaCidade=(unidInfo&&unidInfo.cidade)||cocNome||"—";
     const unidLinha=(unidNome||"UNIDADE NÃO INFORMADA").toUpperCase();
     const headerHtml=`
-      <table style="width:100%; border-collapse:collapse; margin-bottom:6px;" cellpadding="0" cellspacing="0">
+      <table style="width:100%; border-collapse:collapse; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid #999;" cellpadding="0" cellspacing="0">
         <tr>
           <td style="width:88px; vertical-align:middle; padding-right:16px;"><img src="${logoSrc}" alt="Brasão da Polícia Penal de Santa Catarina" style="height:72px; width:auto;"></td>
           <td style="vertical-align:middle; text-align:left; line-height:1.35;">
@@ -1887,7 +1887,8 @@ const App = {
           </td>
         </tr>
       </table>`;
-    const pagina=(corpo,ultima)=>`<div class="pageBox" style="page-break-after:${ultima?"auto":"always"};">${headerHtml}${corpo}</div>`;
+    const footerHtml=`<div style="margin-top:26px; padding-top:8px; border-top:1px solid #999; text-align:center; font-size:9pt; color:#444;">${capaCidade}, ${new Date().getFullYear()}</div>`;
+    const pagina=(corpo,ultima)=>`<div class="pageBox" style="page-break-after:${ultima?"auto":"always"};">${headerHtml}${corpo}${footerHtml}</div>`;
 
     const pgCapa=`
       <div style="text-align:center;">
@@ -1897,7 +1898,6 @@ const App = {
           <p style="margin:5px 0;"><b>Matrícula/IPEN/Prontuário:</b> ${e_mat.value||"—"}</p>
           <p style="margin:5px 0;"><b>Processo de execução:</b> ${e_proc.value||"—"}</p>
         </div>
-        <div style="margin-top:220px; font-weight:bold;">${capaCidade}, ${new Date().getFullYear()}</div>
       </div>`;
 
     const pgIdent=`
@@ -1949,7 +1949,10 @@ const App = {
       <p style="margin-top:16px;">${cocNome}, ${new Date().toLocaleDateString("pt-BR")}.</p>
       <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${x[1]}<br><i>${x[0]}</i></p>`).join("")}</div>`;
 
-    return pagina(pgCapa,false)+pagina(pgIdent,false)+pagina(pgMetodologia,false)+pagina(pgCheI,false)+pagina(pgCheII,false)+pagina(pgSoc,false)+pagina(pgPsi,false)+(pgPsq?pagina(pgPsq,false):"")+pagina(pgReal,false)+pagina(pgSintese,true);
+    const paginas=[pgCapa,pgIdent,pgMetodologia,pgCheI,pgCheII,pgSoc,pgPsi,pgPsq,pgReal,pgSintese].filter(Boolean);
+    /* guardados para o export .doc, que usa cabeçalho/rodapé nativos do Word em vez de repetir por página */
+    this._relHeaderHtml=headerHtml; this._relFooterHtml=footerHtml; this._relPaginas=paginas;
+    return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};">${headerHtml}${corpo}${footerHtml}</div>`).join("");
   },
   checarAntesDeExportar(acao){
     if(!document.getElementById("e_semIA").checked){
@@ -1970,10 +1973,26 @@ const App = {
   },
   baixarDoc(){
     if(!this.checarAntesDeExportar("baixar")) return;
-    const corpo=this.montarRelatorioHTML();
-    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório</title>
-      <style>body{font-family:"Times New Roman",serif; font-size:12pt; color:#000;} h2{text-align:center;} p{text-align:justify; line-height:1.5;} .assin{margin-top:40px; text-align:center;}</style>
-      </head><body>${corpo}</body></html>`;
+    this.montarRelatorioHTML();
+    const paginas=this._relPaginas;
+    const corpoPaginas=paginas.map((p,i)=>`<div class="Section1" style="page-break-before:${i===0?"auto":"always"};">${p}</div>`).join("");
+    /* cabeçalho/rodapé de verdade no Word (mso-element), em vez de repetir o bloco em cada página como
+       fazemos na impressão do navegador — o Chrome ignora mso-header/mso-footer, mas o Word reconhece
+       e cria as áreas de cabeçalho/rodapé nativas, repetidas automaticamente em toda página. */
+    const html=`<!DOCTYPE html>
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="UTF-8"><title>Relatório</title>
+      <style>
+        @page Section1 { size:21cm 29.7cm; margin:2cm 2.5cm; mso-header-margin:1cm; mso-footer-margin:1cm; mso-header:h1; mso-footer:f1; }
+        div.Section1 { page:Section1; }
+        body{font-family:"Times New Roman",serif; font-size:12pt; color:#000;}
+        h2{text-align:center;} h3{margin:14px 0 6px;} p{text-align:justify; line-height:1.5;} .assin{margin-top:40px; text-align:center;}
+      </style>
+      </head><body>
+      <div style="mso-element:header;" id="h1">${this._relHeaderHtml}</div>
+      <div style="mso-element:footer;" id="f1">${this._relFooterHtml}</div>
+      ${corpoPaginas}
+      </body></html>`;
     const blob=new Blob(['﻿'+html],{type:"application/msword"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
