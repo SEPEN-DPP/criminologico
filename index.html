@@ -1208,7 +1208,11 @@ const App = {
   data:null, coc:null, editId:null, calAno:null, calMes:null, calDiaSel:null, calSemanaBase:null, calModoAtual:null, calFormAberto:null,
 
   init(){
-    this.data = Store.load() || { cocs: DEFAULT_COCS.map(c=>({...c})), exames: [] };
+    this.data = Store.load() || { cocs: DEFAULT_COCS.map(c=>({...c})) };
+    /* os exames agora vivem no Firestore (multiusuário, escopo por perfil) — nunca
+       partimos de um cache local antigo, que poderia vazar dados de outro login
+       num navegador compartilhado até a primeira sincronização chegar. */
+    this.data.exames = [];
     if(!this.data.cocs || !this.data.cocs.length) this.data.cocs = DEFAULT_COCS.map(c=>({...c}));
     /* migração: registros antigos (nomes placeholder "COC…", sem lista de unidades) ganham os
        dados oficiais das SR, preservando o id para não perder exames já vinculados a ele */
@@ -1231,7 +1235,11 @@ const App = {
       previewTimer=setTimeout(()=>this.atualizarPreview(), 400);
     });
   },
-  persist(){ Store.save(this.data); },
+  persist(){ Store.save({ cocs: this.data.cocs }); },
+  aoSincronizarExames(){
+    this.renderDash(); this.renderLista();
+    if(document.getElementById("v-cal").classList.contains("on")) this.renderCalendario();
+  },
 
   /* ---------- navegação ---------- */
   tab(v){
@@ -1820,11 +1828,16 @@ const App = {
       obs:document.getElementById("e_obs").value
     });
     if(!this.editId){ this.data.exames.push(ex); this.editId=ex.id; }
-    this.persist();
     document.getElementById("btnExcluir").style.display="inline-block";
     document.getElementById("btnConcluir").style.display="inline-block";
-    document.getElementById("salvoMsg").textContent="✓ Exame salvo ("+new Date().toLocaleTimeString("pt-BR")+")";
+    const msg=document.getElementById("salvoMsg");
+    msg.style.color="var(--ok)";
+    msg.textContent="✓ Exame salvo ("+new Date().toLocaleTimeString("pt-BR")+")";
     this.renderDash();
+    window.ExamesFS?.salvar(ex).catch(e=>{
+      msg.style.color="#B4232B";
+      msg.textContent="⚠ Salvo neste navegador, mas falhou ao sincronizar no servidor: "+(e?.code||e?.message||e);
+    });
   },
   abrir(id){
     const ex=this.data.exames.find(x=>x.id===id); if(!ex) return;
@@ -1879,15 +1892,18 @@ const App = {
   concluir(){
     if(!this.editId) { alert("Salve o exame antes."); return; }
     const ex=this.data.exames.find(x=>x.id===this.editId);
-    ex.status="concluido"; this.persist(); this.renderDash(); this.renderLista();
+    ex.status="concluido"; this.renderDash(); this.renderLista();
     document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+" (concluído)";
     document.getElementById("btnConcluir").style.display="none";
+    window.ExamesFS?.salvar(ex).catch(e=>alert("Falhou ao sincronizar no servidor: "+(e?.code||e?.message||e)));
   },
   excluir(){
     if(!this.editId) return;
     if(!confirm("Excluir definitivamente este exame?")) return;
-    this.data.exames=this.data.exames.filter(x=>x.id!==this.editId);
-    this.persist(); this.novo(); this.tab("lista"); this.renderLista(); this.renderDash();
+    const id=this.editId;
+    this.data.exames=this.data.exames.filter(x=>x.id!==id);
+    this.novo(); this.tab("lista"); this.renderLista(); this.renderDash();
+    window.ExamesFS?.excluir(id).catch(e=>alert("Falhou ao excluir no servidor: "+(e?.code||e?.message||e)));
   },
 
   /* ---------- prazo/status ---------- */
@@ -2186,16 +2202,19 @@ const App = {
     a.click(); URL.revokeObjectURL(a.href);
   },
   importar(input){
+    /* os exames agora vivem no Firestore (fonte da verdade compartilhada entre
+       usuários) — um backup antigo so pode restaurar os Centros de Observação
+       (config local deste navegador), nunca os exames em si. */
     const f=input.files[0]; if(!f) return;
     const r=new FileReader();
     r.onload=()=>{ try{
         const d=JSON.parse(r.result);
-        if(!d.cocs||!d.exames) throw new Error("estrutura inválida");
-        this.data=d;
-        this.data.cocs.forEach(c=>{ if(!c.unidades) c.unidades = (DEFAULT_COCS.find(x=>x.id===c.id)||{unidades:[]}).unidades; });
+        if(!d.cocs) throw new Error("estrutura inválida");
+        d.cocs.forEach(c=>{ if(!c.unidades) c.unidades = (DEFAULT_COCS.find(x=>x.id===c.id)||{unidades:[]}).unidades; });
+        this.data.cocs=d.cocs;
         this.persist(); this.coc=this.data.cocs[0].id;
         this.renderCocSel(); this.renderConfig(); this.renderDash(); this.renderLista(); this.renderUnidadeSel("");
-        alert("Backup importado: "+d.exames.length+" exame(s).");
+        alert("Backup dos Centros de Observação importado. Exames não são afetados: eles ficam no servidor (Firestore), não neste arquivo.");
       }catch(e){ alert("Arquivo inválido: "+e.message); } };
     r.readAsText(f); input.value="";
   }
@@ -2216,7 +2235,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where,
-  getDocs, serverTimestamp,
+  getDocs, onSnapshot, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -2546,10 +2565,36 @@ if(window.App){
   if(origem && destino) destino.src = origem.src;
 })();
 
+/* ---------- Exames: fonte da verdade no Firestore, escopo por perfil ---------- */
+let unsubscribeExames = null;
+const ExamesFS = {
+  subscribe(perfil){
+    if(unsubscribeExames){ unsubscribeExames(); unsubscribeExames=null; }
+    let q;
+    if(perfil.perfil === "DPP") q = collection(db,"exames");
+    else if(perfil.perfil === "SR") q = query(collection(db,"exames"), where("sr","==", perfil.sr));
+    else q = query(collection(db,"exames"), where("unidade","==", perfil.unidade));
+    unsubscribeExames = onSnapshot(q, (snap)=>{
+      window.App.data.exames = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      window.App.aoSincronizarExames();
+    }, (err)=>{ console.error("Falha ao sincronizar exames:", err); });
+  },
+  parar(){ if(unsubscribeExames){ unsubscribeExames(); unsubscribeExames=null; } },
+  async salvar(ex){
+    const payload = { ...ex, unidade: ex.unid || null, sr: srDaUnidade(ex.unid) || meuPerfilDoc?.sr || null };
+    await setDoc(doc(db,"exames", ex.id), payload, { merge: true });
+  },
+  async excluir(id){
+    await deleteDoc(doc(db,"exames", id));
+  },
+};
+window.ExamesFS = ExamesFS;
+
 /* ---------- Boot / roteamento por estado de autenticação ---------- */
 onAuthStateChanged(auth, async (usuarioFirebase) => {
   if(!usuarioFirebase){
     meuPerfilDoc = null; meuUid = null;
+    ExamesFS.parar();
     document.getElementById("appShell").style.display = "none";
     document.getElementById("authShell").style.display = "block";
     AuthUI.mostrar("login");
@@ -2580,6 +2625,7 @@ onAuthStateChanged(auth, async (usuarioFirebase) => {
   if(btnBackup) btnBackup.style.display = (meuPerfilDoc.perfil==="DPP") ? "inline-block" : "none";
 
   window.App.init();
+  ExamesFS.subscribe(meuPerfilDoc);
   UsuariosUI._cache = [];
   NotifUI.render();
 });
