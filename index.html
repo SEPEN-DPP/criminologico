@@ -1240,6 +1240,32 @@ const App = {
     this.renderDash(); this.renderLista();
     if(document.getElementById("v-cal").classList.contains("on")) this.renderCalendario();
   },
+  /* trava a navegação conforme o perfil de login: DPP mantém acesso livre e
+     irrestrito (painel geral por regional + qualquer Centro); os demais
+     perfis (SR, DIR, CPEN, USUÁRIO) ficam presos à própria regional — o
+     Firestore já limita quais exames chegam (regra de segurança), isto aqui
+     é só pra não mostrar um seletor de "Centro" que sugere um acesso que a
+     pessoa não tem. */
+  aplicarEscopoPerfil(perfil){
+    if(!perfil || perfil.perfil === "DPP") return;
+
+    if(perfil.perfil === "USUARIO"){
+      const btnUsuarios=document.querySelector('#cfgTabs button[data-c="usuarios"]');
+      if(btnUsuarios) btnUsuarios.style.display="none";
+    }
+    if(perfil.perfil === "SR"){
+      const btnNovo=document.querySelector('nav.tabs button[data-v="novo"]');
+      if(btnNovo) btnNovo.style.display="none";
+    }
+
+    const srDoUsuario = perfil.sr || (window.UNIDADES_INFO[perfil.unidade]||{}).sr;
+    const cocId = srDoUsuario ? "coc"+Number(srDoUsuario.slice(2)) : null;
+    if(cocId && this.data.cocs.some(c=>c.id===cocId)) this.coc = cocId;
+    const sel=document.getElementById("selCoc");
+    sel.value=this.coc;
+    sel.disabled=true;
+    this.renderDash(); this.renderLista(); this.renderUnidadeSel(this.getUnidadeValor());
+  },
 
   /* ---------- navegação ---------- */
   tab(v){
@@ -2625,6 +2651,7 @@ onAuthStateChanged(auth, async (usuarioFirebase) => {
   if(btnBackup) btnBackup.style.display = (meuPerfilDoc.perfil==="DPP") ? "inline-block" : "none";
 
   window.App.init();
+  window.App.aplicarEscopoPerfil(meuPerfilDoc);
   ExamesFS.subscribe(meuPerfilDoc);
   UsuariosUI._cache = [];
   NotifUI.render();
