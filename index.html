@@ -272,11 +272,12 @@
     <div id="sinoPainel" style="display:none; position:absolute; right:0; top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.2); width:320px; max-height:420px; overflow:auto; z-index:80; color:#111; text-align:left;"></div>
   </div>
   <div style="position:relative;">
-    <button id="userBtn" onclick="AuthUI.toggleMenu()" title="Minha conta" style="background:none; border:1px solid rgba(255,255,255,.35); border-radius:20px; cursor:pointer; margin-left:6px; color:#fff; font-size:13px; padding:7px 14px; display:flex; align-items:center; gap:6px; max-width:180px;">
-      <span id="userBtnNome" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</span>
+    <button id="userBtn" onclick="AuthUI.toggleMenu()" title="Minha conta" style="background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.4); border-radius:50%; cursor:pointer; margin-left:6px; color:#fff; font-size:13px; font-weight:700; width:36px; height:36px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+      <span id="userBtnIniciais">—</span>
     </button>
-    <div id="userMenu" style="display:none; position:absolute; right:0; top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.2); width:230px; z-index:80; color:#111; text-align:left; padding:12px;">
+    <div id="userMenu" style="display:none; position:absolute; right:0; top:44px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.2); width:230px; z-index:80; color:#111; text-align:left; padding:12px;">
       <div id="userMenuInfo" style="font-size:12.5px; color:var(--mut); margin-bottom:10px; line-height:1.5;"></div>
+      <button class="btn sm ghost" style="width:100%; margin-bottom:6px;" type="button" onclick="AuthUI.alterarSenha()">Alterar senha</button>
       <button class="btn sm ghost" style="width:100%;" type="button" onclick="AuthUI.sair()">Sair</button>
     </div>
   </div>
@@ -1287,8 +1288,8 @@ const App = {
     }
 
     if(perfil.perfil === "USUARIO"){
-      const btnUsuarios=document.querySelector('#cfgTabs button[data-c="usuarios"]');
-      if(btnUsuarios) btnUsuarios.style.display="none";
+      const btnConfig=document.querySelector('nav.tabs button[data-v="config"]');
+      if(btnConfig) btnConfig.style.display="none";
     }
     if(perfil.perfil === "SR"){
       const btnNovo=document.querySelector('nav.tabs button[data-v="novo"]');
@@ -2415,8 +2416,19 @@ const AuthUI = {
     catch(e){ this.erro("authLoginErro", traduzErroAuth(e)); }
   },
   async sair(){ await signOut(auth); },
+  async alterarSenha(){
+    const email = meuPerfilDoc?.email;
+    if(!email) return;
+    if(!confirm(`Enviar um e-mail para ${email} com instruções para redefinir a senha?`)) return;
+    try{ await sendPasswordResetEmail(auth, email); alert("Enviamos um e-mail com instruções para redefinir sua senha."); this.toggleMenu(); }
+    catch(e){ alert("Não foi possível enviar: " + traduzErroAuth(e)); }
+  },
   atualizarBotaoUsuario(perfil){
-    document.getElementById("userBtnNome").textContent = perfil?.nome || perfil?.email || "—";
+    const nome = perfil?.nome || perfil?.email || "";
+    const partes = nome.trim().split(/\s+/).filter(Boolean);
+    const iniciais = partes.length>1 ? (partes[0][0]+partes[partes.length-1][0]).toUpperCase() : (partes[0]||"?").slice(0,2).toUpperCase();
+    document.getElementById("userBtnIniciais").textContent = iniciais;
+    document.getElementById("userBtn").title = nome || "Minha conta";
     document.getElementById("userMenuInfo").innerHTML = perfil
       ? `<b>${perfil.nome||""}</b><br>${perfil.email||""}<br>${PERFIL_LABEL[perfil.perfil]||perfil.perfil}${perfil.unidade?(" — "+perfil.unidade):(perfil.sr?(" — "+nomeSR(perfil.sr)):"")}`
       : "";
