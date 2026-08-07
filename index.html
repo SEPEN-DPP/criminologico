@@ -1047,6 +1047,26 @@ const Extractor = {
     m=t.match(/(?:IPEN|matr[íi]cula|prontu[áa]rio)\s*(?:n[.ºo°]?\s*)?[:\-]?\s*(\d{4,10})/i);
     if(m){ e_mat.value=m[1]; found.push("Matrícula/IPEN: "+m[1]); } else missing.push("matrícula/IPEN");
 
+    /* data de nascimento — formato "Data de Nascimento: DD/MM/AAAA" (BPI) ou "nascido(a) em DD/MM/AAAA" */
+    m=t.match(/(?:data\s+de\s+nascimento|nascid[oa]\s+em|nascimento)\s*[:\-]?\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+    if(m){ document.getElementById("e_nasc").value=m[3]+"-"+m[2]+"-"+m[1]; found.push("Data de nascimento: "+m[1]+"/"+m[2]+"/"+m[3]); }
+    else missing.push("data de nascimento");
+
+    /* filiação — "Filiação: PAI e MÃE" num campo só, ou "Nome do Pai"/"Nome da Mãe" em campos separados (formato comum do BPI) */
+    m=t.match(/filia[çc][ãa]o\s*[:\-]?\s*([A-ZÀ-Ü][^\n;]{4,90}?)(?=\s{2,}|\s*(?:CPF|RG|Nome\s+do\s+Pai|Nome\s+da\s+M[ãa]e|Data\s+de\s+Nascimento|Nascid[oa]|Naturalidade|Endere[çc]o|$))/i);
+    if(m){
+      document.getElementById("e_filiacao").value=this.titleCase(m[1].trim());
+      found.push("Filiação: "+document.getElementById("e_filiacao").value);
+    } else {
+      const proxRotulo="(?:Nome\\s+d[oa]\\s+(?:Pai|M[ãa]e)|CPF|RG|Data(?:\\s+de\\s+Nascimento)?|Nascid[oa]|Naturalidade|Endere[çc]o|Sexo|$)";
+      const pai=t.match(new RegExp("Nome\\s+do\\s+Pai\\s*[:\\-]?\\s*([A-ZÀ-Ü][^\\n;]{2,60}?)(?=\\s{2,}|\\s*"+proxRotulo+")","i"));
+      const mae=t.match(new RegExp("Nome\\s+da\\s+M[ãa]e\\s*[:\\-]?\\s*([A-ZÀ-Ü][^\\n;]{2,60}?)(?=\\s{2,}|\\s*"+proxRotulo+")","i"));
+      if(pai || mae){
+        document.getElementById("e_filiacao").value=this.titleCase([pai&&pai[1],mae&&mae[1]].filter(Boolean).join(" e ").trim());
+        found.push("Filiação: "+document.getElementById("e_filiacao").value);
+      } else missing.push("filiação");
+    }
+
     /* unidade prisional — no Boletim Penal (BPI) da Polícia Penal-SC, a unidade "oficial" vem
        rotulada "Unidade: CIDADE - TIPO" perto de "Gestão/Gestor" na linha de assinatura; sem essa
        prioridade, o padrão genérico abaixo acaba batendo antes no cabeçalho da tabela "Unidade
