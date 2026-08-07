@@ -689,13 +689,33 @@
           <select id="usrFiltroPerfil" onchange="UsuariosUI.render()">
             <option value="">Todos</option>
             <option value="PENDENTE">Pendentes</option>
-            <option value="USUARIO">Usuário (DIR/CPEN)</option>
-            <option value="SUPERINTENDENTE">Superintendente</option>
-            <option value="DPP">DPP (acesso total)</option>
+            <option value="USUARIO">Usuário</option>
+            <option value="CPEN">CPEN</option>
+            <option value="DIR">Diretor(a)</option>
+            <option value="SR">Superintendente Regional</option>
+            <option value="DPP">DPP</option>
           </select>
         </div>
       </div>
       <div id="usuariosBox" style="margin-top:10px; overflow-x:auto;"></div>
+
+      <div id="editUsuarioModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); align-items:center; justify-content:center; z-index:200;">
+        <div class="card" style="width:420px; max-width:92vw; max-height:88vh; overflow:auto;">
+          <h3 style="margin-top:0;">Editar cadastro</h3>
+          <p class="note" id="editUsuarioEmail" style="margin-top:-6px;"></p>
+          <label class="f">Nome completo</label><input type="text" id="editUsuarioNome">
+          <label class="f" style="margin-top:10px;">CPF</label><input type="text" id="editUsuarioCpf" placeholder="Somente números">
+          <div id="editUsuarioUnidWrap" style="margin-top:10px;">
+            <label class="f">Unidade prisional de custódia</label>
+            <select id="editUsuarioUnid"></select>
+          </div>
+          <p class="note" id="editUsuarioPerfilInfo" style="margin-top:10px;"></p>
+          <div class="btnrow" style="margin-top:14px;">
+            <button class="btn" onclick="UsuariosUI.salvarEdicao()">Salvar alterações</button>
+            <button class="btn ghost" onclick="UsuariosUI.fecharEdicao()">Cancelar</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="novopanel" id="cfg-normativa">
@@ -1259,7 +1279,12 @@ const App = {
      é só pra não mostrar um seletor de "Centro" que sugere um acesso que a
      pessoa não tem. */
   aplicarEscopoPerfil(perfil){
-    if(!perfil || perfil.perfil === "DPP") return;
+    if(!perfil || perfil.perfil === "DPP"){
+      this.coc = "_cepen";
+      document.getElementById("selCoc").value = "_cepen";
+      this.renderDash(); this.renderLista();
+      return;
+    }
 
     if(perfil.perfil === "USUARIO"){
       const btnUsuarios=document.querySelector('#cfgTabs button[data-c="usuarios"]');
@@ -1604,7 +1629,7 @@ const App = {
 
   renderCocSel(){
     const sel=document.getElementById("selCoc");
-    sel.innerHTML=`<option value="_cepen">CEPEN/DPP — Painel geral</option>`
+    sel.innerHTML=`<option value="_cepen">CEPEN/DPP — Painel Geral</option>`
       + this.data.cocs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join("");
     sel.value=this.coc;
   },
@@ -2288,7 +2313,7 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
-const PERFIL_LABEL = { USUARIO:"Usuário", CPEN:"CPEN", DIR:"Diretor(a)", SR:"Superintendente Regional", DPP:"DPP (acesso total)" };
+const PERFIL_LABEL = { USUARIO:"Usuário", CPEN:"CPEN", DIR:"Diretor(a)", SR:"Superintendente Regional", DPP:"DPP" };
 
 let meuPerfilDoc = null;
 let meuUid = null;
@@ -2460,16 +2485,14 @@ const UsuariosUI = {
 
     box.innerHTML = `<table><tr><th>Nome completo</th><th>CPF</th><th>E-mail</th><th>Unidade / Regional</th><th>Nível de acesso</th>${editavel?"<th>Ações</th>":""}</tr>` +
       visiveis.map(u=>{
-        const unidadeCell = (editavel && (u.perfil==="USUARIO"||u.perfil==="CPEN"||u.perfil==="DIR"))
-          ? `<select onchange="UsuariosUI.alterarUnidade('${u.id}', this)">${optsUnidadesAgrupadas(u.unidade)}</select>`
-          : (u.unidade || nomeSR(u.sr) || "—");
+        const unidadeCell = u.unidade || nomeSR(u.sr) || "—";
         const perfilCell = editavel
           ? `<select onchange="UsuariosUI.alterarPerfil('${u.id}', this)">${Object.entries(PERFIL_LABEL).map(([k,l])=>`<option value="${k}" ${k===u.perfil?"selected":""}>${l}</option>`).join("")}</select>`
           : `<span class="badge b-navy">${PERFIL_LABEL[u.perfil]||(u.status==="PENDENTE"?"pendente":"—")}</span>`;
         return `<tr>
           <td><b>${u.nome}</b></td><td>${u.cpf||"—"}</td><td>${u.email}</td>
           <td>${unidadeCell}</td><td>${perfilCell}</td>
-          ${editavel?`<td><button class="btn sm danger" onclick="UsuariosUI.excluir('${u.id}')">Excluir</button></td>`:""}
+          ${editavel?`<td class="right" style="white-space:nowrap;"><button class="btn sm ghost" onclick="UsuariosUI.abrirEdicao('${u.id}')">Editar</button> <button class="btn sm danger" onclick="UsuariosUI.excluir('${u.id}')">Excluir</button></td>`:""}
         </tr>`;
       }).join("") + "</table>";
 
@@ -2494,16 +2517,38 @@ const UsuariosUI = {
     try{ await deleteDoc(doc(db,"usuarios",id)); this._cache=[]; await this.render(); }
     catch(e){ alert("Não foi possível excluir: " + (e?.message||e)); }
   },
-  async alterarUnidade(id, selectEl){
+  abrirEdicao(id){
+    const u = this._cache.find(x=>x.id===id); if(!u) return;
+    this._editandoId = id;
+    document.getElementById("editUsuarioEmail").textContent = u.email;
+    document.getElementById("editUsuarioNome").value = u.nome||"";
+    document.getElementById("editUsuarioCpf").value = u.cpf||"";
+    const temUnidade = u.perfil==="USUARIO" || u.perfil==="CPEN" || u.perfil==="DIR";
+    document.getElementById("editUsuarioUnidWrap").style.display = temUnidade ? "block" : "none";
+    if(temUnidade) document.getElementById("editUsuarioUnid").innerHTML = optsUnidadesAgrupadas(u.unidade);
+    document.getElementById("editUsuarioPerfilInfo").textContent = "Nível de acesso: " + (PERFIL_LABEL[u.perfil]||u.perfil) + " (altere na coluna da tabela)";
+    document.getElementById("editUsuarioModal").style.display = "flex";
+  },
+  fecharEdicao(){
+    document.getElementById("editUsuarioModal").style.display = "none";
+    this._editandoId = null;
+  },
+  async salvarEdicao(){
+    const id = this._editandoId; if(!id) return;
     const u = this._cache.find(x=>x.id===id);
-    const unidade = selectEl.value;
-    const anterior = u?.unidade || "—";
-    if(unidade===anterior) return;
-    if(!confirm(`Mudar a unidade de ${u?.nome||"esta conta"} de "${anterior}" para "${unidade}"?\n\nIsso também muda a regional (SR) vinculada a essa conta.`)){
-      selectEl.value = anterior; return;
+    const nome = document.getElementById("editUsuarioNome").value.trim();
+    const cpf = document.getElementById("editUsuarioCpf").value.replace(/\D/g,"");
+    const temUnidade = document.getElementById("editUsuarioUnidWrap").style.display !== "none";
+    const dados = { nome, cpf };
+    if(temUnidade){
+      const unidade = document.getElementById("editUsuarioUnid").value;
+      if(unidade !== (u?.unidade||"")){
+        if(!confirm(`Mudar a unidade de ${u?.nome||"esta conta"} de "${u?.unidade||"—"}" para "${unidade}"?\n\nIsso também muda a regional (SR) vinculada a essa conta.`)) return;
+        dados.unidade = unidade; dados.sr = srDaUnidade(unidade);
+      }
     }
-    try{ await updateDoc(doc(db,"usuarios",id), { unidade, sr: srDaUnidade(unidade) }); this._cache=[]; await this.render(); }
-    catch(e){ alert("Não foi possível alterar: " + (e?.message||e)); selectEl.value = anterior; }
+    try{ await updateDoc(doc(db,"usuarios",id), dados); this._cache=[]; this.fecharEdicao(); await this.render(); }
+    catch(e){ alert("Não foi possível salvar: " + (e?.message||e)); }
   },
   async alterarPerfil(id, selectEl){
     const u = this._cache.find(x=>x.id===id);
