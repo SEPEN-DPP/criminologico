@@ -221,6 +221,8 @@
     <label class="f" style="margin-top:10px;">Função</label>
     <select id="regFuncao" onchange="AuthUI.atualizarCamposFuncao()">
       <option value="USUARIO">Usuário (servidor da unidade)</option>
+      <option value="PSICOLOGIA">Usuário Psicologia</option>
+      <option value="SOCIAL">Usuário Assistente Social</option>
       <option value="CPEN">CPEN — Coordenação de Execução Penal</option>
       <option value="DIR">DIR — Diretor(a) da unidade</option>
       <option value="SR">SR — Superintendente Regional</option>
@@ -677,6 +679,8 @@
             <option value="">Todos</option>
             <option value="PENDENTE">Pendentes</option>
             <option value="USUARIO">Usuário</option>
+            <option value="PSICOLOGIA">Usuário Psicologia</option>
+            <option value="SOCIAL">Usuário Assistente Social</option>
             <option value="CPEN">CPEN</option>
             <option value="DIR">Diretor(a)</option>
             <option value="SR">Superintendente Regional</option>
@@ -1067,6 +1071,25 @@ const Extractor = {
       } else missing.push("filiação");
     }
 
+    /* regime atual */
+    m=t.match(/regime\s+(?:atual|de\s+cumprimento)?\s*[:\-]?\s*(fechad[oa]|semiabert[oa]|abert[oa]|domiciliar)/i);
+    if(m){
+      const mapaRegime={fechado:"fechado",fechada:"fechado",semiaberto:"semiaberto",semiaberta:"semiaberto",aberto:"aberto",aberta:"aberto",domiciliar:"domiciliar"};
+      const v=mapaRegime[m[1].toLowerCase()];
+      if(v){ document.getElementById("e_regime").value=v; found.push("Regime atual: "+m[1]); }
+    } else missing.push("regime atual");
+
+    /* juízo da execução */
+    m=t.match(/Vara\s+de\s+Execu[çc][õo]es?\s+Penais?(?:\s+da\s+Comarca\s+de\s+[A-ZÀ-Üa-zà-ü'’]+)?/i);
+    if(!m){ const m2=t.match(/ju[íi]zo\s+da\s+execu[çc][ãa]o\s*[:\-]?\s*([^\n;.]{3,60})/i); if(m2) m=[m2[1]]; }
+    if(m){ document.getElementById("e_juizo").value=m[0].trim(); found.push("Juízo da execução: "+document.getElementById("e_juizo").value); }
+    else missing.push("juízo da execução");
+
+    /* pena total */
+    m=t.match(/(?:pena\s+total|total\s+da\(?s\)?\s+penas?\(?s\)?)\s*[:\-]?\s*(\d{1,2}\s*anos?(?:,?\s*\d{1,2}\s*meses?)?(?:\s*e\s*\d{1,2}\s*dias?)?)/i);
+    if(m){ document.getElementById("e_penaTotal").value=m[1].trim(); found.push("Pena total: "+m[1].trim()); }
+    else missing.push("pena total");
+
     /* unidade prisional — no Boletim Penal (BPI) da Polícia Penal-SC, a unidade "oficial" vem
        rotulada "Unidade: CIDADE - TIPO" perto de "Gestão/Gestor" na linha de assinatura; sem essa
        prioridade, o padrão genérico abaixo acaba batendo antes no cabeçalho da tabela "Unidade
@@ -1093,10 +1116,10 @@ const Extractor = {
     m=t.match(/art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?[^.;\n]{0,70}?(?:do|da)\s+(?:C[óo]digo\s+Penal|CP\b|Lei\s+n?[.ºo°]?\s*[\d.\/]+)/i);
     if(!m) m=t.match(/(?<!\d\s)art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?(?:\s*,\s*(?:caput|§+\s*\d+[ºo°]?))*/i);
     if(m){ artigo=m[0].replace(/\s+/g," ").trim(); found.push("Tipificação: "+artigo); }
-    m=t.match(/\b(roubo(?:\s+majorad[oa])?|homic[íi]dio(?:\s+qualificad[oa])?|latroc[íi]nio|estupro(?:\s+de\s+vulner[áa]vel)?|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|furto(?:\s+qualificad[oa])?|les[ãa]o\s+corporal|amea[çc]a|estelionato|c[áa]rcere\s+privado|extors[ãa]o)\b/i);
+    m=t.match(/\b(roubo(?:\s+majorad[oa])?|homic[íi]dio(?:\s+qualificad[oa])?|latroc[íi]nio|estupro(?:\s+de\s+vulner[áa]vel)?|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|furto(?:\s+qualificad[oa])?|les[ãa]o\s+corporal|amea[çc]a|estelionato|c[áa]rcere\s+privado|extors[ãa]o)\b/i);
     if(m){ crime=this.titleCase(m[1]); found.push("Crime: "+crime); }
     /* crimes inequivocamente violentos/hediondos → marca automática do campo (art. 122, §2º, LEP) */
-    const VIOLENTOS=/roubo|homic[íi]dio|latroc[íi]nio|estupro|feminic[íi]dio|les[ãa]o\s+corporal|amea[çc]a|c[áa]rcere\s+privado|extors[ãa]o/i;
+    const VIOLENTOS=/roubo|homic[íi]dio|latroc[íi]nio|estupro|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|les[ãa]o\s+corporal|amea[çc]a|c[áa]rcere\s+privado|extors[ãa]o/i;
     const autoViol = crime && VIOLENTOS.test(crime);
     if(!artigo && !crime) missing.push("tipificação");
 
@@ -1131,7 +1154,7 @@ const Extractor = {
     let m=bloco.match(/art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?[^.;\n]{0,70}?(?:do|da)\s+(?:C[óo]digo\s+Penal|CP\b|Lei\s+n?[.ºo°]?\s*[\d.\/]+)/i);
     if(!m) m=bloco.match(/(?<!\d\s)art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?(?:\s*,\s*(?:caput|§+\s*\d+[ºo°]?))*/i);
     if(m) artigo=m[0].replace(/\s+/g," ").trim();
-    m=bloco.match(/\b(roubo(?:\s+majorad[oa])?|homic[íi]dio(?:\s+qualificad[oa])?|latroc[íi]nio|estupro(?:\s+de\s+vulner[áa]vel)?|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|furto(?:\s+qualificad[oa])?|les[ãa]o\s+corporal|amea[çc]a|estelionato|c[áa]rcere\s+privado|extors[ãa]o)\b/i);
+    m=bloco.match(/\b(roubo(?:\s+majorad[oa])?|homic[íi]dio(?:\s+qualificad[oa])?|latroc[íi]nio|estupro(?:\s+de\s+vulner[áa]vel)?|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|furto(?:\s+qualificad[oa])?|les[ãa]o\s+corporal|amea[çc]a|estelionato|c[áa]rcere\s+privado|extors[ãa]o)\b/i);
     if(m) crime=this.titleCase(m[1]);
     /* formato "Amparo legal + número solto" do BPI/Boletim Penal (ex.: "CÓDIGO PENAL (DECRETO-LEI 2848/40) 155 0 Art. 10 a 4 m 0 d") */
     if(!artigo){
@@ -1194,7 +1217,7 @@ const Extractor = {
       const {crime,artigo}=this.bpiTipificacao(bloco);
       const data=semData ? null : this.bpiData(bloco);
       if(!crime && !artigo && !data) return;
-      const violento = crime && /roubo|homic[íi]dio|latroc[íi]nio|estupro|feminic[íi]dio|les[ãa]o\s+corporal|amea[çc]a|c[áa]rcere\s+privado|extors[ãa]o/i.test(crime);
+      const violento = crime && /roubo|homic[íi]dio|latroc[íi]nio|estupro|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|les[ãa]o\s+corporal|amea[çc]a|c[áa]rcere\s+privado|extors[ãa]o/i.test(crime);
       registros.push({crime:crime||"", artigo:artigo||"", dataFato:data?data.iso:"", dataFmt:data?data.fmt:"—", violento: violento?"sim":"nao"});
     });
 
@@ -1284,7 +1307,7 @@ const App = {
       return;
     }
 
-    if(perfil.perfil === "USUARIO"){
+    if((window.PERFIS_NIVEL_USUARIO||["USUARIO"]).includes(perfil.perfil)){
       const btnConfig=document.querySelector('nav.tabs button[data-v="config"]');
       if(btnConfig) btnConfig.style.display="none";
     }
@@ -1357,7 +1380,7 @@ const App = {
         const et=(ex.etapas||{})[k];
         if(et && et.data){
           out.push({
-            data: et.data, hora: et.hora||"", tipo: this.CAL_TIPOS[k], tipoK: k, exId: ex.id, nome: ex.nome, done: !!et.ok,
+            data: et.data, hora: et.hora||"", tipo: this.CAL_TIPOS[k], tipoK: k, exId: ex.id, nome: ex.nome, mat: ex.mat||"", done: !!et.ok,
             detalhe: k==="entConv" ? [et.nome,et.vinc].filter(Boolean).join(" — ") : (et.local||""),
             regional: geral ? ((this.data.cocs.find(c=>c.id===ex.coc)||{}).nome||"") : ""
           });
@@ -1427,7 +1450,7 @@ const App = {
     if(!eventos.length){ box.innerHTML=`<p class="note">Nenhuma entrevista marcada para ${dataFmt}. <button class="btn sm ghost" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></p>`; return; }
     box.innerHTML = `<h3 style="font-size:14px;">Entrevistas em ${dataFmt} <button class="btn sm ghost" style="float:right;" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></h3>` + eventos.map(e=>`
       <div class="etapa ${e.done?"done":""}" style="cursor:pointer;" onclick="App.abrir('${e.exId}')">
-        <div class="et-t"><b>${e.nome}</b><span>${e.hora?(e.hora+" — "):""}${e.tipo}${e.detalhe?(" — "+e.detalhe):""}${e.regional?(" · "+e.regional):""}</span></div>
+        <div class="et-t"><b>${e.nome}${e.mat?(" — IPEN "+e.mat):""}</b><span>${e.hora?(e.hora+" — "):""}${e.tipo}${e.detalhe?(" — "+e.detalhe):""}${e.regional?(" · "+e.regional):""}</span></div>
         <span class="badge ${e.done?"b-ok":"b-warn"}">${e.done?"realizada":"pendente"}</span>
       </div>`).join("");
   },
@@ -1444,7 +1467,8 @@ const App = {
       const evs=eventos.filter(e=>e.data===iso && (hora===""?!e.hora:e.hora && parseInt(e.hora.split(":")[0])===hora));
       const chips=evs.map(e=>{
         const cls=e.done?"":(e.data<hojeISO?"atrasada":"pend");
-        return `<div class="cal-evt ${cls}" onclick="event.stopPropagation();App.abrir('${e.exId}')" title="${e.nome} — ${e.tipo}${e.detalhe?(" — "+e.detalhe):""}">${e.nome.split(" ")[0]} · ${this.CAL_TIPOS_CURTO[e.tipoK]}</div>`;
+        const ident=e.nome+(e.mat?(" — IPEN "+e.mat):"");
+        return `<div class="cal-evt ${cls}" onclick="event.stopPropagation();App.abrir('${e.exId}')" title="${ident} — ${e.tipo}${e.detalhe?(" — "+e.detalhe):""}">${ident} · ${this.CAL_TIPOS_CURTO[e.tipoK]}</div>`;
       }).join("");
       const horaSlot = hora===""?"":(String(hora).padStart(2,"0")+":00");
       return `<div class="cal-slot ${iso===hojeISO?"today-col":""}" onclick="App.calAbrirForm('${iso}','${horaSlot||"08:00"}')">${chips}</div>`;
@@ -1655,7 +1679,7 @@ const App = {
         <div><label class="f">Artigo</label><input type="text" class="c_art" value="${c.artigo||""}" placeholder="ex.: art. 157, §2º, CP"></div>
         <div><label class="f">Data do fato</label><input type="date" class="c_data" value="${c.dataFato||""}" onchange="App.triagem()"></div>
       </div>
-      <label class="f">Crime hediondo ou com violência/grave ameaça contra pessoa?</label>
+      <label class="f">Crime hediondo/equiparado ou com violência/grave ameaça contra pessoa?</label>
       <select class="c_viol" onchange="App.triagem()">
         <option value="nao" ${c.violento==="nao"?"selected":""}>Não</option>
         <option value="sim" ${c.violento==="sim"?"selected":""}>Sim</option>
@@ -2325,7 +2349,9 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
-const PERFIL_LABEL = { USUARIO:"Usuário", CPEN:"CPEN", DIR:"Diretor(a)", SR:"Superintendente Regional", DPP:"DPP" };
+const PERFIL_LABEL = { USUARIO:"Usuário", PSICOLOGIA:"Usuário Psicologia", SOCIAL:"Usuário Assistente Social", CPEN:"CPEN", DIR:"Diretor(a)", SR:"Superintendente Regional", DPP:"DPP" };
+const PERFIS_NIVEL_USUARIO = ["USUARIO","PSICOLOGIA","SOCIAL"];
+window.PERFIS_NIVEL_USUARIO = PERFIS_NIVEL_USUARIO;
 
 let meuPerfilDoc = null;
 let meuUid = null;
@@ -2354,8 +2380,8 @@ function traduzErroAuth(e){
 function podeAprovar(u){
   const meu = meuPerfilDoc?.perfil;
   if(meu==="DPP") return true;
-  if(meu==="SR") return ["USUARIO","CPEN","DIR"].includes(u.perfilSolicitado) && u.sr===meuPerfilDoc.sr;
-  if(meu==="DIR"||meu==="CPEN") return u.perfilSolicitado==="USUARIO" && u.unidade===meuPerfilDoc.unidade;
+  if(meu==="SR") return [...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(u.perfilSolicitado) && u.sr===meuPerfilDoc.sr;
+  if(meu==="DIR"||meu==="CPEN") return PERFIS_NIVEL_USUARIO.includes(u.perfilSolicitado) && u.unidade===meuPerfilDoc.unidade;
   return false;
 }
 
@@ -2376,10 +2402,12 @@ const AuthUI = {
   },
   atualizarCamposFuncao(){
     const f = document.getElementById("regFuncao").value;
-    document.getElementById("regCampoUnidade").style.display = (f==="USUARIO"||f==="CPEN"||f==="DIR") ? "block" : "none";
+    document.getElementById("regCampoUnidade").style.display = ([...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(f)) ? "block" : "none";
     document.getElementById("regCampoSR").style.display = (f==="SR") ? "block" : "none";
     const notas = {
       USUARIO: "O cadastro fica pendente até análise/aprovação pelo responsável.",
+      PSICOLOGIA: "O cadastro fica pendente até análise/aprovação pelo responsável.",
+      SOCIAL: "O cadastro fica pendente até análise/aprovação pelo responsável.",
       CPEN: "O cadastro fica pendente até ser aprovado pela Superintendência Regional ou pelo DPP.",
       DIR: "O cadastro fica pendente até ser aprovado pela Superintendência Regional ou pelo DPP.",
       SR: "Contas de Superintendência só são liberadas diretamente pelo DPP.",
@@ -2404,7 +2432,7 @@ const AuthUI = {
     const nome = document.getElementById("regNome").value.trim();
     const cpf = document.getElementById("regCpf").value.replace(/\D/g,"");
     const funcao = document.getElementById("regFuncao").value;
-    const unidade = (funcao==="USUARIO"||funcao==="CPEN"||funcao==="DIR") ? document.getElementById("regUnidade").value : null;
+    const unidade = ([...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(funcao)) ? document.getElementById("regUnidade").value : null;
     const sr = funcao==="SR" ? document.getElementById("regSR").value : (unidade ? srDaUnidade(unidade) : null);
     const email = document.getElementById("regEmail").value.trim();
     const senha = document.getElementById("regSenha").value;
@@ -2546,7 +2574,7 @@ const UsuariosUI = {
     document.getElementById("editUsuarioEmail").textContent = u.email;
     document.getElementById("editUsuarioNome").value = u.nome||"";
     document.getElementById("editUsuarioCpf").value = u.cpf||"";
-    const temUnidade = u.perfil==="USUARIO" || u.perfil==="CPEN" || u.perfil==="DIR";
+    const temUnidade = [...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(u.perfil);
     document.getElementById("editUsuarioUnidWrap").style.display = temUnidade ? "block" : "none";
     if(temUnidade) document.getElementById("editUsuarioUnid").innerHTML = optsUnidadesAgrupadas(u.unidade);
     document.getElementById("editUsuarioPerfilInfo").textContent = "Nível de acesso: " + (PERFIL_LABEL[u.perfil]||u.perfil) + " (altere na coluna da tabela)";
