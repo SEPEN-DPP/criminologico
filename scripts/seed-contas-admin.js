@@ -71,7 +71,7 @@ const FULL_ACCESS = [
   { nome: "Ivana Schafer", email: "ivana.schafer@gmail.com" },
   { nome: "Jéssica Karla Veiga", email: "jessicaveiga9@gmail.com" },
   { nome: "Juliana Abel", email: "abeljuliana2012@gmail.com" },
-  { nome: "Leila Karenina Farias", email: "leilakfarias@gmail.com" },
+  { nome: "Leila Karenina Farias", email: "leilakffarias@gmail.com" },
   { nome: "Ricardo de Brito", email: "ricardobritomarques12@gmail.com" },
   { nome: "Rodrigo Pastore", email: "rodrigo.l.pastore@gmail.com" },
   { nome: "SEPEN", email: "sepen@pp.sc.gov.br" },
