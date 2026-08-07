@@ -95,9 +95,6 @@
   .cal-evt.pend{background:var(--warnbg); border-left-color:var(--warn);}
   .cal-evt.atrasada{background:var(--critbg); border-left-color:var(--crit);}
 
-  /* ===== importador de BPI (arrastar e soltar) ===== */
-  .bpi-drop{border:2px dashed var(--steel); border-radius:8px; padding:16px; text-align:center; font-size:13px; color:var(--mut); background:#F7F9FC; transition:background .15s, border-color .15s;}
-  .bpi-drop.over{background:#E3F1E9; border-color:var(--navy); color:var(--navy);}
   main{max-width:1440px; margin:0 auto; padding:22px 18px 60px;}
   section.view{display:none;} section.view.on{display:block;}
 
@@ -371,17 +368,18 @@
 
     <div class="novopanel on" id="np-ident">
     <div class="lawbox" style="background:#F5F2E8; border-color:#DCD3B8; border-left-color:var(--gold);">
-      <b>Importar decisão judicial ou outro documento</b> — o sistema lê o arquivo e preenche automaticamente os dados do apenado (nome, matrícula/IPEN, processo, unidade, data do fato, tipificação). Confira sempre os campos após a extração.
+      <b>Importar documento do SGPE</b> — anexe o documento do SGPE (que já reúne a decisão judicial e o BPI). O sistema lê o arquivo e preenche automaticamente os dados do apenado (nome, matrícula/IPEN, processo, unidade, data do fato, tipificação) e as condenações (guias de execução), logo abaixo. Confira sempre os campos após a extração.
       <div class="btnrow" style="margin-top:10px;">
         <button class="btn sm" onclick="document.getElementById('docFile').click()">Selecionar arquivo (PDF ou TXT)</button>
         <input type="file" id="docFile" accept=".pdf,.txt" style="display:none;" onchange="Extractor.arquivo(this)">
-        <button class="btn sm ghost" onclick="Extractor.togglePaste()">ou colar o texto da decisão</button>
+        <button class="btn sm ghost" onclick="Extractor.togglePaste()">ou colar o texto do SGPE</button>
       </div>
       <div id="pasteBox" style="display:none; margin-top:10px;">
-        <textarea id="docTexto" style="min-height:110px;" placeholder="Cole aqui o texto da decisão (eProc/SEEU: selecionar tudo e copiar)…"></textarea>
-        <div class="btnrow"><button class="btn sm" onclick="Extractor.extrair(document.getElementById('docTexto').value, 'texto colado')">Extrair dados do texto</button></div>
+        <textarea id="docTexto" style="min-height:110px;" placeholder="Cole aqui o texto do documento do SGPE (decisão + BPI)…"></textarea>
+        <div class="btnrow"><button class="btn sm" onclick="Extractor.processarSGPE(document.getElementById('docTexto').value, 'texto colado')">Extrair dados do texto</button></div>
       </div>
       <div id="extResult" style="margin-top:8px;"></div>
+      <div id="bpiResult" style="margin-top:8px;"></div>
     </div>
 
     <div class="row c2">
@@ -433,20 +431,7 @@
 
     <hr class="sep">
     <h3>Condenações (guias de execução) <button class="btn sm ghost" style="float:right;" onclick="App.addCond()">+ adicionar condenação</button></h3>
-    <p class="note">A data do fato de cada condenação define a triagem legal. Preencha uma entrada por guia — ou importe o BPI para preencher automaticamente.</p>
-    <div id="bpiDrop" class="bpi-drop" ondragover="Extractor.bpiDragOver(event)" ondragleave="Extractor.bpiDragLeave(event)" ondrop="Extractor.bpiDrop(event)">
-      <span>Arraste o BPI aqui (PDF ou TXT) para preencher as condenações automaticamente</span>
-      <div class="btnrow" style="margin-top:8px; justify-content:center;">
-        <button class="btn sm ghost" type="button" onclick="document.getElementById('bpiFile').click()">ou selecionar arquivo</button>
-        <input type="file" id="bpiFile" accept=".pdf,.txt" style="display:none;" onchange="Extractor.bpiArquivo(this)">
-        <button class="btn sm ghost" type="button" onclick="Extractor.bpiTogglePaste()">ou colar o texto do BPI</button>
-      </div>
-      <div id="bpiPasteBox" style="display:none; margin-top:10px; text-align:left;">
-        <textarea id="bpiTexto" style="min-height:100px;" placeholder="Cole aqui o texto do BPI…"></textarea>
-        <div class="btnrow"><button class="btn sm" type="button" onclick="Extractor.extrairBPI(document.getElementById('bpiTexto').value, 'texto colado')">Extrair condenações do texto</button></div>
-      </div>
-    </div>
-    <div id="bpiResult" style="margin-top:8px;"></div>
+    <p class="note">A data do fato de cada condenação define a triagem legal. Preencha uma entrada por guia — as condenações também são preenchidas automaticamente ao importar o documento do SGPE, no início desta aba.</p>
     <div id="condBox" style="margin-top:10px;"></div>
 
     <div class="row c2" style="margin-top:6px;">
@@ -588,13 +573,13 @@
     </div>
     <div class="relpanel" id="rp-soc">
       <p class="note">Responsável: <span class="resp-tag" id="rp_socNome">—</span></p>
-      <label class="f">III — Análise social</label>
+      <label class="f">III — Relatório social</label>
       <textarea id="r_soc"></textarea>
       <div class="orient-field">Aborde a realidade histórica e social do avaliado: trajetória familiar, comunitária e laboral, vínculos e rede de apoio, condições socioeconômicas antes e durante o cárcere, e o impacto da prisão sobre o avaliado e sua família (art. 9º, V, da Portaria). Evite termos indeterminados ou estigmatizantes e qualquer prognóstico de reincidência (vedações I e II).</div>
     </div>
     <div class="relpanel" id="rp-psi">
       <p class="note">Responsável: <span class="resp-tag" id="rp_psiNome">—</span></p>
-      <label class="f">IV — Análise psicológica</label>
+      <label class="f">IV — Relatório psicológico</label>
       <textarea id="r_psi"></textarea>
       <div class="orient-field">Registre a análise a partir das entrevistas e, quando aplicável, de instrumentos técnicos validados: percepções sobre a vivência do cárcere, saúde mental e projetos de vida. Não estabeleça nexo causal entre o delito e a personalidade do avaliado, nem sugira prognóstico de reincidência (vedações I e III).</div>
     </div>
@@ -882,8 +867,8 @@ const ETAPAS = [
   {k:"ent1",     t:"1ª entrevista com o avaliado", s:"Mínimo legal: duas entrevistas, preferencialmente presenciais (art. 9º, II)", data:true, extra:"entrevista"},
   {k:"ent2",     t:"2ª entrevista com o avaliado", s:"Vedado exame com entrevista única ou baseado só em formulários padronizados (art. 9º, III)", data:true, extra:"entrevista"},
   {k:"entConv",  t:"Entrevista com pessoa do convívio (familiar, coapenado ou servidor)", s:"Obrigatória, mínimo de 1 — não é mais facultativa (art. 9º, II, da Portaria)", data:true, extra:"convivio"},
-  {k:"anSoc",    t:"Análise social concluída", s:"Assistente social", data:false},
-  {k:"anPsi",    t:"Análise psicológica concluída", s:"Psicólogo(a)", data:false},
+  {k:"anSoc",    t:"Relatório social concluído", s:"Assistente social", data:false},
+  {k:"anPsi",    t:"Relatório psicológico concluído", s:"Psicólogo(a)", data:false},
   {k:"anPsq",    t:"Análise psiquiátrica concluída (quando houver)", s:"Psiquiatra", data:false},
   {k:"relat",    t:"Relatório circunstanciado redigido e verificado", s:"Metodologia declarada + remissão ao exame de ingresso", data:false},
   {k:"encam",    t:"Encaminhado ao Juízo da Execução (e à CTC, no que couber)", s:"Art. 1º, parágrafo único, da Portaria", data:true}
@@ -977,16 +962,23 @@ const Extractor = {
     const out=document.getElementById("extResult");
     if(/\.txt$/i.test(f.name)){
       const r=new FileReader();
-      r.onload=()=>this.extrair(r.result, f.name);
+      r.onload=()=>this.processarSGPE(r.result, f.name);
       r.readAsText(f,"utf-8");
     } else if(/\.pdf$/i.test(f.name)){
       out.innerHTML=`<p class="note">Lendo PDF…</p>`;
-      this.lerPDF(f).then(t=>this.extrair(t, f.name))
-        .catch(()=>{ out.innerHTML=`<div class="flag"><b>Não foi possível ler o PDF neste computador</b> (leitura de PDF exige conexão na primeira vez, ou o arquivo é imagem digitalizada sem texto). Alternativa garantida: abra a decisão no eProc/SEEU, selecione o texto, copie e use "colar o texto da decisão".</div>`; });
+      this.lerPDF(f).then(t=>this.processarSGPE(t, f.name))
+        .catch(()=>{ out.innerHTML=`<div class="flag"><b>Não foi possível ler o PDF neste computador</b> (leitura de PDF exige conexão na primeira vez, ou o arquivo é imagem digitalizada sem texto). Alternativa garantida: abra o documento no SGPE, selecione o texto, copie e use "colar o texto do SGPE".</div>`; });
     } else {
       out.innerHTML=`<div class="flag">Formato não suportado. Use PDF ou TXT — ou cole o texto.</div>`;
     }
     input.value="";
+  },
+
+  /* processa o documento único do SGPE (decisão + BPI): identificação/condenações
+     vêm do mesmo texto — roda os dois extratores em sequência sobre ele. */
+  processarSGPE(texto, fonte){
+    this.extrair(texto, fonte);
+    this.extrairBPI(texto, fonte);
   },
 
   lerPDF(file){
@@ -1112,39 +1104,6 @@ const Extractor = {
       + (missing.length?`<p class="note" style="color:var(--warn);"><b>Não localizados no documento (preencher manualmente):</b> ${missing.join(", ")}.</p>`:"");
   },
 
-  /* ---- BPI: várias condenações num único documento (arrastar/soltar) ---- */
-  bpiDragOver(e){ e.preventDefault(); e.currentTarget.classList.add("over"); },
-  bpiDragLeave(e){ e.currentTarget.classList.remove("over"); },
-  bpiDrop(e){
-    e.preventDefault(); e.currentTarget.classList.remove("over");
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if(f){ this.bpiProcessarArquivo(f); return; }
-    const texto = e.dataTransfer.getData("text/plain");
-    if(texto) this.extrairBPI(texto, "texto arrastado");
-  },
-  bpiArquivo(input){
-    const f=input.files[0]; if(!f) return;
-    this.bpiProcessarArquivo(f);
-    input.value="";
-  },
-  bpiProcessarArquivo(f){
-    const out=document.getElementById("bpiResult");
-    if(/\.txt$/i.test(f.name)){
-      const r=new FileReader();
-      r.onload=()=>this.extrairBPI(r.result, f.name);
-      r.readAsText(f,"utf-8");
-    } else if(/\.pdf$/i.test(f.name)){
-      out.innerHTML=`<p class="note">Lendo PDF…</p>`;
-      this.lerPDF(f).then(t=>this.extrairBPI(t, f.name))
-        .catch(()=>{ out.innerHTML=`<div class="flag"><b>Não foi possível ler o PDF</b> (exige conexão na primeira vez, ou o arquivo é imagem digitalizada sem texto). Alternativa garantida: cole o texto do BPI.</div>`; });
-    } else {
-      out.innerHTML=`<div class="flag">Formato não suportado. Use PDF ou TXT — ou cole o texto.</div>`;
-    }
-  },
-  bpiTogglePaste(){
-    const b=document.getElementById("bpiPasteBox");
-    b.style.display = b.style.display==="none" ? "block" : "none";
-  },
   /* artigos mais comuns do CP — só para sugerir o nome do crime quando o BPI traz o número solto (ex.: "155") sem o nome; sempre exige conferência */
   CP_ARTIGOS:{"121":"Homicídio","129":"Lesão corporal","148":"Cárcere privado","155":"Furto","157":"Roubo","158":"Extorsão","159":"Extorsão mediante sequestro","171":"Estelionato","213":"Estupro","217-A":"Estupro de vulnerável","33":"Tráfico de drogas"},
   bpiTipificacao(bloco){
@@ -2185,8 +2144,8 @@ const App = {
 
     const pgCheI=`<h3>IV — Chefia de Serviço I (segurança/rotina institucional)</h3><p style="text-indent:1.5cm;">${(r_cheI.value||"—").replace(/\n/g,"<br>")}</p>`;
     const pgCheII=`<h3>V — Chefia de Serviço II (trabalho/educação)</h3><p style="text-indent:1.5cm;">${(r_cheII.value||"—").replace(/\n/g,"<br>")}</p>`;
-    const pgSoc=`<h3>VI — Análise social</h3><p style="text-indent:1.5cm;">${(r_soc.value||"—").replace(/\n/g,"<br>")}</p>`;
-    const pgPsi=`<h3>VII — Análise psicológica</h3><p style="text-indent:1.5cm;">${(r_psi.value||"—").replace(/\n/g,"<br>")}</p>`;
+    const pgSoc=`<h3>VI — Relatório social</h3><p style="text-indent:1.5cm;">${(r_soc.value||"—").replace(/\n/g,"<br>")}</p>`;
+    const pgPsi=`<h3>VII — Relatório psicológico</h3><p style="text-indent:1.5cm;">${(r_psi.value||"—").replace(/\n/g,"<br>")}</p>`;
     const pgPsq=r_psq.value.trim()?`<h3>VIII — Análise psiquiátrica</h3><p style="text-indent:1.5cm;">${r_psq.value.replace(/\n/g,"<br>")}</p>`:(semPsq?`<h3>Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:"");
 
     const pgReal=`
