@@ -63,6 +63,21 @@ Object.entries(SR_INFO).forEach(([sr, info]) => {
   contas.push({ email: sr.toLowerCase() + "@pp.sc.gov.br", nome: info.nome, perfil: "SR", unidade: null, sr });
 });
 
+// Contas DPP (acesso total) — mesma equipe cadastrada como Administrador no PAD.
+const FULL_ACCESS = [
+  { nome: "Bruna Longen", email: "brunawlongen@gmail.com" },
+  { nome: "CRV", email: "crv@pp.sc.gov.br" },
+  { nome: "Day Sestren", email: "day.sestren88@gmail.com" },
+  { nome: "Ivana Schafer", email: "ivana.schafer@gmail.com" },
+  { nome: "Jéssica Karla Veiga", email: "jessicaveiga9@gmail.com" },
+  { nome: "Juliana Abel", email: "abeljuliana2012@gmail.com" },
+  { nome: "Leila Karenina Farias", email: "leilakfarias@gmail.com" },
+  { nome: "Ricardo de Brito", email: "ricardobritomarques12@gmail.com" },
+  { nome: "Rodrigo Pastore", email: "rodrigo.l.pastore@gmail.com" },
+  { nome: "SEPEN", email: "sepen@pp.sc.gov.br" },
+];
+FULL_ACCESS.forEach(p => contas.push({ email: p.email, nome: p.nome, perfil: "DPP", unidade: null, sr: null }));
+
 async function main() {
   let ok = 0, jaExistia = 0;
   const falhas = [];
