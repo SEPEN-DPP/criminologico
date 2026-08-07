@@ -495,6 +495,7 @@
         <div><label class="f">Assistente social</label><input type="text" id="q_as" placeholder="Nome / CRESS" oninput="App.syncRespNomes()"></div>
       </div>
       <p class="note">Os nomes acima já vêm pré-preenchidos com a equipe padrão do centro (defina em Configurações) — ajuste se este exame tiver outra equipe.</p>
+      <p class="note" id="eqSomenteLeituraNota" style="display:none; color:var(--mut);">Os nomes da equipe examinadora são designados pela Superintendência Regional (ou pelo DPP) — esta tela é somente para consulta.</p>
       <p class="note">Vedações: profissionais temporários contratados só para exames; integrantes de eAPP; referência técnica do próprio avaliado (art. 5º, §§ 2º a 4º, da Portaria). Aplicam-se também as regras de impedimento e suspeição do CPP aos integrantes da equipe (art. 5º, §6º, da Portaria; art. 4º da Res. CNPCP 36/2024).</p>
       <label style="display:flex; align-items:flex-start; gap:8px; margin-top:10px; font-size:13.5px;">
         <input type="checkbox" id="q_semPsq" style="width:18px; height:18px; margin-top:2px; flex-shrink:0;" onchange="App.syncRespNomes()">
@@ -1280,7 +1281,24 @@ const App = {
      é só pra não mostrar um seletor de "Centro" que sugere um acesso que a
      pessoa não tem. */
   aplicarEscopoPerfil(perfil){
+    this._meuPerfil = perfil;
+    /* reseta os controles que podem ter ficado escondidos numa aplicação anterior
+       do escopo (defensivo — no uso real isto roda uma vez só por sessão) */
+    const btnConfigReset=document.querySelector('nav.tabs button[data-v="config"]'); if(btnConfigReset) btnConfigReset.style.display="";
+    const btnNovoReset=document.querySelector('nav.tabs button[data-v="novo"]'); if(btnNovoReset) btnNovoReset.style.display="";
+    const btnCosReset=document.querySelector('#cfgTabs button[data-c="cos"]'); if(btnCosReset) btnCosReset.style.display="";
+
+    /* Equipe examinadora (art. 5º) so e designada por quem tem alcada regional pra isso
+       (SR) ou pelo DPP — DIR/CPEN/USUARIO so acompanham os nomes ja definidos. */
+    const podeDesignarEquipe = !perfil || perfil.perfil==="DPP" || perfil.perfil==="SR";
+    ["q_c1","q_c1Funcao","q_c2","q_c2Funcao","q_psq","q_psi","q_as","q_coord","q_semPsq"].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.disabled = !podeDesignarEquipe;
+    });
+    const notaEquipe=document.getElementById("eqSomenteLeituraNota");
+    if(notaEquipe) notaEquipe.style.display = podeDesignarEquipe ? "none" : "block";
+
     if(!perfil || perfil.perfil === "DPP"){
+      this._meuCocId = null;
       this.coc = "_cepen";
       document.getElementById("selCoc").value = "_cepen";
       this.renderDash(); this.renderLista();
@@ -1295,10 +1313,20 @@ const App = {
       const btnNovo=document.querySelector('nav.tabs button[data-v="novo"]');
       if(btnNovo) btnNovo.style.display="none";
     }
+    if(perfil.perfil==="DIR" || perfil.perfil==="CPEN"){
+      /* DIR/CPEN nao precisam ver os Centros de Observacao (equipe padrao,
+         unidades vinculadas etc.) — em Configuracoes so faz sentido a aba
+         de Usuarios (ja escopada no servidor pra propria unidade). */
+      const btnCos=document.querySelector('#cfgTabs button[data-c="cos"]');
+      if(btnCos) btnCos.style.display="none";
+      this.cfgTab("usuarios");
+    }
 
     const srDoUsuario = perfil.sr || (window.UNIDADES_INFO[perfil.unidade]||{}).sr;
     const cocId = srDoUsuario ? "coc"+Number(srDoUsuario.slice(2)) : null;
+    this._meuCocId = perfil.perfil==="SR" ? cocId : null;
     if(cocId && this.data.cocs.some(c=>c.id===cocId)) this.coc = cocId;
+    if(perfil.perfil==="SR") this.renderConfig();
     const sel=document.getElementById("selCoc");
     sel.value=this.coc;
     sel.disabled=true;
@@ -2200,8 +2228,11 @@ const App = {
   },
   /* ---------- config ---------- */
   renderConfig(){
-    document.getElementById("cocBox").innerHTML=this.data.cocs.map((c,i)=>`
-      <details class="cond" data-coc-id="${c.id}" style="margin-bottom:14px; padding:0;">
+    const cocsVisiveis = this._meuCocId ? this.data.cocs.filter(c=>c.id===this._meuCocId) : this.data.cocs;
+    document.getElementById("cocBox").innerHTML=cocsVisiveis.map(c=>{
+      const i=this.data.cocs.indexOf(c);
+      return `
+      <details class="cond" data-coc-id="${c.id}" style="margin-bottom:14px; padding:0;" ${this._meuCocId?"open":""}>
         <summary style="cursor:pointer; padding:12px; font-weight:700; color:var(--navy);">Centro ${i+1} — ${c.nome}</summary>
         <div style="padding:0 12px 12px;">
         <label class="f">Centro ${i+1}</label>
@@ -2228,7 +2259,8 @@ const App = {
           <input type="text" placeholder="Responsável/Coordenação do Centro" value="${(c.equipePadrao||{}).coord||""}" onchange="App.atualizarEquipePadrao('${c.id}','coord',this.value)">
         </div>
         </div>
-      </details>`).join("");
+      </details>`;
+    }).join("");
   },
   renomearCoc(id,nome){
     const c=this.data.cocs.find(x=>x.id===id); if(!c||!nome.trim()) return;
