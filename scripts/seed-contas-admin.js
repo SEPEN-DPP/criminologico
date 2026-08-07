@@ -17,7 +17,9 @@
  */
 const fs = require("fs");
 const path = require("path");
-const admin = require("firebase-admin");
+const { initializeApp, cert } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const keyPath = process.argv[2];
 if (!keyPath) {
@@ -26,9 +28,9 @@ if (!keyPath) {
 }
 const serviceAccount = JSON.parse(fs.readFileSync(keyPath, "utf8"));
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+const app = initializeApp({ credential: cert(serviceAccount) });
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 const indexPath = path.join(__dirname, "..", "index.html");
 const html = fs.readFileSync(indexPath, "utf8");
@@ -62,24 +64,23 @@ Object.entries(SR_INFO).forEach(([sr, info]) => {
 });
 
 async function main() {
-  const db = admin.firestore();
   let ok = 0, jaExistia = 0;
   const falhas = [];
   for (const c of contas) {
     try {
       let userRecord;
       try {
-        userRecord = await admin.auth().getUserByEmail(c.email);
+        userRecord = await auth.getUserByEmail(c.email);
         jaExistia++;
       } catch (e) {
         if (e.code !== "auth/user-not-found") throw e;
-        userRecord = await admin.auth().createUser({ email: c.email, password: SENHA_PADRAO });
+        userRecord = await auth.createUser({ email: c.email, password: SENHA_PADRAO });
         ok++;
       }
       await db.collection("usuarios").doc(userRecord.uid).set({
         nome: c.nome, cpf: "", email: c.email, unidade: c.unidade, sr: c.sr,
         perfilSolicitado: c.perfil, perfil: c.perfil, status: "ATIVO",
-        criadoEm: admin.firestore.FieldValue.serverTimestamp(),
+        criadoEm: FieldValue.serverTimestamp(),
       }, { merge: true });
       console.log(`OK  ${c.email}`);
     } catch (e) {
