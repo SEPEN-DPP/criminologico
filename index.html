@@ -37,6 +37,9 @@
   nav.subtabs button.on{background:var(--navy); color:#fff;}
   .relpanel{display:none;} .relpanel.on{display:block;}
   .novopanel{display:none;} .novopanel.on{display:block;}
+  .novoLayout{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start;}
+  .novoPreviewCol{position:sticky; top:12px; max-height:calc(100vh - 24px); overflow:auto;}
+  @media (max-width:1100px){ .novoLayout{grid-template-columns:1fr;} .novoPreviewCol{position:static; max-height:none;} }
   .reportPreview{background:#fff; border:1px solid var(--line); border-radius:8px; padding:24px 28px; font-family:Arial,Helvetica,sans-serif; font-size:11pt; line-height:1; color:#111;}
   .reportPreview h2{text-align:center; font-size:14pt; margin:2px 0;}
   .reportPreview h3{font-size:12pt; margin:14px 0 6px;}
@@ -343,6 +346,7 @@
 
 <!-- ============ NOVO / FICHA ============ -->
 <section class="view" id="v-novo">
+  <div class="novoLayout">
   <div class="card">
     <h3 id="fichaTitulo">Novo exame criminológico</h3>
 
@@ -350,7 +354,6 @@
       <button class="on" data-n="ident" onclick="App.novoTab('ident')">Identificação e condenações</button>
       <button data-n="equipe" onclick="App.novoTab('equipe')">Equipe examinadora</button>
       <button data-n="quesitos" onclick="App.novoTab('quesitos')">Quesitos e Relatório</button>
-      <button data-n="preview" onclick="App.novoTab('preview')">Pré-visualização</button>
     </nav>
 
     <div class="novopanel on" id="np-ident">
@@ -629,14 +632,15 @@
     <div id="salvoMsg" class="note" style="color:var(--ok); font-weight:700;"></div>
     <div id="verifInline" style="margin-top:12px;"></div>
     </div>
+  </div>
 
-    <div class="novopanel" id="np-preview">
-      <div class="lawbox" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-        <span>Pré-visualização do relatório com os dados já preenchidos até agora. Clique em <b>Editar</b> para ajustar o texto diretamente aqui antes de gerar o PDF.</span>
-        <button class="btn sm ghost" type="button" id="btnEditarPreview" onclick="App.toggleEditarPreview()">✎ Editar</button>
-      </div>
-      <div class="reportPreview" id="previewBox"></div>
+  <div class="card novoPreviewCol" id="novoPreviewCol">
+    <div class="lawbox" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+      <span>Pré-visualização ao vivo, atualizada conforme você preenche. Clique em <b>Editar</b> para ajustar o texto diretamente aqui antes de gerar o PDF.</span>
+      <button class="btn sm ghost" type="button" id="btnEditarPreview" onclick="App.toggleEditarPreview()">✎ Editar</button>
     </div>
+    <div class="reportPreview" id="previewBox"></div>
+  </div>
   </div>
 </section>
 
@@ -1221,6 +1225,11 @@ const App = {
     this.persist();
     this.coc = this.data.cocs[0].id;
     this.renderCocSel(); this.renderConfig(); this.novo(); this.renderDash(); this.renderLista();
+    let previewTimer=null;
+    document.getElementById("v-novo").addEventListener("input", ()=>{
+      clearTimeout(previewTimer);
+      previewTimer=setTimeout(()=>this.atualizarPreview(), 400);
+    });
   },
   persist(){ Store.save(this.data); },
 
@@ -1240,8 +1249,12 @@ const App = {
   novoTab(n){
     document.querySelectorAll("#novoTabs button").forEach(b=>b.classList.toggle("on", b.dataset.n===n));
     document.querySelectorAll(".novopanel").forEach(p=>p.classList.toggle("on", p.id==="np-"+n));
+    this.atualizarPreview();
+  },
+  atualizarPreview(){
     /* não sobrescreve a pré-visualização se o usuário estiver no meio de uma edição manual */
-    if(n==="preview" && !this._previewEditing) document.getElementById("previewBox").innerHTML=this.montarRelatorioHTML();
+    if(this._previewEditing) return;
+    document.getElementById("previewBox").innerHTML=this.montarRelatorioHTML();
   },
   toggleEditarPreview(){
     const box=document.getElementById("previewBox");
@@ -2108,7 +2121,9 @@ const App = {
   /* ---------- config ---------- */
   renderConfig(){
     document.getElementById("cocBox").innerHTML=this.data.cocs.map((c,i)=>`
-      <div class="cond" style="margin-bottom:14px;">
+      <details class="cond" data-coc-id="${c.id}" style="margin-bottom:14px; padding:0;">
+        <summary style="cursor:pointer; padding:12px; font-weight:700; color:var(--navy);">Centro ${i+1} — ${c.nome}</summary>
+        <div style="padding:0 12px 12px;">
         <label class="f">Centro ${i+1}</label>
         <input type="text" value="${c.nome}" onchange="App.renomearCoc('${c.id}',this.value)">
         <label class="f" style="margin-top:10px;">Unidades prisionais vinculadas</label>
@@ -2132,10 +2147,16 @@ const App = {
           <input type="text" placeholder="Assistente social" value="${(c.equipePadrao||{}).as||""}" onchange="App.atualizarEquipePadrao('${c.id}','as',this.value)">
           <input type="text" placeholder="Responsável/Coordenação do Centro" value="${(c.equipePadrao||{}).coord||""}" onchange="App.atualizarEquipePadrao('${c.id}','coord',this.value)">
         </div>
-      </div>`).join("");
+        </div>
+      </details>`).join("");
   },
   renomearCoc(id,nome){
-    const c=this.data.cocs.find(x=>x.id===id); if(c&&nome.trim()){ c.nome=nome.trim(); this.persist(); this.renderCocSel(); }
+    const c=this.data.cocs.find(x=>x.id===id); if(!c||!nome.trim()) return;
+    c.nome=nome.trim(); this.persist(); this.renderCocSel();
+    /* atualiza só o texto do resumo (sem re-renderizar tudo, pra não recolher o painel que a pessoa está editando) */
+    const i=this.data.cocs.indexOf(c);
+    const resumo=document.querySelector(`#cocBox details[data-coc-id="${id}"] summary`);
+    if(resumo) resumo.textContent = `Centro ${i+1} — ${c.nome}`;
   },
   atualizarEquipePadrao(id,campo,valor){
     const c=this.data.cocs.find(x=>x.id===id); if(!c) return;
@@ -2369,10 +2390,10 @@ const UsuariosUI = {
     box.innerHTML = `<table><tr><th>Nome completo</th><th>CPF</th><th>E-mail</th><th>Unidade / Regional</th><th>Nível de acesso</th>${editavel?"<th>Ações</th>":""}</tr>` +
       visiveis.map(u=>{
         const unidadeCell = (editavel && (u.perfil==="USUARIO"||u.perfil==="CPEN"||u.perfil==="DIR"))
-          ? `<select onchange="UsuariosUI.alterarUnidade('${u.id}', this.value)">${optsUnidadesAgrupadas(u.unidade)}</select>`
+          ? `<select onchange="UsuariosUI.alterarUnidade('${u.id}', this)">${optsUnidadesAgrupadas(u.unidade)}</select>`
           : (u.unidade || nomeSR(u.sr) || "—");
         const perfilCell = editavel
-          ? `<select onchange="UsuariosUI.alterarPerfil('${u.id}', this.value)">${Object.entries(PERFIL_LABEL).map(([k,l])=>`<option value="${k}" ${k===u.perfil?"selected":""}>${l}</option>`).join("")}</select>`
+          ? `<select onchange="UsuariosUI.alterarPerfil('${u.id}', this)">${Object.entries(PERFIL_LABEL).map(([k,l])=>`<option value="${k}" ${k===u.perfil?"selected":""}>${l}</option>`).join("")}</select>`
           : `<span class="badge b-navy">${PERFIL_LABEL[u.perfil]||(u.status==="PENDENTE"?"pendente":"—")}</span>`;
         return `<tr>
           <td><b>${u.nome}</b></td><td>${u.cpf||"—"}</td><td>${u.email}</td>
@@ -2396,17 +2417,33 @@ const UsuariosUI = {
     catch(e){ alert("Não foi possível recusar: " + (e?.message||e)); }
   },
   async excluir(id){
-    if(!confirm("Excluir esta conta definitivamente?")) return;
+    const u = this._cache.find(x=>x.id===id);
+    const nome = u ? `${u.nome} (${u.email})` : "esta conta";
+    if(!confirm(`Excluir definitivamente ${nome}?\n\nA pessoa perde o acesso ao sistema imediatamente e precisaria se cadastrar de novo (com nova aprovação) para voltar a entrar.`)) return;
     try{ await deleteDoc(doc(db,"usuarios",id)); this._cache=[]; await this.render(); }
     catch(e){ alert("Não foi possível excluir: " + (e?.message||e)); }
   },
-  async alterarUnidade(id, unidade){
+  async alterarUnidade(id, selectEl){
+    const u = this._cache.find(x=>x.id===id);
+    const unidade = selectEl.value;
+    const anterior = u?.unidade || "—";
+    if(unidade===anterior) return;
+    if(!confirm(`Mudar a unidade de ${u?.nome||"esta conta"} de "${anterior}" para "${unidade}"?\n\nIsso também muda a regional (SR) vinculada a essa conta.`)){
+      selectEl.value = anterior; return;
+    }
     try{ await updateDoc(doc(db,"usuarios",id), { unidade, sr: srDaUnidade(unidade) }); this._cache=[]; await this.render(); }
-    catch(e){ alert("Não foi possível alterar: " + (e?.message||e)); }
+    catch(e){ alert("Não foi possível alterar: " + (e?.message||e)); selectEl.value = anterior; }
   },
-  async alterarPerfil(id, perfil){
+  async alterarPerfil(id, selectEl){
+    const u = this._cache.find(x=>x.id===id);
+    const perfil = selectEl.value;
+    const anterior = u?.perfil || "—";
+    if(perfil===anterior) return;
+    if(!confirm(`Mudar o nível de acesso de ${u?.nome||"esta conta"} de "${PERFIL_LABEL[anterior]||anterior}" para "${PERFIL_LABEL[perfil]||perfil}"?\n\nIsso muda imediatamente o que essa pessoa pode ver e fazer no sistema.`)){
+      selectEl.value = anterior; return;
+    }
     try{ await updateDoc(doc(db,"usuarios",id), { perfil }); this._cache=[]; await this.render(); }
-    catch(e){ alert("Não foi possível alterar: " + (e?.message||e)); }
+    catch(e){ alert("Não foi possível alterar: " + (e?.message||e)); selectEl.value = anterior; }
   },
 };
 window.UsuariosUI = UsuariosUI;
