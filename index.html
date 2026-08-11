@@ -57,6 +57,12 @@
   .orient.crit{background:var(--critbg); border-left:4px solid var(--crit); color:#7A1B16;}
   .orient ul{margin:6px 0 0 18px;}
   .orient-field{background:#F7F9FC; border-left:3px solid var(--steel); border-radius:6px; padding:8px 10px; font-size:12.5px; color:var(--mut); line-height:1.5; margin-top:6px;}
+  .roteiro-box{background:#F7F9FC; border:1px solid var(--line); border-left:3px solid var(--navy2); border-radius:6px; padding:2px 12px 10px; font-size:12.5px; color:var(--ink); line-height:1.55; margin-top:8px;}
+  .roteiro-box summary{cursor:pointer; font-weight:700; padding:8px 0; color:var(--navy);}
+  .roteiro-box[open] summary{margin-bottom:2px;}
+  .roteiro-box p{margin:8px 0 4px;}
+  .roteiro-box ul{margin:4px 0 4px 18px;}
+  .roteiro-box li{margin:2px 0;}
 
   /* ===== checklists simples (metodologia, fontes, realidade institucional, conformidade) ===== */
   .chk-item{display:flex; align-items:flex-start; gap:8px; padding:7px 0; font-size:13.5px; border-bottom:1px solid var(--line);}
@@ -64,7 +70,7 @@
   .chk-item input[type=checkbox]{width:18px; height:18px; margin-top:1px; flex-shrink:0; accent-color:var(--ok);}
   .chk-list{background:#fff; border:1px solid var(--line); border-radius:8px; padding:4px 12px;}
   .et-extra{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin:6px 0 0 31px;}
-  .et-extra input{font-size:12.5px; padding:6px 8px;}
+  .et-extra input, .et-extra select{font-size:12.5px; padding:6px 8px;}
 
   /* ===== quesitos ===== */
   .quesito{border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px; background:#FAFBFE;}
@@ -94,6 +100,8 @@
   .cal-evt{background:var(--okbg); border-left:3px solid var(--ok); border-radius:3px; padding:2px 4px; font-size:10px; margin-bottom:2px; cursor:pointer; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .cal-evt.pend{background:var(--warnbg); border-left-color:var(--warn);}
   .cal-evt.atrasada{background:var(--critbg); border-left-color:var(--crit);}
+  .cal-evt.area-psi{border-right:3px solid #3B6FA0;}
+  .cal-evt.area-social{border-right:3px solid #8B5FBF;}
 
   main{max-width:1440px; margin:0 auto; padding:22px 18px 60px;}
   section.view{display:none;} section.view.on{display:block;}
@@ -295,8 +303,13 @@
 
 <!-- ============ PAINEL ============ -->
 <section class="view on" id="v-dash">
+  <div id="painelUnidadeAtualBox"></div>
   <div class="grid g4" id="kpis"></div>
   <div id="orientBox" style="margin-top:16px;"></div>
+  <div class="card" style="margin-top:16px; display:none;" id="painelUnidadesCard">
+    <h3>Painel por unidade prisional <span class="muted" style="font-weight:normal; font-size:12.5px;">— os exames deste centro, separados pela unidade prisional onde são realizados; clique numa unidade para abrir o painel dela</span></h3>
+    <div id="painelUnidadesBox" style="overflow-x:auto;"></div>
+  </div>
   <div class="card" style="margin-top:16px;">
     <h3 id="prazosTitle">Prazos críticos <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 8º da Portaria; Res. CNPCP 36/2024)</span></h3>
     <div id="prazosBox" style="overflow-x:auto;"></div>
@@ -311,6 +324,7 @@
   <div class="card">
     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
       <h3 style="margin:0;">Exames do centro</h3>
+      <span id="listaTituloUnidade" class="muted" style="font-size:12.5px;"></span>
       <select id="fStatus" style="width:auto;" onchange="App.renderLista()">
         <option value="">Todos os status</option>
         <option value="andamento">Em andamento</option>
@@ -326,10 +340,20 @@
 <section class="view" id="v-cal">
   <div class="card">
     <h3>Calendário de entrevistas <span class="muted" style="font-weight:normal; font-size:12.5px;">— agenda das etapas de entrevista dos exames em andamento</span></h3>
-    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique num evento para abrir o exame, ou num horário vazio para agendar uma nova entrevista direto por aqui.</p>
-    <div class="btnrow" style="margin-top:0; margin-bottom:14px;">
+    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique num evento para abrir o exame, ou num horário vazio para agendar uma nova entrevista direto por aqui. Use os filtros abaixo para ver só a agenda de Psicologia ou de Assistência Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
+    <div class="btnrow" style="margin-top:0; margin-bottom:8px;">
       <button class="btn sm" id="calBtnSemana" type="button" onclick="App.calModo('semana')">Semana</button>
       <button class="btn sm ghost" id="calBtnMes" type="button" onclick="App.calModo('mes')">Mês</button>
+    </div>
+    <div class="btnrow" style="margin-top:0; margin-bottom:10px;" id="calFiltroAreaBox">
+      <button class="btn sm" data-area="" type="button" onclick="App.calFiltroAreaSet('')">Todas as áreas</button>
+      <button class="btn sm ghost" data-area="psi" type="button" onclick="App.calFiltroAreaSet('psi')">Psicologia</button>
+      <button class="btn sm ghost" data-area="social" type="button" onclick="App.calFiltroAreaSet('social')">Assistência Social</button>
+    </div>
+    <div class="row c2" style="margin-bottom:14px; max-width:360px;" id="calFiltroUnidadeBox">
+      <div><label class="f">Unidade prisional (dentro deste centro)</label>
+        <select id="calFiltroUnidade" onchange="App.calFiltroUnidadeSet(this.value)"></select>
+      </div>
     </div>
 
     <div id="calViewSemana">
@@ -481,6 +505,8 @@
         <div><label class="f">Psicólogo(a)</label><input type="text" id="q_psi" placeholder="Nome / CRP" oninput="App.syncRespNomes()"></div>
         <div><label class="f">Assistente social</label><input type="text" id="q_as" placeholder="Nome / CRESS" oninput="App.syncRespNomes()"></div>
       </div>
+      <label class="f" style="margin-top:10px;">Outros chefes de serviço <button class="btn sm ghost" style="float:right;" type="button" onclick="App.addChefeExtra()">+ adicionar chefe de serviço</button></label>
+      <div id="chefesExtraBox" style="margin-top:8px;"></div>
       <p class="note">Os nomes acima já vêm pré-preenchidos com a equipe padrão do centro (defina em Configurações) — ajuste se este exame tiver outra equipe.</p>
       <p class="note" id="eqSomenteLeituraNota" style="display:none; color:var(--mut);">Os nomes da equipe examinadora são designados pela Superintendência Regional (ou pelo DPP) — esta tela é somente para consulta.</p>
       <p class="note">Vedações: profissionais temporários contratados só para exames; integrantes de eAPP; referência técnica do próprio avaliado (art. 5º, §§ 2º a 4º, da Portaria). Aplicam-se também as regras de impedimento e suspeição do CPP aos integrantes da equipe (art. 5º, §6º, da Portaria; art. 4º da Res. CNPCP 36/2024).</p>
@@ -584,6 +610,37 @@
       <label class="f">IV — Relatório psicológico</label>
       <textarea id="r_psi"></textarea>
       <div class="orient-field">Registre a análise a partir das entrevistas e, quando aplicável, de instrumentos técnicos validados: percepções sobre a vivência do cárcere, saúde mental e projetos de vida. Não estabeleça nexo causal entre o delito e a personalidade do avaliado, nem sugira prognóstico de reincidência (vedações I e III).</div>
+      <details class="roteiro-box">
+        <summary>Roteiro de orientação para entrevista de avaliação psicológica (progressão de regime)</summary>
+        <p>O objetivo deste roteiro é orientar a realização de entrevista de avaliação psicológica para subsidiar decisão judicial de progressão de regime.</p>
+        <p><b>Documentos norteadores:</b></p>
+        <ul>
+          <li>Código de Ética Profissional do Psicólogo (Resolução CFP n° 010/2005)</li>
+          <li>Referências técnicas para a atuação das(os) psicólogas(os) no sistema prisional (Conselho Federal de Psicologia, 2021, edição revisada)</li>
+          <li>Resolução CFP n° 06/2019 — Orientações sobre a elaboração de documentos escritos produzidos pela(o) psicóloga(o) no exercício profissional</li>
+        </ul>
+        <p><b>Aspectos a serem considerados:</b></p>
+        <ul>
+          <li>Reconhecimento do delito</li>
+          <li>Responsabilização</li>
+          <li>Histórico de saúde mental</li>
+          <li>Aspectos de personalidade</li>
+          <li>Controle de impulsos</li>
+          <li>Comportamento institucional</li>
+          <li>Rede de apoio</li>
+          <li>Projeto de vida</li>
+          <li>Fatores de risco</li>
+          <li>Fatores de proteção</li>
+          <li>Outros aspectos psicossociais relevantes</li>
+        </ul>
+        <p><b>Documentos auxiliares:</b></p>
+        <ul>
+          <li>Relatório da equipe multiprofissional</li>
+          <li>Acesso ao PEC (ou relatório do setor penal)</li>
+        </ul>
+        <p><b>Instrumento a ser utilizado:</b> Entrevista</p>
+        <p><b>Documento produzido:</b> Relatório Psicológico nos moldes da Resolução CFP n° 06/2019.</p>
+      </details>
     </div>
     <div class="relpanel" id="rp-psq">
       <p class="note">Responsável: <span class="resp-tag" id="rp_psqNome">—</span></p>
@@ -877,10 +934,14 @@ const ETAPAS = [
   {k:"relat",    t:"Relatório circunstanciado redigido e verificado", s:"Metodologia declarada + remissão ao exame de ingresso", data:false},
   {k:"encam",    t:"Encaminhado ao Juízo da Execução (e à CTC, no que couber)", s:"Art. 1º, parágrafo único, da Portaria", data:true}
 ];
+/* área/profissional responsável pela entrevista — usada para filtrar o calendário por Psicologia/Serviço Social */
+const AREA_OPTS = [{v:"",t:"Equipe (conjunta)"},{v:"psi",t:"Psicologia"},{v:"social",t:"Serviço Social"}];
+const AREA_LABEL = {"":"Equipe", psi:"Psicologia", social:"Serviço Social"};
+
 /* campos extras por etapa — ver ETAPAS[].extra */
 const ETAPA_EXTRA = {
-  entrevista:[{f:"hora",p:"Horário",t:"time"},{f:"local",p:"Local"},{f:"dur",p:"Duração aprox."},{f:"prof",p:"Profissionais presentes"}],
-  convivio:[{f:"hora",p:"Horário",t:"time"},{f:"nome",p:"Nome da pessoa"},{f:"vinc",p:"Vínculo"}]
+  entrevista:[{f:"hora",p:"Horário",t:"time"},{f:"local",p:"Local"},{f:"dur",p:"Duração aprox."},{f:"prof",p:"Profissionais presentes"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS}],
+  convivio:[{f:"hora",p:"Horário",t:"time"},{f:"nome",p:"Nome da pessoa"},{f:"vinc",p:"Vínculo"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS}]
 };
 
 /* checklist de metodologia empregada (item III do modelo padronizado — procedimentos efetivamente realizados) */
@@ -1068,7 +1129,15 @@ const Extractor = {
       if(pai || mae){
         document.getElementById("e_filiacao").value=this.titleCase([pai&&pai[1],mae&&mae[1]].filter(Boolean).join(" e ").trim());
         found.push("Filiação: "+document.getElementById("e_filiacao").value);
-      } else missing.push("filiação");
+      } else {
+        /* formato do Boletim Penal (BPI) da Polícia Penal-SC: "pai: NOME, mãe: NOME" em minúsculas, separados por vírgula, dentro do parágrafo de qualificação */
+        const pai2=t.match(/\bpai:\s*([^,]+),/i);
+        const mae2=t.match(/\bm[ãa]e:\s*([^,]+),/i);
+        if(pai2 || mae2){
+          document.getElementById("e_filiacao").value=this.titleCase([pai2&&pai2[1],mae2&&mae2[1]].filter(Boolean).join(" e ").trim());
+          found.push("Filiação: "+document.getElementById("e_filiacao").value);
+        } else missing.push("filiação");
+      }
     }
 
     /* regime atual */
@@ -1079,8 +1148,9 @@ const Extractor = {
       if(v){ document.getElementById("e_regime").value=v; found.push("Regime atual: "+m[1]); }
     } else missing.push("regime atual");
 
-    /* juízo da execução */
-    m=t.match(/Vara\s+de\s+Execu[çc][õo]es?\s+Penais?(?:\s+da\s+Comarca\s+de\s+[A-ZÀ-Üa-zà-ü'’]+)?/i);
+    /* juízo da execução — aceita "Vara [Regional] de Execuções Penais da Comarca d[a/e] X",
+       como aparece no cabeçalho das decisões do SEEU (às vezes seguido de "- MEIO FECHADO...") */
+    m=t.match(/Vara\s+(?:Regional\s+)?de\s+Execu[çc][õo]es?\s+Penais?(?:\s+da\s+Comarca\s+d[ae]\s+[^-\n;.]{2,40}?)?(?=\s*-|\s*[\n;.]|\s*$)/i);
     if(!m){ const m2=t.match(/ju[íi]zo\s+da\s+execu[çc][ãa]o\s*[:\-]?\s*([^\n;.]{3,60})/i); if(m2) m=[m2[1]]; }
     if(m){ document.getElementById("e_juizo").value=m[0].trim(); found.push("Juízo da execução: "+document.getElementById("e_juizo").value); }
     else missing.push("juízo da execução");
@@ -1372,17 +1442,22 @@ const App = {
   CAL_HORAS: (()=>{ const h=[]; for(let i=7;i<=19;i++) h.push(i); return h; })(),
   calEventos(){
     const geral = this.coc==="_cepen";
-    const exs = geral ? this.data.exames.slice() : this.data.exames.filter(e=>e.coc===this.coc);
+    let exs = geral ? this.data.exames.slice() : this.data.exames.filter(e=>e.coc===this.coc);
+    if(!geral && this.calFiltroUnidade) exs = exs.filter(e=>e.unid===this.calFiltroUnidade);
     const out=[];
     exs.forEach(ex=>{
       if(ex.status==="concluido") return;
       ["ent1","ent2","entConv"].forEach(k=>{
         const et=(ex.etapas||{})[k];
         if(et && et.data){
+          const area = et.area||"";
+          if(this.calFiltroArea && area!==this.calFiltroArea) return;
           out.push({
             data: et.data, hora: et.hora||"", tipo: this.CAL_TIPOS[k], tipoK: k, exId: ex.id, nome: ex.nome, mat: ex.mat||"", done: !!et.ok,
             detalhe: k==="entConv" ? [et.nome,et.vinc].filter(Boolean).join(" — ") : (et.local||""),
-            regional: geral ? ((this.data.cocs.find(c=>c.id===ex.coc)||{}).nome||"") : ""
+            regional: geral ? ((this.data.cocs.find(c=>c.id===ex.coc)||{}).nome||"") : "",
+            unid: ex.unid||"",
+            area
           });
         }
       });
@@ -1396,6 +1471,27 @@ const App = {
     document.getElementById("calViewSemana").style.display=v==="semana"?"":"none";
     document.getElementById("calViewMes").style.display=v==="mes"?"":"none";
     this.renderCalendario();
+  },
+  calFiltroAreaSet(area){
+    this.calFiltroArea=area;
+    document.querySelectorAll("#calFiltroAreaBox button").forEach(b=>b.className="btn sm"+(b.dataset.area===area?"":" ghost"));
+    this.renderCalendario();
+  },
+  calFiltroUnidadeSet(unid){
+    this.calFiltroUnidade=unid;
+    this.renderCalendario();
+  },
+  calRenderFiltroUnidade(){
+    const box=document.getElementById("calFiltroUnidadeBox");
+    const geral=this.coc==="_cepen";
+    if(geral){ box.style.display="none"; return; }
+    box.style.display="";
+    const centro=this.data.cocs.find(c=>c.id===this.coc)||{unidades:[]};
+    const lista=centro.unidades||[];
+    const sel=document.getElementById("calFiltroUnidade");
+    if(!lista.length){ box.style.display="none"; this.calFiltroUnidade=""; return; }
+    const atual=this.calFiltroUnidade||"";
+    sel.innerHTML = `<option value="">Todas as unidades deste centro</option>` + lista.map(u=>`<option value="${u}" ${u===atual?"selected":""}>${u}</option>`).join("");
   },
   calMudarMes(delta){
     this.calMes += delta;
@@ -1416,6 +1512,7 @@ const App = {
     if(this.calAno==null){ this.calAno=hoje.getFullYear(); this.calMes=hoje.getMonth(); this.calDiaSel=hojeISO; }
     if(this.calSemanaBase==null){ const dom=new Date(hoje); dom.setDate(hoje.getDate()-hoje.getDay()); this.calSemanaBase=dom.toISOString().slice(0,10); }
     this.calFormAberto=null;
+    this.calRenderFiltroUnidade();
     this.calRenderForm();
     if(this.calModoAtual==="semana") this.renderCalendarioSemana(); else this.renderCalendarioMes();
   },
@@ -1450,7 +1547,7 @@ const App = {
     if(!eventos.length){ box.innerHTML=`<p class="note">Nenhuma entrevista marcada para ${dataFmt}. <button class="btn sm ghost" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></p>`; return; }
     box.innerHTML = `<h3 style="font-size:14px;">Entrevistas em ${dataFmt} <button class="btn sm ghost" style="float:right;" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></h3>` + eventos.map(e=>`
       <div class="etapa ${e.done?"done":""}" style="cursor:pointer;" onclick="App.abrir('${e.exId}')">
-        <div class="et-t"><b>${e.nome}${e.mat?(" — IPEN "+e.mat):""}</b><span>${e.hora?(e.hora+" — "):""}${e.tipo}${e.detalhe?(" — "+e.detalhe):""}${e.regional?(" · "+e.regional):""}</span></div>
+        <div class="et-t"><b>${e.nome}${e.mat?(" — IPEN "+e.mat):""}</b><span>${e.hora?(e.hora+" — "):""}${e.tipo}${e.detalhe?(" — "+e.detalhe):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${(!this.calFiltroUnidade && e.unid)?(" · "+e.unid):""}${e.regional?(" · "+e.regional):""}</span></div>
         <span class="badge ${e.done?"b-ok":"b-warn"}">${e.done?"realizada":"pendente"}</span>
       </div>`).join("");
   },
@@ -1467,8 +1564,9 @@ const App = {
       const evs=eventos.filter(e=>e.data===iso && (hora===""?!e.hora:e.hora && parseInt(e.hora.split(":")[0])===hora));
       const chips=evs.map(e=>{
         const cls=e.done?"":(e.data<hojeISO?"atrasada":"pend");
+        const areaCls=e.area?(" area-"+e.area):"";
         const ident=e.nome+(e.mat?(" — IPEN "+e.mat):"");
-        return `<div class="cal-evt ${cls}" onclick="event.stopPropagation();App.abrir('${e.exId}')" title="${ident} — ${e.tipo}${e.detalhe?(" — "+e.detalhe):""}">${ident} · ${this.CAL_TIPOS_CURTO[e.tipoK]}</div>`;
+        return `<div class="cal-evt ${cls}${areaCls}" onclick="event.stopPropagation();App.abrir('${e.exId}')" title="${ident} — ${e.tipo}${e.detalhe?(" — "+e.detalhe):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${e.unid?(" · "+e.unid):""}">${ident} · ${this.CAL_TIPOS_CURTO[e.tipoK]}${e.area?(" · "+AREA_LABEL[e.area]):""}</div>`;
       }).join("");
       const horaSlot = hora===""?"":(String(hora).padStart(2,"0")+":00");
       return `<div class="cal-slot ${iso===hojeISO?"today-col":""}" onclick="App.calAbrirForm('${iso}','${horaSlot||"08:00"}')">${chips}</div>`;
@@ -1537,10 +1635,12 @@ const App = {
   calRenderExtra(){
     const tipo=document.getElementById("calfTipo").value;
     const box=document.getElementById("calfExtra");
+    const areaSelect=`<select id="calfArea">${AREA_OPTS.map(o=>`<option value="${o.v}">${o.t}</option>`).join("")}</select>`;
     if(tipo==="entConv"){
-      box.innerHTML=`<div class="row c2"><div><label class="f">Nome da pessoa</label><input type="text" id="calfNome"></div><div><label class="f">Vínculo</label><input type="text" id="calfVinc"></div></div>`;
+      box.innerHTML=`<div class="row c3"><div><label class="f">Nome da pessoa</label><input type="text" id="calfNome"></div><div><label class="f">Vínculo</label><input type="text" id="calfVinc"></div><div><label class="f">Área/profissional responsável</label>${areaSelect}</div></div>`;
     } else {
-      box.innerHTML=`<div class="row c3"><div><label class="f">Local</label><input type="text" id="calfLocal"></div><div><label class="f">Duração aprox.</label><input type="text" id="calfDur"></div><div><label class="f">Profissionais presentes</label><input type="text" id="calfProf"></div></div>`;
+      box.innerHTML=`<div class="row c3"><div><label class="f">Local</label><input type="text" id="calfLocal"></div><div><label class="f">Duração aprox.</label><input type="text" id="calfDur"></div><div><label class="f">Profissionais presentes</label><input type="text" id="calfProf"></div></div>
+      <div class="row c2"><div><label class="f">Área/profissional responsável</label>${areaSelect}</div></div>`;
     }
   },
   calSalvarAgendamento(){
@@ -1552,6 +1652,7 @@ const App = {
     const ex=this.data.exames.find(x=>x.id===exId); if(!ex) return;
     ex.etapas=ex.etapas||{};
     const novo=Object.assign({ok:false}, ex.etapas[tipo]||{}, {data, hora});
+    novo.area=document.getElementById("calfArea").value;
     if(tipo==="entConv"){
       novo.nome=document.getElementById("calfNome").value.trim();
       novo.vinc=document.getElementById("calfVinc").value.trim();
@@ -1569,6 +1670,8 @@ const App = {
     alert("Entrevista agendada para "+nomeEx+".");
   },
   renderDashGeral(){
+    document.getElementById("painelUnidadeAtualBox").innerHTML="";
+    document.getElementById("painelUnidadesCard").style.display="none";
     document.getElementById("prazosTitle").innerHTML = `Painel geral por regional <span class="muted" style="font-weight:normal;font-size:12.5px;">— clique numa regional para abrir o painel operacional dela</span>`;
     const totals={and:0, crit:0, warn:0, conc:0};
     const linhas=this.data.cocs.map(c=>{
@@ -1601,7 +1704,7 @@ const App = {
       </table>`;
   },
   abrirRegional(cocId){
-    this.coc=cocId;
+    this.coc=cocId; this.dashUnidadeFiltro="";
     document.getElementById("selCoc").value=cocId;
     this.renderUnidadeSel(this.getUnidadeValor());
     this.renderDash();
@@ -1614,7 +1717,11 @@ const App = {
       ? `Equipe do exame de: <b>${nome||"(sem nome ainda)"}</b>${this.editId?"":" — ainda não salvo"}`
       : `Nenhum exame aberto no momento — os nomes abaixo são a <b>equipe padrão do centro</b> e serão usados ao criar um novo exame. Para editar a equipe de um exame específico, abra-o em <b>Exames</b> ou <b>Novo exame</b> primeiro.`;
   },
-  setCoc(id){ this.coc=id; this.renderDash(); this.renderLista(); this.renderUnidadeSel(this.getUnidadeValor()); },
+  setCoc(id){
+    this.coc=id; this.calFiltroUnidade=""; this.dashUnidadeFiltro="";
+    this.renderDash(); this.renderLista(); this.renderUnidadeSel(this.getUnidadeValor());
+    if(document.getElementById("v-cal").classList.contains("on")) this.renderCalendario();
+  },
 
   /* ---------- unidade prisional (seletor vinculado ao centro ativo) ---------- */
   renderUnidadeSel(selVal){
@@ -1755,7 +1862,10 @@ const App = {
       return `<div class="etapa ${v.ok?"done":""}" id="et_${e.k}">
         <input type="checkbox" ${v.ok?"checked":""} onchange="App.etToggle('${e.k}',this)">
         <div class="et-t"><b>${e.t}</b><span>${e.s}</span>
-          ${extraCampos?`<div class="et-extra">${extraCampos.map(c=>`<input type="${c.t||"text"}" data-field="${c.f}" placeholder="${c.p}" value="${v[c.f]||""}">`).join("")}</div>`:""}
+          ${extraCampos?`<div class="et-extra">${extraCampos.map(c=> c.t==="select"
+            ? `<select data-field="${c.f}" title="${c.p}">${c.options.map(o=>`<option value="${o.v}" ${(v[c.f]||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`
+            : `<input type="${c.t||"text"}" data-field="${c.f}" placeholder="${c.p}" value="${v[c.f]||""}">`
+          ).join("")}</div>`:""}
         </div>
         ${e.data?`<input type="date" class="et-data" value="${v.data||""}">`:""}
       </div>`;
@@ -1824,6 +1934,27 @@ const App = {
     }));
   },
 
+  /* ---------- chefes de serviço extras (equipe examinadora) ---------- */
+  addChefeExtra(c){
+    c = c || {nome:"", funcao:""};
+    const box=document.getElementById("chefesExtraBox");
+    const div=document.createElement("div");
+    div.className="quesito";
+    div.innerHTML=`
+      <button class="btn sm danger del" type="button" onclick="this.parentElement.remove(); App.syncRespNomes();">remover</button>
+      <div class="row c2">
+        <div><label class="f">Chefe de serviço</label><input type="text" class="ce_nome" placeholder="Nome / matrícula" value="${(c.nome||"").replace(/"/g,'&quot;')}" oninput="App.syncRespNomes()"></div>
+        <div><label class="f">Função na unidade</label><input type="text" class="ce_funcao" placeholder="ex.: Chefe de Plantão, Coord. de Segurança…" value="${(c.funcao||"").replace(/"/g,'&quot;')}"></div>
+      </div>`;
+    box.appendChild(div);
+  },
+  lerChefesExtra(){
+    return [...document.querySelectorAll("#chefesExtraBox .quesito")].map(d=>({
+      nome:d.querySelector(".ce_nome").value.trim(),
+      funcao:d.querySelector(".ce_funcao").value.trim()
+    })).filter(c=>c.nome);
+  },
+
   /* ---------- CRUD ---------- */
   novo(){
     this.editId=null;
@@ -1847,6 +1978,7 @@ const App = {
     document.getElementById("condBox").innerHTML="";
     this.addCond();
     document.getElementById("quesitosBox").innerHTML="";
+    document.getElementById("chefesExtraBox").innerHTML="";
     this.renderEtapas();
     this.renderChk("metCheckBox", METODOLOGIA_CHECK);
     this.renderChk("fontesCheckBox", FONTES_CHECK);
@@ -1901,7 +2033,7 @@ const App = {
       dataIni:document.getElementById("e_dataIni").value,
       dataConcl:document.getElementById("e_dataConcl").value,
       conds:this.lerConds(),
-      equipe:{c1:q_c1.value.trim(),c1Funcao:q_c1Funcao.value.trim(),c2:q_c2.value.trim(),c2Funcao:q_c2Funcao.value.trim(),psq:q_psq.value.trim(),psi:q_psi.value.trim(),as:q_as.value.trim(),semPsq:document.getElementById("q_semPsq").checked,coord:document.getElementById("q_coord").value.trim()},
+      equipe:{c1:q_c1.value.trim(),c1Funcao:q_c1Funcao.value.trim(),c2:q_c2.value.trim(),c2Funcao:q_c2Funcao.value.trim(),chefesExtra:this.lerChefesExtra(),psq:q_psq.value.trim(),psi:q_psi.value.trim(),as:q_as.value.trim(),semPsq:document.getElementById("q_semPsq").checked,coord:document.getElementById("q_coord").value.trim()},
       quesitos:{
         detOrigem:document.getElementById("q_detOrigem").value.trim(),
         impedimento:document.getElementById("q_impedimento").value.trim(),
@@ -1955,6 +2087,8 @@ const App = {
     document.getElementById("e_modal").value=ex.modal||"presencial"; this.modalChange();
     q_c1.value=ex.equipe?.c1||""; q_c1Funcao.value=ex.equipe?.c1Funcao||""; q_c2.value=ex.equipe?.c2||""; q_c2Funcao.value=ex.equipe?.c2Funcao||""; q_psq.value=ex.equipe?.psq||""; q_psi.value=ex.equipe?.psi||""; q_as.value=ex.equipe?.as||"";
     document.getElementById("q_coord").value=ex.equipe?.coord||"";
+    document.getElementById("chefesExtraBox").innerHTML="";
+    (ex.equipe?.chefesExtra||[]).forEach(c=>this.addChefeExtra(c));
     document.getElementById("q_semPsq").checked=!!ex.equipe?.semPsq;
     document.getElementById("e_semIA").checked=!!ex.semIA;
     document.getElementById("q_detOrigem").value=ex.quesitos?.detOrigem||"";
@@ -2014,10 +2148,35 @@ const App = {
   },
 
   /* ---------- render dash/lista ---------- */
+  filtrarPorUnidade(exs, unidFiltro, unidadesDoCentro){
+    if(!unidFiltro) return exs;
+    if(unidFiltro==="_semunidade") return exs.filter(e=>!e.unid || !unidadesDoCentro.includes(e.unid));
+    return exs.filter(e=>(e.unid||"")===unidFiltro);
+  },
+  abrirUnidadePainel(u){
+    this.dashUnidadeFiltro=u;
+    this.renderDash();
+    this.renderLista();
+  },
+  limparFiltroUnidadePainel(){
+    this.dashUnidadeFiltro="";
+    this.renderDash();
+    this.renderLista();
+  },
   renderDash(){
     if(this.coc==="_cepen"){ this.renderDashGeral(); return; }
-    document.getElementById("prazosTitle").innerHTML = `Prazos críticos <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 8º da Portaria; Res. CNPCP 36/2024)</span>`;
-    const exs=this.data.exames.filter(e=>e.coc===this.coc);
+    const centro=this.data.cocs.find(c=>c.id===this.coc)||{unidades:[]};
+    const unidadesDoCentro=centro.unidades||[];
+    const unidFiltro=this.dashUnidadeFiltro||"";
+    const unidLabel = unidFiltro==="_semunidade" ? "sem unidade definida" : unidFiltro;
+
+    document.getElementById("painelUnidadeAtualBox").innerHTML = unidFiltro
+      ? `<p class="note" style="margin-bottom:10px;">Unidade: <b>${unidLabel}</b> — <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ voltar ao painel do centro</button></p>`
+      : "";
+    document.getElementById("prazosTitle").innerHTML = `Prazos críticos${unidFiltro?(" — "+unidLabel):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 8º da Portaria; Res. CNPCP 36/2024)</span>`;
+
+    const exsCentro=this.data.exames.filter(e=>e.coc===this.coc);
+    const exs=this.filtrarPorUnidade(exsCentro, unidFiltro, unidadesDoCentro);
     const and=exs.filter(e=>e.status!=="concluido");
     const crit=and.filter(e=>{const p=this.prazoInfo(e); return p.cls==="b-crit";});
     const warn=and.filter(e=>{const p=this.prazoInfo(e); return p.cls==="b-warn";});
@@ -2032,8 +2191,35 @@ const App = {
       `<table><tr><th>Avaliado</th><th>Unidade</th><th>Progressão prevista</th><th>Prazo do exame</th><th>Situação</th><th>Progresso</th></tr>`+
       urg.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{});
         return `<tr onclick="App.abrir('${e.id}')"><td><b>${e.nome}</b></td><td>${e.unid||"—"}</td><td>${fmt(e.dataProg)}</td><td>${(()=>{if(!e.dataProg)return "—";const d=new Date(e.dataProg+"T00:00:00");d.setDate(d.getDate()-30);return d.toLocaleDateString("pt-BR");})()}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
-      : `<div class="empty">Nenhum exame com prazo crítico neste centro. ✓</div>`;
+      : `<div class="empty">Nenhum exame com prazo crítico${unidFiltro?"":" neste centro"}. ✓</div>`;
     this.renderOrientacao(and, crit, warn);
+
+    const painelCard=document.getElementById("painelUnidadesCard");
+    if(!unidFiltro && unidadesDoCentro.length){
+      painelCard.style.display="";
+      const linhas=unidadesDoCentro.map(u=>{
+        const eu=this.filtrarPorUnidade(exsCentro, u, unidadesDoCentro);
+        const euAnd=eu.filter(e=>e.status!=="concluido");
+        const euCrit=euAnd.filter(e=>this.prazoInfo(e).cls==="b-crit");
+        const euWarn=euAnd.filter(e=>this.prazoInfo(e).cls==="b-warn");
+        return {u, and:euAnd.length, crit:euCrit.length, warn:euWarn.length, conc:eu.length-euAnd.length};
+      });
+      const semUnidade=exsCentro.filter(e=>!e.unid || !unidadesDoCentro.includes(e.unid));
+      document.getElementById("painelUnidadesBox").innerHTML = `
+        <table><tr><th>Unidade prisional</th><th>Em andamento</th><th>Prazo crítico</th><th>Atenção</th><th>Concluídos</th><th></th></tr>
+        ${linhas.map(r=>`<tr onclick="App.abrirUnidadePainel('${r.u.replace(/'/g,"\\'")}')">
+          <td><b>${r.u}</b></td>
+          <td>${r.and}</td>
+          <td>${r.crit?`<span class="badge b-crit">${r.crit}</span>`:"0"}</td>
+          <td>${r.warn?`<span class="badge b-warn">${r.warn}</span>`:"0"}</td>
+          <td>${r.conc}</td>
+          <td class="right"><span class="badge b-navy">abrir painel →</span></td>
+        </tr>`).join("")}
+        ${semUnidade.length?`<tr onclick="App.abrirUnidadePainel('_semunidade')"><td><i>Sem unidade definida</i></td><td>${semUnidade.filter(e=>e.status!=="concluido").length}</td><td colspan="2">—</td><td>${semUnidade.filter(e=>e.status==="concluido").length}</td><td class="right"><span class="badge b-navy">abrir →</span></td></tr>`:""}
+        </table>`;
+    } else {
+      painelCard.style.display="none";
+    }
   },
   renderOrientacao(and, crit, warn){
     const box=document.getElementById("orientBox");
@@ -2055,14 +2241,24 @@ const App = {
     const st=document.getElementById("fStatus").value;
     const q=(document.getElementById("fBusca").value||"").toLowerCase();
     let exs = geral ? this.data.exames.slice() : this.data.exames.filter(e=>e.coc===this.coc);
+    const unidFiltro=!geral && this.dashUnidadeFiltro||"";
+    const unidLabel = unidFiltro==="_semunidade" ? "sem unidade definida" : unidFiltro;
+    if(unidFiltro){
+      const unidadesDoCentro=(this.data.cocs.find(c=>c.id===this.coc)||{}).unidades||[];
+      exs=this.filtrarPorUnidade(exs, unidFiltro, unidadesDoCentro);
+    }
     if(st) exs=exs.filter(e=> st==="concluido" ? e.status==="concluido" : e.status!=="concluido");
     if(q) exs=exs.filter(e=>(e.nome+" "+(e.mat||"")+" "+(e.proc||"")).toLowerCase().includes(q));
     const nomeRegional = id => (this.data.cocs.find(c=>c.id===id)||{}).nome || "—";
+    document.getElementById("listaTituloUnidade").innerHTML = unidFiltro
+      ? `— Unidade: <b>${unidLabel}</b> <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ ver todas as unidades</button>`
+      : "";
+    const showUnidCol = !geral && !unidFiltro;
     document.getElementById("listaBox").innerHTML = exs.length ?
-      `<table><tr><th>Avaliado</th>${geral?"<th>Regional</th>":""}<th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th></tr>`+
+      `<table><tr><th>Avaliado</th>${geral?"<th>Regional</th>":""}${showUnidCol?"<th>Unidade</th>":""}<th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th></tr>`+
       exs.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{});
         const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
-        return `<tr onclick="App.abrir('${e.id}')"><td><b>${e.nome}</b></td>${geral?`<td>${nomeRegional(e.coc)}</td>`:""}<td>${e.mat||"—"}</td><td>${fin}</td><td>${e.sgpe||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
+        return `<tr onclick="App.abrir('${e.id}')"><td><b>${e.nome}</b></td>${geral?`<td>${nomeRegional(e.coc)}</td>`:""}${showUnidCol?`<td>${e.unid||"—"}</td>`:""}<td>${e.mat||"—"}</td><td>${fin}</td><td>${e.sgpe||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
       : `<div class="empty">Nenhum exame cadastrado${geral?"":" neste centro"}. ${geral?"":'Use a aba <b>Novo exame</b>.'}</div>`;
   },
 
@@ -2122,7 +2318,7 @@ const App = {
     const defesaOAB=document.getElementById("q_defesaOAB").value.trim();
     const coordNome=document.getElementById("q_coord").value.trim();
     const funcaoRotulo=(base,funcao)=> funcao?(base+" — "+funcao):base;
-    const eq=[[funcaoRotulo("Chefe de serviço",q_c1Funcao.value.trim()),q_c1.value],[funcaoRotulo("Chefe de serviço",q_c2Funcao.value.trim()),q_c2.value],["Psiquiatra",q_psq.value],["Psicólogo(a)",q_psi.value],["Assistente social",q_as.value]].filter(x=>x[1]);
+    const eq=[[funcaoRotulo("Chefe de serviço",q_c1Funcao.value.trim()),q_c1.value],[funcaoRotulo("Chefe de serviço",q_c2Funcao.value.trim()),q_c2.value],...this.lerChefesExtra().map(c=>[funcaoRotulo("Chefe de serviço",c.funcao),c.nome]),["Psiquiatra",q_psq.value],["Psicólogo(a)",q_psi.value],["Assistente social",q_as.value]].filter(x=>x[1]);
     if(coordNome) eq.push(["Responsável/Coordenação do Centro", coordNome]);
     const assinExtra=[];
     if(defesaNome) assinExtra.push(["Defesa técnica — ciência", defesaNome+(defesaOAB?" ("+defesaOAB+")":"")]);
