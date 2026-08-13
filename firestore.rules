@@ -1,0 +1,117 @@
+rules_version = '2';
+
+/*
+ * MODELO DE REGRAS — inferido a partir do que o próprio index.html já pressupõe
+ * (ver comentário em App.aplicarEscopoPerfil: "o Firestore já limita quais exames
+ * chegam — isto aqui é só pra não mostrar um seletor que sugere um acesso que a
+ * pessoa não tem"). Este arquivo não estava versionado no repositório antes —
+ * as regras reais só existiam (ou não) no Console do Firebase, fora de qualquer
+ * revisão. Ele existe pra dar um ponto de partida auditável, não para ser copiado
+ * e colado sem testar.
+ *
+ * ANTES DE PUBLICAR:
+ *  1. Rode isto no "Rules Playground" do Console do Firebase com casos reais
+ *     (um usuário de cada perfil, tentando ler/escrever exames e contas de
+ *     dentro e de fora do próprio escopo) — confirme que nada que devia
+ *     funcionar hoje passa a ser bloqueado.
+ *  2. Compare com as regras atualmente publicadas (Console → Firestore →
+ *     Regras → aba "Histórico") antes de sobrescrever.
+ *  3. Depois de validado, publique e traga este arquivo pro repositório via
+ *     `firebase deploy --only firestore:rules` (ou cole manualmente no Console),
+ *     pra ele passar a ser versionado de verdade.
+ */
+
+function souAutenticado() {
+  return request.auth != null;
+}
+
+function meuPerfilDoc() {
+  return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+}
+
+function meuPerfil() {
+  return souAutenticado() ? meuPerfilDoc().perfil : null;
+}
+
+function souDPP() {
+  return souAutenticado() && meuPerfil() == "DPP";
+}
+
+function souSRDoExame(exame) {
+  return souAutenticado() && meuPerfil() == "SR" && meuPerfilDoc().sr == exame.sr;
+}
+
+function souDaUnidadeDoExame(exame) {
+  return souAutenticado()
+    && meuPerfil() in ["DIR", "CPEN", "USUARIO", "PSICOLOGIA", "SOCIAL"]
+    && meuPerfilDoc().unidade == exame.unidade;
+}
+
+function podeVerExame(exame) {
+  return souDPP() || souSRDoExame(exame) || souDaUnidadeDoExame(exame);
+}
+
+/* espelha function podeAprovar(u) do index.html */
+function podeAprovarAlvo(alvo) {
+  return souAutenticado() && (
+    (meuPerfil() == "SR"
+      && alvo.perfilSolicitado in ["USUARIO","PSICOLOGIA","SOCIAL","CPEN","DIR"]
+      && alvo.sr == meuPerfilDoc().sr)
+    || (meuPerfil() in ["DIR","CPEN"]
+      && alvo.perfilSolicitado in ["USUARIO","PSICOLOGIA","SOCIAL"]
+      && alvo.unidade == meuPerfilDoc().unidade)
+  );
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ---------- exames ---------- */
+    match /exames/{exameId} {
+      allow read: if podeVerExame(resource.data);
+      allow create: if souAutenticado() && podeVerExame(request.resource.data);
+      allow update, delete: if podeVerExame(resource.data) && podeVerExame(request.resource.data);
+    }
+
+    /* ---------- usuarios ---------- */
+    match /usuarios/{uid} {
+      /* qualquer pessoa autenticada pode ler/editar o PRÓPRIO cadastro
+         (necessário pra tela "minha conta" e pro autocadastro) */
+      allow read, update: if souAutenticado() && request.auth.uid == uid;
+
+      /* autocadastro (Solicitar acesso): só pode criar o PRÓPRIO documento,
+         sempre como PENDENTE e sem se autoatribuir um perfil ativo — quem
+         aprova é sempre alguém com alçada (ver abaixo), nunca a própria pessoa */
+      allow create: if souAutenticado()
+        && request.auth.uid == uid
+        && request.resource.data.status == "PENDENTE"
+        && request.resource.data.perfil == null;
+
+      /* leitura em lista/aprovação: DPP vê todo mundo; SR vê a própria regional;
+         DIR/CPEN veem a própria unidade — espelha as queries de
+         UsuariosUI.carregar() */
+      allow read: if souDPP()
+        || (souAutenticado() && meuPerfil() == "SR" && resource.data.sr == meuPerfilDoc().sr)
+        || (souAutenticado() && meuPerfil() in ["DIR","CPEN"] && resource.data.unidade == meuPerfilDoc().unidade);
+
+      /* aprovar (update) e recusar (delete de PENDENTE): espelha exatamente
+         App.podeAprovar() — SR aprova USUARIO/PSICOLOGIA/SOCIAL/CPEN/DIR da
+         própria regional; DIR/CPEN aprovam só USUARIO/PSICOLOGIA/SOCIAL da
+         própria unidade. Ao aprovar, exige que o perfil concedido seja
+         exatamente o solicitado (impede escalar privilégio via chamada direta
+         à API) e que o status vá para ATIVO. */
+      allow update: if souDPP() || (
+        resource.data.status == "PENDENTE"
+        && podeAprovarAlvo(resource.data)
+        && request.resource.data.perfil == resource.data.perfilSolicitado
+        && request.resource.data.status == "ATIVO"
+      );
+
+      /* excluir conta já ativa: só DPP (só DPP vê o botão "Excluir" na UI).
+         Recusar solicitação pendente: mesma alçada de quem poderia aprovar. */
+      allow delete: if souDPP() || (resource.data.status == "PENDENTE" && podeAprovarAlvo(resource.data));
+    }
+
+    /* qualquer coleção não listada acima fica fechada por padrão */
+  }
+}

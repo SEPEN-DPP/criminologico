@@ -780,7 +780,7 @@
       </div>
       <hr class="sep">
       <h3>Contas institucionais</h3>
-      <p class="note">Cria de uma vez as contas de DIR e CPEN de cada unidade e de Superintendente de cada regional, todas com a senha padrão <code>SENHA_REMOVIDA_DO_HISTORICO</code> (a pessoa troca no primeiro acesso). Só precisa ser feito uma vez.</p>
+      <p class="note">Cria de uma vez as contas de DIR e CPEN de cada unidade e de Superintendente de cada regional. Nenhuma senha é definida por aqui — cada pessoa recebe um e-mail institucional para escolher a própria senha antes do primeiro acesso. Só precisa ser feito uma vez.</p>
       <button class="btn danger" onclick="criarContasEmMassa()">Criar todas as contas institucionais</button>
     </div>
   </div>
@@ -1212,9 +1212,9 @@ const Extractor = {
 
     App.triagem();
     out.innerHTML =
-      `<div class="allclear" style="margin-bottom:8px;">✓ Extração de <b>${fonte}</b> — ${found.length} campo(s) preenchido(s). Confira antes de salvar.</div>`
-      + (found.length?`<p class="note"><b>Preenchidos:</b> ${found.join(" · ")}</p>`:"")
-      + (missing.length?`<p class="note" style="color:var(--warn);"><b>Não localizados no documento (preencher manualmente):</b> ${missing.join(", ")}.</p>`:"");
+      `<div class="allclear" style="margin-bottom:8px;">✓ Extração de <b>${esc(fonte)}</b> — ${found.length} campo(s) preenchido(s). Confira antes de salvar.</div>`
+      + (found.length?`<p class="note"><b>Preenchidos:</b> ${esc(found.join(" · "))}</p>`:"")
+      + (missing.length?`<p class="note" style="color:var(--warn);"><b>Não localizados no documento (preencher manualmente):</b> ${esc(missing.join(", "))}.</p>`:"");
   },
 
   /* artigos mais comuns do CP — só para sugerir o nome do crime quando o BPI traz o número solto (ex.: "155") sem o nome; sempre exige conferência */
@@ -1300,8 +1300,8 @@ const Extractor = {
     registros.forEach(r=>App.addCond(r));
     App.triagem();
 
-    out.innerHTML = `<div class="allclear" style="margin-bottom:8px;">✓ ${registros.length} condenação(ões) importada(s) de <b>${fonte}</b>. A extração é automática — confira cada campo antes de salvar.</div>`
-      + `<p class="note">${registros.map(r=>`${r.crime||"(crime não identificado)"} ${r.artigo?("— "+r.artigo):""}${semData?"":(" — fato em "+r.dataFmt)}`).join(" · ")}</p>`
+    out.innerHTML = `<div class="allclear" style="margin-bottom:8px;">✓ ${registros.length} condenação(ões) importada(s) de <b>${esc(fonte)}</b>. A extração é automática — confira cada campo antes de salvar.</div>`
+      + `<p class="note">${esc(registros.map(r=>`${r.crime||"(crime não identificado)"} ${r.artigo?("— "+r.artigo):""}${semData?"":(" — fato em "+r.dataFmt)}`).join(" · "))}</p>`
       + (modoBoletim?`<p class="note" style="color:var(--warn);"><b>Boletim Penal detectado:</b> processos "em andamento" (ainda não julgados) foram ignorados — só as condenações transitadas em julgado/em grau de recurso entraram. Este documento não traz a data do fato; preencha-a a partir da decisão judicial ou do SEEU.</p>`:"");
   }
 };
@@ -1309,6 +1309,10 @@ const Extractor = {
 const uid = ()=> "e" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const fmt = d => { if(!d) return "—"; const [y,m,dd]=d.split("-"); return dd+"/"+m+"/"+y; };
 const hoje = ()=> new Date(new Date().toDateString());
+/* escapa texto de origem do usuário antes de inserir via innerHTML — evita XSS armazenado
+   (nomes, campos livres etc. vêm de qualquer perfil, inclusive o mais restrito, e são
+   exibidos depois para outros usuários, então precisam ser tratados como não confiáveis) */
+const esc = v => String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 
 const App = {
   data:null, coc:null, editId:null, calAno:null, calMes:null, calDiaSel:null, calSemanaBase:null, calModoAtual:null, calFormAberto:null,
@@ -1491,7 +1495,7 @@ const App = {
     const sel=document.getElementById("calFiltroUnidade");
     if(!lista.length){ box.style.display="none"; this.calFiltroUnidade=""; return; }
     const atual=this.calFiltroUnidade||"";
-    sel.innerHTML = `<option value="">Todas as unidades deste centro</option>` + lista.map(u=>`<option value="${u}" ${u===atual?"selected":""}>${u}</option>`).join("");
+    sel.innerHTML = `<option value="">Todas as unidades deste centro</option>` + lista.map(u=>`<option value="${esc(u)}" ${u===atual?"selected":""}>${esc(u)}</option>`).join("");
   },
   calMudarMes(delta){
     this.calMes += delta;
@@ -1547,7 +1551,7 @@ const App = {
     if(!eventos.length){ box.innerHTML=`<p class="note">Nenhuma entrevista marcada para ${dataFmt}. <button class="btn sm ghost" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></p>`; return; }
     box.innerHTML = `<h3 style="font-size:14px;">Entrevistas em ${dataFmt} <button class="btn sm ghost" style="float:right;" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></h3>` + eventos.map(e=>`
       <div class="etapa ${e.done?"done":""}" style="cursor:pointer;" onclick="App.abrir('${e.exId}')">
-        <div class="et-t"><b>${e.nome}${e.mat?(" — IPEN "+e.mat):""}</b><span>${e.hora?(e.hora+" — "):""}${e.tipo}${e.detalhe?(" — "+e.detalhe):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${(!this.calFiltroUnidade && e.unid)?(" · "+e.unid):""}${e.regional?(" · "+e.regional):""}</span></div>
+        <div class="et-t"><b>${esc(e.nome)}${e.mat?(" — IPEN "+esc(e.mat)):""}</b><span>${e.hora?(esc(e.hora)+" — "):""}${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${(!this.calFiltroUnidade && e.unid)?(" · "+esc(e.unid)):""}${e.regional?(" · "+esc(e.regional)):""}</span></div>
         <span class="badge ${e.done?"b-ok":"b-warn"}">${e.done?"realizada":"pendente"}</span>
       </div>`).join("");
   },
@@ -1565,8 +1569,8 @@ const App = {
       const chips=evs.map(e=>{
         const cls=e.done?"":(e.data<hojeISO?"atrasada":"pend");
         const areaCls=e.area?(" area-"+e.area):"";
-        const ident=e.nome+(e.mat?(" — IPEN "+e.mat):"");
-        return `<div class="cal-evt ${cls}${areaCls}" onclick="event.stopPropagation();App.abrir('${e.exId}')" title="${ident} — ${e.tipo}${e.detalhe?(" — "+e.detalhe):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${e.unid?(" · "+e.unid):""}">${ident} · ${this.CAL_TIPOS_CURTO[e.tipoK]}${e.area?(" · "+AREA_LABEL[e.area]):""}</div>`;
+        const ident=esc(e.nome)+(e.mat?(" — IPEN "+esc(e.mat)):"");
+        return `<div class="cal-evt ${cls}${areaCls}" onclick="event.stopPropagation();App.abrir('${e.exId}')" title="${ident} — ${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${e.unid?(" · "+esc(e.unid)):""}">${ident} · ${this.CAL_TIPOS_CURTO[e.tipoK]}${e.area?(" · "+AREA_LABEL[e.area]):""}</div>`;
       }).join("");
       const horaSlot = hora===""?"":(String(hora).padStart(2,"0")+":00");
       return `<div class="cal-slot ${iso===hojeISO?"today-col":""}" onclick="App.calAbrirForm('${iso}','${horaSlot||"08:00"}')">${chips}</div>`;
@@ -1611,7 +1615,7 @@ const App = {
     box.innerHTML=`<div class="card" style="margin-top:14px; background:#FAFBFE;">
       <h3 style="font-size:14px;">Agendar entrevista — ${fmt(iso)}${hora?(" às "+hora):""}</h3>
       <div class="row c2">
-        <div><label class="f">Exame</label><select id="calfExame">${exs.map(e=>`<option value="${e.id}">${e.nome}${geral?(" — "+((this.data.cocs.find(c=>c.id===e.coc)||{}).nome||"")):""}</option>`).join("")}</select></div>
+        <div><label class="f">Exame</label><select id="calfExame">${exs.map(e=>`<option value="${e.id}">${esc(e.nome)}${geral?(" — "+esc((this.data.cocs.find(c=>c.id===e.coc)||{}).nome||"")):""}</option>`).join("")}</select></div>
         <div><label class="f">Tipo de entrevista</label>
           <select id="calfTipo" onchange="App.calRenderExtra()">
             <option value="ent1">1ª entrevista com o avaliado</option>
@@ -1694,7 +1698,7 @@ const App = {
     document.getElementById("prazosBox").innerHTML = `
       <table><tr><th>Regional</th><th>Em andamento</th><th>Prazo crítico</th><th>Atenção</th><th>Concluídos</th><th></th></tr>
       ${linhas.map(r=>`<tr onclick="App.abrirRegional('${r.c.id}')">
-        <td><b>${r.c.nome}</b></td>
+        <td><b>${esc(r.c.nome)}</b></td>
         <td>${r.and}</td>
         <td>${r.crit?`<span class="badge b-crit">${r.crit}</span>`:"0"}</td>
         <td>${r.warn?`<span class="badge b-warn">${r.warn}</span>`:"0"}</td>
@@ -1714,7 +1718,7 @@ const App = {
     const nome=document.getElementById("e_nome").value.trim();
     const box=document.getElementById("eqBanner");
     box.innerHTML = (this.editId || nome)
-      ? `Equipe do exame de: <b>${nome||"(sem nome ainda)"}</b>${this.editId?"":" — ainda não salvo"}`
+      ? `Equipe do exame de: <b>${nome?esc(nome):"(sem nome ainda)"}</b>${this.editId?"":" — ainda não salvo"}`
       : `Nenhum exame aberto no momento — os nomes abaixo são a <b>equipe padrão do centro</b> e serão usados ao criar um novo exame. Para editar a equipe de um exame específico, abra-o em <b>Exames</b> ou <b>Novo exame</b> primeiro.`;
   },
   setCoc(id){
@@ -1769,7 +1773,7 @@ const App = {
   renderCocSel(){
     const sel=document.getElementById("selCoc");
     sel.innerHTML=`<option value="_cepen">CEPEN/DPP — Painel Geral</option>`
-      + this.data.cocs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join("");
+      + this.data.cocs.map(c=>`<option value="${esc(c.id)}">${esc(c.nome)}</option>`).join("");
     sel.value=this.coc;
   },
 
@@ -1782,8 +1786,8 @@ const App = {
     div.innerHTML=`
       <button class="btn sm danger del" onclick="this.parentElement.remove(); App.triagem();">remover</button>
       <div class="row c3">
-        <div><label class="f">Crime / tipificação</label><input type="text" class="c_crime" value="${c.crime||""}" placeholder="ex.: Roubo majorado"></div>
-        <div><label class="f">Artigo</label><input type="text" class="c_art" value="${c.artigo||""}" placeholder="ex.: art. 157, §2º, CP"></div>
+        <div><label class="f">Crime / tipificação</label><input type="text" class="c_crime" value="${esc(c.crime)}" placeholder="ex.: Roubo majorado"></div>
+        <div><label class="f">Artigo</label><input type="text" class="c_art" value="${esc(c.artigo)}" placeholder="ex.: art. 157, §2º, CP"></div>
         <div><label class="f">Data do fato</label><input type="date" class="c_data" value="${c.dataFato||""}" onchange="App.triagem()"></div>
       </div>
       <label class="f">Crime hediondo/equiparado ou com violência/grave ameaça contra pessoa?</label>
@@ -1913,7 +1917,7 @@ const App = {
     div.innerHTML=`
       <button class="btn sm danger del" type="button" onclick="this.parentElement.remove();">remover</button>
       <div class="row c2">
-        <div><label class="f">Quesito</label><input type="text" class="q_pergunta" value="${(q.pergunta||"").replace(/"/g,'&quot;')}"></div>
+        <div><label class="f">Quesito</label><input type="text" class="q_pergunta" value="${esc(q.pergunta)}"></div>
         <div><label class="f">Origem</label>
           <select class="q_origem">
             <option value="mp" ${q.origem==="mp"?"selected":""}>Ministério Público</option>
@@ -1923,7 +1927,7 @@ const App = {
         </div>
       </div>
       <label class="f">Resposta</label>
-      <textarea class="q_resposta" style="min-height:60px;">${q.resposta||""}</textarea>`;
+      <textarea class="q_resposta" style="min-height:60px;">${esc(q.resposta)}</textarea>`;
     box.appendChild(div);
   },
   lerQuesitos(){
@@ -1943,8 +1947,8 @@ const App = {
     div.innerHTML=`
       <button class="btn sm danger del" type="button" onclick="this.parentElement.remove(); App.syncRespNomes();">remover</button>
       <div class="row c2">
-        <div><label class="f">Chefe de serviço</label><input type="text" class="ce_nome" placeholder="Nome / matrícula" value="${(c.nome||"").replace(/"/g,'&quot;')}" oninput="App.syncRespNomes()"></div>
-        <div><label class="f">Função na unidade</label><input type="text" class="ce_funcao" placeholder="ex.: Chefe de Plantão, Coord. de Segurança…" value="${(c.funcao||"").replace(/"/g,'&quot;')}"></div>
+        <div><label class="f">Chefe de serviço</label><input type="text" class="ce_nome" placeholder="Nome / matrícula" value="${esc(c.nome)}" oninput="App.syncRespNomes()"></div>
+        <div><label class="f">Função na unidade</label><input type="text" class="ce_funcao" placeholder="ex.: Chefe de Plantão, Coord. de Segurança…" value="${esc(c.funcao)}"></div>
       </div>`;
     box.appendChild(div);
   },
@@ -2158,6 +2162,12 @@ const App = {
     this.renderDash();
     this.renderLista();
   },
+  abrirUnidadePainelIdx(i){
+    const centro=this.data.cocs.find(c=>c.id===this.coc)||{unidades:[]};
+    const u=(centro.unidades||[])[i];
+    if(u==null) return;
+    this.abrirUnidadePainel(u);
+  },
   limparFiltroUnidadePainel(){
     this.dashUnidadeFiltro="";
     this.renderDash();
@@ -2190,7 +2200,7 @@ const App = {
     document.getElementById("prazosBox").innerHTML = urg.length ?
       `<table><tr><th>Avaliado</th><th>Unidade</th><th>Progressão prevista</th><th>Prazo do exame</th><th>Situação</th><th>Progresso</th></tr>`+
       urg.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{});
-        return `<tr onclick="App.abrir('${e.id}')"><td><b>${e.nome}</b></td><td>${e.unid||"—"}</td><td>${fmt(e.dataProg)}</td><td>${(()=>{if(!e.dataProg)return "—";const d=new Date(e.dataProg+"T00:00:00");d.setDate(d.getDate()-30);return d.toLocaleDateString("pt-BR");})()}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
+        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td><td>${esc(e.unid)||"—"}</td><td>${fmt(e.dataProg)}</td><td>${(()=>{if(!e.dataProg)return "—";const d=new Date(e.dataProg+"T00:00:00");d.setDate(d.getDate()-30);return d.toLocaleDateString("pt-BR");})()}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
       : `<div class="empty">Nenhum exame com prazo crítico${unidFiltro?"":" neste centro"}. ✓</div>`;
     this.renderOrientacao(and, crit, warn);
 
@@ -2207,8 +2217,8 @@ const App = {
       const semUnidade=exsCentro.filter(e=>!e.unid || !unidadesDoCentro.includes(e.unid));
       document.getElementById("painelUnidadesBox").innerHTML = `
         <table><tr><th>Unidade prisional</th><th>Em andamento</th><th>Prazo crítico</th><th>Atenção</th><th>Concluídos</th><th></th></tr>
-        ${linhas.map(r=>`<tr onclick="App.abrirUnidadePainel('${r.u.replace(/'/g,"\\'")}')">
-          <td><b>${r.u}</b></td>
+        ${linhas.map((r,i)=>`<tr onclick="App.abrirUnidadePainelIdx(${i})">
+          <td><b>${esc(r.u)}</b></td>
           <td>${r.and}</td>
           <td>${r.crit?`<span class="badge b-crit">${r.crit}</span>`:"0"}</td>
           <td>${r.warn?`<span class="badge b-warn">${r.warn}</span>`:"0"}</td>
@@ -2226,7 +2236,7 @@ const App = {
     if(crit.length){
       const top=crit.slice().sort((a,b)=>(a.dataProg||"9999")>(b.dataProg||"9999")?1:-1).slice(0,3);
       box.innerHTML=`<div class="orient crit"><b>Priorize hoje:</b> ${crit.length} exame(s) com prazo crítico ou vencido neste centro.
-        <ul>${top.map(e=>`<li>${e.nome} — progressão prevista em ${fmt(e.dataProg)}</li>`).join("")}</ul>
+        <ul>${top.map(e=>`<li>${esc(e.nome)} — progressão prevista em ${fmt(e.dataProg)}</li>`).join("")}</ul>
         A distribuição dos exames deve considerar as datas previstas e os prazos judiciais (art. 12, parágrafo único, da Portaria).</div>`;
     } else if(warn.length){
       box.innerHTML=`<div class="orient warn"><b>Atenção:</b> ${warn.length} exame(s) com prazo se aproximando (≤ 15 dias). Nenhum está vencido, mas vale antecipar a agenda da equipe.</div>`;
@@ -2251,14 +2261,14 @@ const App = {
     if(q) exs=exs.filter(e=>(e.nome+" "+(e.mat||"")+" "+(e.proc||"")).toLowerCase().includes(q));
     const nomeRegional = id => (this.data.cocs.find(c=>c.id===id)||{}).nome || "—";
     document.getElementById("listaTituloUnidade").innerHTML = unidFiltro
-      ? `— Unidade: <b>${unidLabel}</b> <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ ver todas as unidades</button>`
+      ? `— Unidade: <b>${esc(unidLabel)}</b> <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ ver todas as unidades</button>`
       : "";
     const showUnidCol = !geral && !unidFiltro;
     document.getElementById("listaBox").innerHTML = exs.length ?
       `<table><tr><th>Avaliado</th>${geral?"<th>Regional</th>":""}${showUnidCol?"<th>Unidade</th>":""}<th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th></tr>`+
       exs.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{});
         const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
-        return `<tr onclick="App.abrir('${e.id}')"><td><b>${e.nome}</b></td>${geral?`<td>${nomeRegional(e.coc)}</td>`:""}${showUnidCol?`<td>${e.unid||"—"}</td>`:""}<td>${e.mat||"—"}</td><td>${fin}</td><td>${e.sgpe||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
+        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td>${geral?`<td>${esc(nomeRegional(e.coc))}</td>`:""}${showUnidCol?`<td>${esc(e.unid)||"—"}</td>`:""}<td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
       : `<div class="empty">Nenhum exame cadastrado${geral?"":" neste centro"}. ${geral?"":'Use a aba <b>Novo exame</b>.'}</div>`;
   },
 
@@ -2294,6 +2304,7 @@ const App = {
 
   /* ---------- impressão / download ---------- */
   montarRelatorioHTML(){
+    const escNl = t => esc(t).replace(/\n/g,"<br>");
     const logoSrc=document.querySelector(".dpp-logo").src;
     const cocNome=(this.data.cocs.find(c=>c.id===this.coc)||{}).nome||"";
     const unidNome=this.getUnidadeValor();
@@ -2317,7 +2328,7 @@ const App = {
     const defesaNome=document.getElementById("q_defesaNome").value.trim();
     const defesaOAB=document.getElementById("q_defesaOAB").value.trim();
     const coordNome=document.getElementById("q_coord").value.trim();
-    const funcaoRotulo=(base,funcao)=> funcao?(base+" — "+funcao):base;
+    const funcaoRotulo=(base,funcao)=> funcao?(base+" — "+esc(funcao)):base;
     const eq=[[funcaoRotulo("Chefe de serviço",q_c1Funcao.value.trim()),q_c1.value],[funcaoRotulo("Chefe de serviço",q_c2Funcao.value.trim()),q_c2.value],...this.lerChefesExtra().map(c=>[funcaoRotulo("Chefe de serviço",c.funcao),c.nome]),["Psiquiatra",q_psq.value],["Psicólogo(a)",q_psi.value],["Assistente social",q_as.value]].filter(x=>x[1]);
     if(coordNome) eq.push(["Responsável/Coordenação do Centro", coordNome]);
     const assinExtra=[];
@@ -2334,72 +2345,72 @@ const App = {
           <td style="vertical-align:middle; text-align:left; line-height:1.35;">
             <div style="font-weight:bold; font-size:12pt;">ESTADO DE SANTA CATARINA</div>
             <div style="font-weight:bold; font-size:12pt;">SECRETARIA DE ESTADO DE JUSTIÇA E REINTEGRAÇÃO SOCIAL</div>
-            <div style="font-weight:bold; font-size:12pt;">DEPARTAMENTO DE POLÍCIA PENAL — CENTRO DE OBSERVAÇÃO — ${cocNome.toUpperCase()}</div>
-            <div style="font-weight:bold; font-size:12pt;">${unidLinha}</div>
+            <div style="font-weight:bold; font-size:12pt;">DEPARTAMENTO DE POLÍCIA PENAL — CENTRO DE OBSERVAÇÃO — ${esc(cocNome).toUpperCase()}</div>
+            <div style="font-weight:bold; font-size:12pt;">${esc(unidLinha)}</div>
           </td>
         </tr>
       </table>`;
-    const footerHtml=`<div style="margin-top:26px; padding-top:8px; border-top:1px solid #999; text-align:center; font-size:9pt; color:#444;">${capaCidade}, ${new Date().getFullYear()}</div>`;
+    const footerHtml=`<div style="margin-top:26px; padding-top:8px; border-top:1px solid #999; text-align:center; font-size:9pt; color:#444;">${esc(capaCidade)}, ${new Date().getFullYear()}</div>`;
     const pgCapa=`
       <div style="text-align:center;">
         <div style="margin-top:90px; font-size:20pt; font-weight:bold; line-height:1.4;">RELATÓRIO DE<br>EXAME CRIMINOLÓGICO</div>
         <div style="margin-top:60px; font-size:13pt;">
-          <p style="margin:5px 0;"><b>Avaliado:</b> ${e_nome.value||"—"}</p>
-          <p style="margin:5px 0;"><b>Matrícula/IPEN/Prontuário:</b> ${e_mat.value||"—"}</p>
-          <p style="margin:5px 0;"><b>Processo de execução:</b> ${e_proc.value||"—"}</p>
-          <p style="margin:5px 0;"><b>SGPE:</b> ${document.getElementById("e_sgpe").value.trim()||"—"}</p>
+          <p style="margin:5px 0;"><b>Avaliado:</b> ${esc(e_nome.value)||"—"}</p>
+          <p style="margin:5px 0;"><b>Matrícula/IPEN/Prontuário:</b> ${esc(e_mat.value)||"—"}</p>
+          <p style="margin:5px 0;"><b>Processo de execução:</b> ${esc(e_proc.value)||"—"}</p>
+          <p style="margin:5px 0;"><b>SGPE:</b> ${esc(document.getElementById("e_sgpe").value.trim())||"—"}</p>
         </div>
       </div>`;
 
     const pgIdent=`
-      <h3 style="text-align:center; margin-top:2px;">UNIDADE PRISIONAL DE CUSTÓDIA: ${(unidNome||"—").toUpperCase()}</h3>
-      ${unidInfo?`<p style="text-align:center; font-size:10pt; margin-top:-6px; color:#333;">${unidInfo.diretor?("Diretor(a): "+unidInfo.diretor+" — "):""}${unidInfo.endereco}${unidInfo.telefone?(" — Fone: "+unidInfo.telefone):""}${unidInfo.email?(" — E-mail: "+unidInfo.email):""}</p>`:""}
+      <h3 style="text-align:center; margin-top:2px;">UNIDADE PRISIONAL DE CUSTÓDIA: ${esc((unidNome||"—").toUpperCase())}</h3>
+      ${unidInfo?`<p style="text-align:center; font-size:10pt; margin-top:-6px; color:#333;">${unidInfo.diretor?("Diretor(a): "+esc(unidInfo.diretor)+" — "):""}${esc(unidInfo.endereco)}${unidInfo.telefone?(" — Fone: "+esc(unidInfo.telefone)):""}${unidInfo.email?(" — E-mail: "+esc(unidInfo.email)):""}</p>`:""}
       <h2 style="margin-top:14px;">RELATÓRIO DE EXAME CRIMINOLÓGICO</h2>
       <h3>I — Identificação e dados da execução</h3>
-      <p><b>Avaliado:</b> ${e_nome.value} &nbsp; <b>Matrícula/IPEN/Prontuário:</b> ${e_mat.value||"—"}<br>
-      ${document.getElementById("e_filiacao").value.trim()?`<b>Filiação:</b> ${document.getElementById("e_filiacao").value.trim()}<br>`:""}
+      <p><b>Avaliado:</b> ${esc(e_nome.value)} &nbsp; <b>Matrícula/IPEN/Prontuário:</b> ${esc(e_mat.value)||"—"}<br>
+      ${document.getElementById("e_filiacao").value.trim()?`<b>Filiação:</b> ${esc(document.getElementById("e_filiacao").value.trim())}<br>`:""}
       ${document.getElementById("e_nasc").value?`<b>Data de nascimento:</b> ${fmt(document.getElementById("e_nasc").value)}<br>`:""}
-      <b>Unidade de custódia:</b> ${this.getUnidadeValor()||"—"} &nbsp; <b>Regime atual:</b> ${regimeLabel}<br>
-      <b>Processo de execução:</b> ${e_proc.value||"—"}${document.getElementById("e_juizo").value.trim()?(" &nbsp; <b>Juízo da execução:</b> "+document.getElementById("e_juizo").value.trim()):""}<br>
-      ${document.getElementById("e_sgpe").value.trim()?`<b>SGPE:</b> ${document.getElementById("e_sgpe").value.trim()}<br>`:""}
-      ${document.getElementById("e_penaTotal").value.trim()?`<b>Pena total:</b> ${document.getElementById("e_penaTotal").value.trim()}<br>`:""}
-      ${document.getElementById("e_beneficio").value.trim()?`<b>Benefício pretendido:</b> ${document.getElementById("e_beneficio").value.trim()}<br>`:""}
+      <b>Unidade de custódia:</b> ${esc(this.getUnidadeValor())||"—"} &nbsp; <b>Regime atual:</b> ${regimeLabel}<br>
+      <b>Processo de execução:</b> ${esc(e_proc.value)||"—"}${document.getElementById("e_juizo").value.trim()?(" &nbsp; <b>Juízo da execução:</b> "+esc(document.getElementById("e_juizo").value.trim())):""}<br>
+      ${document.getElementById("e_sgpe").value.trim()?`<b>SGPE:</b> ${esc(document.getElementById("e_sgpe").value.trim())}<br>`:""}
+      ${document.getElementById("e_penaTotal").value.trim()?`<b>Pena total:</b> ${esc(document.getElementById("e_penaTotal").value.trim())}<br>`:""}
+      ${document.getElementById("e_beneficio").value.trim()?`<b>Benefício pretendido:</b> ${esc(document.getElementById("e_beneficio").value.trim())}<br>`:""}
       ${document.getElementById("e_dataIni").value||document.getElementById("e_dataConcl").value?`<b>Avaliação:</b> início em ${fmt(document.getElementById("e_dataIni").value)} — conclusão em ${fmt(document.getElementById("e_dataConcl").value)}<br>`:""}
       <b>Finalidade:</b> exame criminológico para ${fin}.</p>
-      ${conds.length?`<p><b>Condenações (data do fato):</b><br>${conds.map(c=>`— ${c.crime||"(crime)"} ${c.artigo?("("+c.artigo+")"):""} — fato em ${fmt(c.dataFato)}`).join("<br>")}</p>`:""}
+      ${conds.length?`<p><b>Condenações (data do fato):</b><br>${conds.map(c=>`— ${esc(c.crime)||"(crime)"} ${c.artigo?("("+esc(c.artigo)+")"):""} — fato em ${fmt(c.dataFato)}`).join("<br>")}</p>`:""}
 
       <h3>II — Delimitação da demanda, garantias e quesitos</h3>
-      <p>${document.getElementById("q_detOrigem").value.trim()?`<b>Determinação/documento de origem:</b> ${document.getElementById("q_detOrigem").value.trim()}<br>`:""}
-      <b>Defesa técnica presente:</b> ${defesaNome?defesaNome+(defesaOAB?" ("+defesaOAB+")":""):"não informada"}<br>
+      <p>${document.getElementById("q_detOrigem").value.trim()?`<b>Determinação/documento de origem:</b> ${esc(document.getElementById("q_detOrigem").value.trim())}<br>`:""}
+      <b>Defesa técnica presente:</b> ${defesaNome?esc(defesaNome)+(defesaOAB?" ("+esc(defesaOAB)+")":""):"não informada"}<br>
       <b>Ministério Público apresentou quesitos:</b> ${document.getElementById("q_mpQuesitos").value==="sim"?"Sim":"Não"} &nbsp; <b>Defesa apresentou quesitos:</b> ${document.getElementById("q_defQuesitos").value==="sim"?"Sim":"Não"}<br>
-      ${document.getElementById("q_impedimento").value.trim()?`<b>Impedimento/suspeição arguido:</b> ${document.getElementById("q_impedimento").value.trim()}<br>`:""}
+      ${document.getElementById("q_impedimento").value.trim()?`<b>Impedimento/suspeição arguido:</b> ${esc(document.getElementById("q_impedimento").value.trim())}<br>`:""}
       Assegurados os direitos ao silêncio e à afirmação de inocência, sem valoração desfavorável${et.defesa&&et.defesa.data?(" — ciência em "+fmt(et.defesa.data)):""}.${pessoaCiencia?" O(a) avaliado(a) tomou ciência da realização do exame.":""}</p>
-      ${quesitos.length?quesitos.map((q,i)=>`<p><b>Quesito ${i+1} (${origemLabel[q.origem]||q.origem}):</b> ${q.pergunta||"—"}<br><b>Resposta:</b> ${(q.resposta||"—").replace(/\n/g,"<br>")}</p>`).join(""):""}`;
+      ${quesitos.length?quesitos.map((q,i)=>`<p><b>Quesito ${i+1} (${origemLabel[q.origem]||q.origem}):</b> ${esc(q.pergunta)||"—"}<br><b>Resposta:</b> ${q.resposta?escNl(q.resposta):"—"}</p>`).join(""):""}`;
 
     const pgMetodologia=`
-      <h3>III — Metodologia</h3><p style="text-indent:1.5cm;">${(r_met.value||"—").replace(/\n/g,"<br>")}</p>
+      <h3>III — Metodologia</h3><p style="text-indent:1.5cm;">${r_met.value?escNl(r_met.value):"—"}</p>
       <p><b>Entrevistas realizadas em:</b> ${entrevistas} (modalidade: ${document.getElementById("e_modal").value==="video"?"por videoconferência, nos termos do art. 9º, §§1º e 2º, da Portaria":"presencial"}).</p>
-      ${metMarcados.length?`<p><b>Procedimentos realizados:</b> ${metMarcados.join("; ")}.</p>`:""}
-      ${fontesMarcadas.length||fontesOutras?`<p><b>Fontes documentais consultadas:</b> ${[...fontesMarcadas, fontesOutras].filter(Boolean).join("; ")}.</p>`:""}`;
+      ${metMarcados.length?`<p><b>Procedimentos realizados:</b> ${esc(metMarcados.join("; "))}.</p>`:""}
+      ${fontesMarcadas.length||fontesOutras?`<p><b>Fontes documentais consultadas:</b> ${esc([...fontesMarcadas, fontesOutras].filter(Boolean).join("; "))}.</p>`:""}`;
 
-    const pgCheI=`<h3>IV — Chefia de Serviço I (segurança/rotina institucional)</h3><p style="text-indent:1.5cm;">${(r_cheI.value||"—").replace(/\n/g,"<br>")}</p>`;
-    const pgCheII=`<h3>V — Chefia de Serviço II (trabalho/educação)</h3><p style="text-indent:1.5cm;">${(r_cheII.value||"—").replace(/\n/g,"<br>")}</p>`;
-    const pgSoc=`<h3>VI — Relatório social</h3><p style="text-indent:1.5cm;">${(r_soc.value||"—").replace(/\n/g,"<br>")}</p>`;
-    const pgPsi=`<h3>VII — Relatório psicológico</h3><p style="text-indent:1.5cm;">${(r_psi.value||"—").replace(/\n/g,"<br>")}</p>`;
-    const pgPsq=r_psq.value.trim()?`<h3>VIII — Análise psiquiátrica</h3><p style="text-indent:1.5cm;">${r_psq.value.replace(/\n/g,"<br>")}</p>`:(semPsq?`<h3>Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:"");
+    const pgCheI=`<h3>IV — Chefia de Serviço I (segurança/rotina institucional)</h3><p style="text-indent:1.5cm;">${r_cheI.value?escNl(r_cheI.value):"—"}</p>`;
+    const pgCheII=`<h3>V — Chefia de Serviço II (trabalho/educação)</h3><p style="text-indent:1.5cm;">${r_cheII.value?escNl(r_cheII.value):"—"}</p>`;
+    const pgSoc=`<h3>VI — Relatório social</h3><p style="text-indent:1.5cm;">${r_soc.value?escNl(r_soc.value):"—"}</p>`;
+    const pgPsi=`<h3>VII — Relatório psicológico</h3><p style="text-indent:1.5cm;">${r_psi.value?escNl(r_psi.value):"—"}</p>`;
+    const pgPsq=r_psq.value.trim()?`<h3>VIII — Análise psiquiátrica</h3><p style="text-indent:1.5cm;">${escNl(r_psq.value)}</p>`:(semPsq?`<h3>Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:"");
 
     const pgReal=`
       <h3>IX — Realidade institucional e efeitos do encarceramento</h3>
-      ${realMarcados.length?`<p><b>Fatores considerados:</b> ${realMarcados.join("; ")}.</p>`:""}
-      <p style="text-indent:1.5cm;">${(r_real.value||"—").replace(/\n/g,"<br>")}</p>`;
+      ${realMarcados.length?`<p><b>Fatores considerados:</b> ${esc(realMarcados.join("; "))}.</p>`:""}
+      <p style="text-indent:1.5cm;">${r_real.value?escNl(r_real.value):"—"}</p>`;
 
     const pgSintese=`
-      <h3>X — Síntese conclusiva</h3><p style="text-indent:1.5cm;">${(r_sin.value||"—").replace(/\n/g,"<br>")}</p>
-      ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${r_diverg.value.replace(/\n/g,"<br>")}</p>`:""}
-      ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${r_limit.value.replace(/\n/g,"<br>")}</p>`:""}
+      <h3>X — Síntese conclusiva</h3><p style="text-indent:1.5cm;">${r_sin.value?escNl(r_sin.value):"—"}</p>
+      ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${escNl(r_diverg.value)}</p>`:""}
+      ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${escNl(r_limit.value)}</p>`:""}
       <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução. Declara-se, nos termos do art. 10, VI, da Portaria, que não foi utilizada inteligência artificial generativa ou tecnologia preditiva em sua elaboração.</p>
-      <p style="margin-top:16px;">${cocNome}, ${new Date().toLocaleDateString("pt-BR")}.</p>
-      <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${x[1]}<br><i>${x[0]}</i></p>`).join("")}</div>`;
+      <p style="margin-top:16px;">${esc(cocNome)}, ${new Date().toLocaleDateString("pt-BR")}.</p>
+      <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}<br><i>${x[0]}</i></p>`).join("")}</div>`;
 
     const paginas=[pgCapa,pgIdent,pgMetodologia,pgCheI,pgCheII,pgSoc,pgPsi,pgPsq,pgReal,pgSintese].filter(Boolean);
     return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};"><div class="pgHead">${headerHtml}</div><div class="pgBody">${corpo}</div><div class="pgFoot">${footerHtml}</div></div>`).join("");
@@ -2432,13 +2443,13 @@ const App = {
       const i=this.data.cocs.indexOf(c);
       return `
       <details class="cond" data-coc-id="${c.id}" style="margin-bottom:14px; padding:0;" ${this._meuCocId?"open":""}>
-        <summary style="cursor:pointer; padding:12px; font-weight:700; color:var(--navy);">Centro ${i+1} — ${c.nome}</summary>
+        <summary style="cursor:pointer; padding:12px; font-weight:700; color:var(--navy);">Centro ${i+1} — ${esc(c.nome)}</summary>
         <div style="padding:0 12px 12px;">
         <label class="f">Centro ${i+1}</label>
-        <input type="text" value="${c.nome}" onchange="App.renomearCoc('${c.id}',this.value)">
+        <input type="text" value="${esc(c.nome)}" onchange="App.renomearCoc('${c.id}',this.value)">
         <label class="f" style="margin-top:10px;">Unidades prisionais vinculadas</label>
         <div style="display:flex; flex-wrap:wrap; gap:6px; margin:6px 0;">
-          ${(c.unidades||[]).map((u,ui)=>`<span class="badge b-navy" style="display:inline-flex; align-items:center; gap:6px;">${u}
+          ${(c.unidades||[]).map((u,ui)=>`<span class="badge b-navy" style="display:inline-flex; align-items:center; gap:6px;">${esc(u)}
             <button type="button" onclick="App.removerUnidade('${c.id}',${ui})" style="border:none; background:none; color:inherit; cursor:pointer; font-weight:700; font-size:13px; line-height:1;">×</button></span>`).join("") || `<span class="muted" style="font-size:12.5px;">nenhuma unidade cadastrada</span>`}
         </div>
         <div class="btnrow" style="margin-top:0;">
@@ -2448,14 +2459,14 @@ const App = {
         <hr class="sep">
         <label class="f">Equipe padrão do centro <span class="muted" style="font-weight:normal; text-transform:none;">— pré-preenche exames novos deste centro</span></label>
         <div class="row c2">
-          <input type="text" placeholder="Chefe de serviço 1" value="${(c.equipePadrao||{}).c1||""}" onchange="App.atualizarEquipePadrao('${c.id}','c1',this.value)">
-          <input type="text" placeholder="Função na unidade (chefe 1)" value="${(c.equipePadrao||{}).c1Funcao||""}" onchange="App.atualizarEquipePadrao('${c.id}','c1Funcao',this.value)">
-          <input type="text" placeholder="Chefe de serviço 2" value="${(c.equipePadrao||{}).c2||""}" onchange="App.atualizarEquipePadrao('${c.id}','c2',this.value)">
-          <input type="text" placeholder="Função na unidade (chefe 2)" value="${(c.equipePadrao||{}).c2Funcao||""}" onchange="App.atualizarEquipePadrao('${c.id}','c2Funcao',this.value)">
-          <input type="text" placeholder="Psiquiatra" value="${(c.equipePadrao||{}).psq||""}" onchange="App.atualizarEquipePadrao('${c.id}','psq',this.value)">
-          <input type="text" placeholder="Psicólogo(a)" value="${(c.equipePadrao||{}).psi||""}" onchange="App.atualizarEquipePadrao('${c.id}','psi',this.value)">
-          <input type="text" placeholder="Assistente social" value="${(c.equipePadrao||{}).as||""}" onchange="App.atualizarEquipePadrao('${c.id}','as',this.value)">
-          <input type="text" placeholder="Responsável/Coordenação do Centro" value="${(c.equipePadrao||{}).coord||""}" onchange="App.atualizarEquipePadrao('${c.id}','coord',this.value)">
+          <input type="text" placeholder="Chefe de serviço 1" value="${esc((c.equipePadrao||{}).c1)}" onchange="App.atualizarEquipePadrao('${c.id}','c1',this.value)">
+          <input type="text" placeholder="Função na unidade (chefe 1)" value="${esc((c.equipePadrao||{}).c1Funcao)}" onchange="App.atualizarEquipePadrao('${c.id}','c1Funcao',this.value)">
+          <input type="text" placeholder="Chefe de serviço 2" value="${esc((c.equipePadrao||{}).c2)}" onchange="App.atualizarEquipePadrao('${c.id}','c2',this.value)">
+          <input type="text" placeholder="Função na unidade (chefe 2)" value="${esc((c.equipePadrao||{}).c2Funcao)}" onchange="App.atualizarEquipePadrao('${c.id}','c2Funcao',this.value)">
+          <input type="text" placeholder="Psiquiatra" value="${esc((c.equipePadrao||{}).psq)}" onchange="App.atualizarEquipePadrao('${c.id}','psq',this.value)">
+          <input type="text" placeholder="Psicólogo(a)" value="${esc((c.equipePadrao||{}).psi)}" onchange="App.atualizarEquipePadrao('${c.id}','psi',this.value)">
+          <input type="text" placeholder="Assistente social" value="${esc((c.equipePadrao||{}).as)}" onchange="App.atualizarEquipePadrao('${c.id}','as',this.value)">
+          <input type="text" placeholder="Responsável/Coordenação do Centro" value="${esc((c.equipePadrao||{}).coord)}" onchange="App.atualizarEquipePadrao('${c.id}','coord',this.value)">
         </div>
         </div>
       </details>`;
@@ -2665,7 +2676,7 @@ const AuthUI = {
     document.getElementById("userBtnIniciais").textContent = iniciais;
     document.getElementById("userBtn").title = nome || "Minha conta";
     document.getElementById("userMenuInfo").innerHTML = perfil
-      ? `<b>${perfil.nome||""}</b><br>${perfil.email||""}<br>${PERFIL_LABEL[perfil.perfil]||perfil.perfil}${perfil.unidade?(" — "+perfil.unidade):(perfil.sr?(" — "+nomeSR(perfil.sr)):"")}`
+      ? `<b>${esc(perfil.nome)}</b><br>${esc(perfil.email)}<br>${esc(PERFIL_LABEL[perfil.perfil]||perfil.perfil)}${perfil.unidade?(" — "+esc(perfil.unidade)):(perfil.sr?(" — "+esc(nomeSR(perfil.sr))):"")}`
       : "";
   },
   toggleMenu(){
@@ -2710,7 +2721,7 @@ const UsuariosUI = {
         <div style="margin-top:8px;">
           ${pendentes.map(u=>`
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-top:1px solid #DCD3B8;">
-              <div><b>${u.nome}</b> — ${PERFIL_LABEL[u.perfilSolicitado]||u.perfilSolicitado} — ${u.unidade||nomeSR(u.sr)||""} <span class="muted">(${u.email})</span></div>
+              <div><b>${esc(u.nome)}</b> — ${esc(PERFIL_LABEL[u.perfilSolicitado]||u.perfilSolicitado)} — ${esc(u.unidade||nomeSR(u.sr))} <span class="muted">(${esc(u.email)})</span></div>
               <div class="btnrow" style="margin:0;">
                 ${podeAprovar(u) ? `<button class="btn sm" onclick="UsuariosUI.aprovar('${u.id}')">Aprovar</button><button class="btn sm danger" onclick="UsuariosUI.recusar('${u.id}')">Recusar</button>` : `<span class="muted" style="font-size:12px;">fora da sua alçada</span>`}
               </div>
@@ -2732,12 +2743,12 @@ const UsuariosUI = {
 
     box.innerHTML = `<table><tr><th>Nome completo</th><th>CPF</th><th>E-mail</th><th>Unidade / Regional</th><th>Nível de acesso</th>${editavel?"<th>Ações</th>":""}</tr>` +
       visiveis.map(u=>{
-        const unidadeCell = u.unidade || nomeSR(u.sr) || "—";
+        const unidadeCell = esc(u.unidade || nomeSR(u.sr)) || "—";
         const perfilCell = editavel
           ? `<select onchange="UsuariosUI.alterarPerfil('${u.id}', this)">${Object.entries(PERFIL_LABEL).map(([k,l])=>`<option value="${k}" ${k===u.perfil?"selected":""}>${l}</option>`).join("")}</select>`
-          : `<span class="badge b-navy">${PERFIL_LABEL[u.perfil]||(u.status==="PENDENTE"?"pendente":"—")}</span>`;
+          : `<span class="badge b-navy">${esc(PERFIL_LABEL[u.perfil]||(u.status==="PENDENTE"?"pendente":"—"))}</span>`;
         return `<tr>
-          <td><b>${u.nome}</b></td><td>${u.cpf||"—"}</td><td>${u.email}</td>
+          <td><b>${esc(u.nome)}</b></td><td>${esc(u.cpf)||"—"}</td><td>${esc(u.email)}</td>
           <td>${unidadeCell}</td><td>${perfilCell}</td>
           ${editavel?`<td class="right" style="white-space:nowrap;"><button class="btn sm ghost" onclick="UsuariosUI.abrirEdicao('${u.id}')">Editar</button> <button class="btn sm danger" onclick="UsuariosUI.excluir('${u.id}')">Excluir</button></td>`:""}
         </tr>`;
@@ -2830,8 +2841,8 @@ const NotifUI = {
     const pendentes = lista.filter(u=>u.status==="PENDENTE" && podeAprovar(u));
     painel.innerHTML = pendentes.length ? pendentes.map(u=>`
       <div style="padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px;">
-        <b>${u.nome}</b> pediu acesso como ${PERFIL_LABEL[u.perfilSolicitado]||u.perfilSolicitado}<br>
-        <span class="muted">${u.unidade||nomeSR(u.sr)||""}</span>
+        <b>${esc(u.nome)}</b> pediu acesso como ${esc(PERFIL_LABEL[u.perfilSolicitado]||u.perfilSolicitado)}<br>
+        <span class="muted">${esc(u.unidade||nomeSR(u.sr))}</span>
         <div class="btnrow" style="margin-top:6px;">
           <button class="btn sm" onclick="UsuariosUI.aprovar('${u.id}').then(()=>NotifUI.render())">Aprovar</button>
           <button class="btn sm danger" onclick="UsuariosUI.recusar('${u.id}').then(()=>NotifUI.render())">Recusar</button>
@@ -2845,11 +2856,14 @@ window.NotifUI = NotifUI;
 /* ---------- Criação em massa das contas institucionais (só DPP) ---------- */
 async function criarContasEmMassa(){
   if(meuPerfilDoc?.perfil !== "DPP"){ alert("Só uma conta DPP pode fazer isso."); return; }
-  if(!confirm("Isso cria uma conta DIR e uma CPEN para cada unidade, e uma conta SR para cada regional — todas com a senha padrão. Continuar?")) return;
+  if(!confirm("Isso cria uma conta DIR e uma CPEN para cada unidade, e uma conta SR para cada regional. Nenhuma senha é definida por aqui — cada pessoa recebe um e-mail para escolher a própria senha antes do primeiro acesso. Continuar?")) return;
 
   const appSecundario = initializeApp(firebaseConfig, "seed-"+Date.now());
   const authSecundario = getAuth(appSecundario);
-  const SENHA_PADRAO = "SENHA_REMOVIDA_DO_HISTORICO";
+  /* senha descartável só para satisfazer a API do Firebase — nunca é mostrada, guardada ou usada:
+     logo em seguida disparamos um e-mail de redefinição, e é ele quem efetivamente define o acesso.
+     Isso evita ter qualquer senha real fixa no código-fonte (que fica publicamente visível). */
+  const senhaDescartavel = ()=>{ const a=new Uint8Array(24); crypto.getRandomValues(a); return [...a].map(b=>b.toString(36)).join("").slice(0,32); };
 
   const contas = [];
   Object.entries(window.UNIDADES_INFO||{}).forEach(([nome, info])=>{
@@ -2869,11 +2883,12 @@ async function criarContasEmMassa(){
   for(const c of contas){
     if(bloqueado){ falhas.push(c.email+": pulado (bloqueio do Google ainda ativo)"); continue; }
     try{
-      const cred = await createUserWithEmailAndPassword(authSecundario, c.email, SENHA_PADRAO);
+      const cred = await createUserWithEmailAndPassword(authSecundario, c.email, senhaDescartavel());
       await setDoc(doc(db,"usuarios",cred.user.uid), {
         nome:c.nome, cpf:"", email:c.email, unidade:c.unidade, sr:c.sr,
         perfilSolicitado:c.perfil, perfil:c.perfil, status:"ATIVO", criadoEm: serverTimestamp(),
       });
+      await sendPasswordResetEmail(authSecundario, c.email);
       await signOut(authSecundario);
       ok++;
     }catch(e){
@@ -2887,7 +2902,7 @@ async function criarContasEmMassa(){
     }
     if(!bloqueado) await espera(1500); // pausa entre contas p/ nao disparar o limite antiabuso do Firebase
   }
-  alert(`Concluído: ${ok} conta(s) criada(s), ${jaExistia} já existiam, de ${contas.length} no total.` + (falhas.length ? `\n\nPendências (${falhas.length}):\n`+falhas.slice(0,10).join("\n") : "\n\nTodas as contas foram criadas!"));
+  alert(`Concluído: ${ok} conta(s) criada(s) — cada uma recebeu um e-mail para definir a própria senha antes do primeiro acesso. ${jaExistia} já existiam, de ${contas.length} no total.` + (falhas.length ? `\n\nPendências (${falhas.length}):\n`+falhas.slice(0,10).join("\n") : ""));
   UsuariosUI._cache = [];
   UsuariosUI.render();
 }
