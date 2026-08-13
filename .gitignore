@@ -3,3 +3,4 @@ scripts/*serviceAccount*.json
 scripts/*service-account*.json
 scripts/*chave*.json
 scripts/*firebase-adminsdk*.json
+scripts/contas-dpp.local.json

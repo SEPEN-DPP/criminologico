@@ -8,8 +8,15 @@
  *   1) No Firebase Console: Configuracoes do projeto > Contas de servico >
  *      Gerar nova chave privada. Salve o .json FORA da pasta do repo
  *      (ex.: Downloads) e nao faca commit dele.
- *   2) Nesta pasta "scripts": npm install firebase-admin
- *   3) node seed-contas-admin.js "C:\caminho\para\chave-servico.json"
+ *   2) Copie scripts/contas-dpp.example.json para scripts/contas-dpp.local.json
+ *      e preencha com nome/e-mail de quem deve ter acesso DPP (esse arquivo
+ *      fica de fora do git — nunca comite dados pessoais reais).
+ *   3) Nesta pasta "scripts": npm install firebase-admin
+ *   4) node seed-contas-admin.js "C:\caminho\para\chave-servico.json"
+ *
+ * As contas sao criadas SEM senha (nenhuma senha fixa fica no codigo). Depois
+ * de criar, cada pessoa define a propria senha em "Esqueci minha senha" na
+ * tela de login, usando o e-mail institucional dela.
  *
  * E seguro rodar mais de uma vez: contas que ja existem sao apenas puladas
  * (getUserByEmail) e o documento em usuarios/{uid} e regravado com merge,
@@ -51,7 +58,6 @@ function extrairObjeto(nomeConst) {
 const SR_INFO = extrairObjeto("SR_INFO");
 const UNIDADES_INFO = extrairObjeto("UNIDADES_INFO");
 
-const SENHA_PADRAO = "SENHA_REMOVIDA_DO_HISTORICO";
 const contas = [];
 Object.entries(UNIDADES_INFO).forEach(([nome, info]) => {
   const prefixo = (info.email || "").split("@")[0];
@@ -63,19 +69,16 @@ Object.entries(SR_INFO).forEach(([sr, info]) => {
   contas.push({ email: sr.toLowerCase() + "@pp.sc.gov.br", nome: info.nome, perfil: "SR", unidade: null, sr });
 });
 
-// Contas DPP (acesso total) — mesma equipe cadastrada como Administrador no PAD.
-const FULL_ACCESS = [
-  { nome: "Bruna Longen", email: "brunawlongen@gmail.com" },
-  { nome: "CRV", email: "crv@pp.sc.gov.br" },
-  { nome: "Day Sestren", email: "day.sestren88@gmail.com" },
-  { nome: "Ivana Schafer", email: "ivana.schafer@gmail.com" },
-  { nome: "Jéssica Karla Veiga", email: "jessicaveiga9@gmail.com" },
-  { nome: "Juliana Abel", email: "abeljuliana2012@gmail.com" },
-  { nome: "Leila Karenina Farias", email: "leilakffarias@gmail.com" },
-  { nome: "Ricardo de Brito", email: "ricardobritomarques12@gmail.com" },
-  { nome: "Rodrigo Pastore", email: "rodrigo.l.pastore@gmail.com" },
-  { nome: "SEPEN", email: "sepen@pp.sc.gov.br" },
-];
+// Contas DPP (acesso total) — lidas de um arquivo local, fora do git (nunca comitar dados pessoais reais).
+const fullAccessPath = path.join(__dirname, "contas-dpp.local.json");
+if (!fs.existsSync(fullAccessPath)) {
+  console.error(
+    `Não encontrei ${fullAccessPath}.\n` +
+    `Copie scripts/contas-dpp.example.json para scripts/contas-dpp.local.json e preencha com nome/e-mail de quem deve ter acesso DPP.`
+  );
+  process.exit(1);
+}
+const FULL_ACCESS = JSON.parse(fs.readFileSync(fullAccessPath, "utf8"));
 FULL_ACCESS.forEach(p => contas.push({ email: p.email, nome: p.nome, perfil: "DPP", unidade: null, sr: null }));
 
 async function main() {
@@ -89,7 +92,7 @@ async function main() {
         jaExistia++;
       } catch (e) {
         if (e.code !== "auth/user-not-found") throw e;
-        userRecord = await auth.createUser({ email: c.email, password: SENHA_PADRAO });
+        userRecord = await auth.createUser({ email: c.email });
         ok++;
       }
       await db.collection("usuarios").doc(userRecord.uid).set({
@@ -103,7 +106,8 @@ async function main() {
       console.log(`ERRO ${c.email}: ${e.code || e.message || e}`);
     }
   }
-  console.log(`\nConcluido: ${ok} conta(s) criada(s) agora, ${jaExistia} ja existiam, de ${contas.length} no total.`);
+  console.log(`\nConcluido: ${ok} conta(s) criada(s) agora (sem senha), ${jaExistia} ja existiam, de ${contas.length} no total.`);
+  if (ok) console.log(`Cada pessoa criada agora precisa usar "Esqueci minha senha" na tela de login (com o e-mail institucional dela) antes do primeiro acesso.`);
   if (falhas.length) {
     console.log(`\nFalhas (${falhas.length}):`);
     falhas.forEach(f => console.log(" - " + f));
