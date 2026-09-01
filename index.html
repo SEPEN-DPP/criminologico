@@ -953,6 +953,7 @@ const REALIDADE_CHECK = [
 /* parágrafos-modelo do Anexo II (modelo padrão DPP) — usados como texto inicial/sugestão
    nas abas de conteúdo do relatório; a equipe edita/substitui conforme o caso concreto */
 const TEXTO_MODELO = {
+  met:"A metodologia empregada compreendeu a realização de duas entrevistas individuais [presenciais/por videoconferência] com a pessoa examinada, ocorridas nos dias [data] e [data], além de entrevista com pessoa de seu convívio, realizada em [data]. Foram também analisados o Boletim Penal Informativo, os registros disciplinares, as informações relativas às atividades laborais e educacionais, os registros de atendimento e os demais documentos constantes do prontuário institucional. Após a conclusão das avaliações individuais, procedeu-se à integração multiprofissional em [data], ocasião em que os elementos obtidos pelos diferentes profissionais foram analisados de forma conjunta para elaboração do parecer final.",
   direcao:"Conforme os registros institucionais disponíveis, a pessoa examinada apresenta participação regular às rotinas da unidade, observando as orientações administrativas e mantendo comportamento compatível com as normas institucionais. A participação institucional do apenado revela-se adequada às exigências do regime atualmente cumprido.\nNão há registro de intercorrências relevantes no período analisado.",
   chefiaSeg:"Conforme o Boletim Penal Informativo e os registros institucionais consultados, a pessoa avaliada não possui registro de faltas disciplinares.\nDurante o período analisado, não foram identificadas intercorrências relevantes, envolvimento em conflitos internos ou comportamentos incompatíveis com as normas e rotinas estabelecidas pela unidade prisional.\nA pessoa avaliada mantém conduta institucional regular, com observância das normas regimentais e relacionamento compatível com o ambiente prisional.\nSob o aspecto da disciplina e da segurança institucional, não se verificam, na presente avaliação, elementos que demandem ressalva específica.",
   execPenal:"O apenado iniciou o cumprimento da pena em regime fechado em [data], tendo progredido ao regime semiaberto em [data].\nNo período de cumprimento da pena, usufruiu de [X] saídas temporárias, com retorno regular nas datas fixadas.\nA situação executória encontra-se atualizada, conforme os registros disponíveis, não sendo identificadas pendências documentais relevantes ou inconsistências formais a consignar no momento da presente avaliação.",
@@ -1940,6 +1941,7 @@ const App = {
     ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_beneficio","e_dataIni","e_dataConcl",
      "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
      "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_semiab","r_soc","r_psi","r_psq","r_real","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
+    r_met.value=TEXTO_MODELO.met;
     r_direcao.value=TEXTO_MODELO.direcao; r_chefiaSeg.value=TEXTO_MODELO.chefiaSeg; r_execPenal.value=TEXTO_MODELO.execPenal;
     r_ativLab.value=TEXTO_MODELO.ativLab; r_ensino.value=TEXTO_MODELO.ensino; r_semiab.value=TEXTO_MODELO.semiab;
     r_psq.value=TEXTO_MODELO.psq; r_psi.value=TEXTO_MODELO.psi; r_soc.value=TEXTO_MODELO.soc;
@@ -2075,7 +2077,7 @@ const App = {
     (ex.quesitos?.lista||[]).forEach(q=>this.addQuesito(q));
     this.renderChk("realCheckBox", REALIDADE_CHECK, ex.realCheck||{});
     this.relTab("coord"); this.novoTab("ident"); this.syncRespNomes();
-    r_met.value=ex.rel?.met||""; r_direcao.value=ex.rel?.direcao||TEXTO_MODELO.direcao; r_chefiaSeg.value=ex.rel?.chefiaSeg||TEXTO_MODELO.chefiaSeg;
+    r_met.value=ex.rel?.met||TEXTO_MODELO.met; r_direcao.value=ex.rel?.direcao||TEXTO_MODELO.direcao; r_chefiaSeg.value=ex.rel?.chefiaSeg||TEXTO_MODELO.chefiaSeg;
     r_execPenal.value=ex.rel?.execPenal||TEXTO_MODELO.execPenal; r_ativLab.value=ex.rel?.ativLab||TEXTO_MODELO.ativLab; r_ensino.value=ex.rel?.ensino||TEXTO_MODELO.ensino; r_semiab.value=ex.rel?.semiab||TEXTO_MODELO.semiab;
     r_soc.value=ex.rel?.soc||TEXTO_MODELO.soc; r_psi.value=ex.rel?.psi||TEXTO_MODELO.psi; r_psq.value=ex.rel?.psq||TEXTO_MODELO.psq;
     r_real.value=ex.rel?.real||""; r_sin.value=ex.rel?.sin||""; r_diverg.value=ex.rel?.diverg||""; r_limit.value=ex.rel?.limit||"";
@@ -2326,7 +2328,7 @@ const App = {
       <h3 style="text-align:center; margin-top:2px;">UNIDADE PRISIONAL DE CUSTÓDIA: ${esc((unidNome||"—").toUpperCase())}</h3>
       ${unidInfo?`<p style="text-align:center; font-size:10pt; margin-top:-6px; color:#333;">${unidInfo.diretor?("Diretor(a): "+esc(unidInfo.diretor)+" — "):""}${esc(unidInfo.endereco)}${unidInfo.telefone?(" — Fone: "+esc(unidInfo.telefone)):""}${unidInfo.email?(" — E-mail: "+esc(unidInfo.email)):""}</p>`:""}
       <h2 style="margin-top:14px;">RELATÓRIO DE EXAME CRIMINOLÓGICO</h2>
-      <h3>I — Identificação e dados da execução</h3>
+      <h3>I — Identificação e dados da demanda</h3>
       <p><b>Avaliado:</b> ${esc(e_nome.value)} &nbsp; <b>Matrícula/IPEN/Prontuário:</b> ${esc(e_mat.value)||"—"}<br>
       ${document.getElementById("e_filiacao").value.trim()?`<b>Filiação:</b> ${esc(document.getElementById("e_filiacao").value.trim())}<br>`:""}
       ${document.getElementById("e_nasc").value?`<b>Data de nascimento:</b> ${fmt(document.getElementById("e_nasc").value)}<br>`:""}
