@@ -2407,15 +2407,24 @@ const App = {
       <p><b>Entrevistas realizadas em:</b> ${entrevistas} (modalidade: ${document.getElementById("e_modal").value==="video"?"por videoconferência, nos termos do art. 9º, §§1º e 2º, da Portaria":"presencial"}).</p>`;
 
     const sup=this.lerSuprimir();
-    const pgDirecao=sup.direcao?"":`<h3>1 — Direção</h3><p style="text-indent:1.5cm;">${r_direcao.value?escNl(r_direcao.value):"—"}</p>`;
-    const pgChefiaSeg=sup.chefiaSeg?"":`<h3>2 — Chefia de Segurança</h3><p style="text-indent:1.5cm;">${r_chefiaSeg.value?escNl(r_chefiaSeg.value):"—"}</p>`;
-    const pgExecPenal=sup.execPenal?"":`<h3>3 — Execução Penal</h3><p style="text-indent:1.5cm;">${r_execPenal.value?escNl(r_execPenal.value):"—"}</p>`;
-    const pgAtivLab=sup.ativLab?"":`<h3>4 — Atividades Laborais</h3><p style="text-indent:1.5cm;">${r_ativLab.value?escNl(r_ativLab.value):"—"}</p>`;
-    const pgEnsino=sup.ensino?"":`<h3>5 — Ensino e Promoção Social</h3><p style="text-indent:1.5cm;">${r_ensino.value?escNl(r_ensino.value):"—"}</p>`;
-    const pgSemiab=sup.semiab?"":`<h3>6 — Ala de Semiaberto – Trabalho Externo</h3><p style="text-indent:1.5cm;">${r_semiab.value?escNl(r_semiab.value):"—"}</p>`;
-    const pgPsq=sup.psq?"":(semPsq?`<h3>7 — Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:(r_psq.value.trim()?`<h3>7 — Psiquiatria</h3><p style="text-indent:1.5cm;">${escNl(r_psq.value)}</p>`:""));
-    const pgPsi=`<h3>8 — Psicologia</h3><p style="text-indent:1.5cm;">${r_psi.value?escNl(r_psi.value):"—"}</p>`;
-    const pgSoc=`<h3>9 — Serviço Social</h3><p style="text-indent:1.5cm;">${r_soc.value?escNl(r_soc.value):"—"}</p>`;
+    const incluiDirecao=!sup.direcao, incluiChefiaSeg=!sup.chefiaSeg, incluiExecPenal=!sup.execPenal;
+    const incluiAtivLab=!sup.ativLab, incluiEnsino=!sup.ensino, incluiSemiab=!sup.semiab;
+    const incluiPsq=!sup.psq && (semPsq || r_psq.value.trim());
+    /* numeração sequencial (1..10, como no Anexo II) considerando só as seções efetivamente incluídas */
+    let n=0;
+    const nDirecao=incluiDirecao?++n:0, nChefiaSeg=incluiChefiaSeg?++n:0, nExecPenal=incluiExecPenal?++n:0;
+    const nAtivLab=incluiAtivLab?++n:0, nEnsino=incluiEnsino?++n:0, nSemiab=incluiSemiab?++n:0;
+    const nPsq=incluiPsq?++n:0, nPsi=++n, nSoc=++n, nParecer=++n;
+
+    const pgDirecao=incluiDirecao?`<h3>${nDirecao} — Direção</h3><p style="text-indent:1.5cm;">${r_direcao.value?escNl(r_direcao.value):"—"}</p>`:"";
+    const pgChefiaSeg=incluiChefiaSeg?`<h3>${nChefiaSeg} — Chefia de Segurança</h3><p style="text-indent:1.5cm;">${r_chefiaSeg.value?escNl(r_chefiaSeg.value):"—"}</p>`:"";
+    const pgExecPenal=incluiExecPenal?`<h3>${nExecPenal} — Execução Penal</h3><p style="text-indent:1.5cm;">${r_execPenal.value?escNl(r_execPenal.value):"—"}</p>`:"";
+    const pgAtivLab=incluiAtivLab?`<h3>${nAtivLab} — Atividades Laborais</h3><p style="text-indent:1.5cm;">${r_ativLab.value?escNl(r_ativLab.value):"—"}</p>`:"";
+    const pgEnsino=incluiEnsino?`<h3>${nEnsino} — Ensino e Promoção Social</h3><p style="text-indent:1.5cm;">${r_ensino.value?escNl(r_ensino.value):"—"}</p>`:"";
+    const pgSemiab=incluiSemiab?`<h3>${nSemiab} — Ala de Semiaberto – Trabalho Externo</h3><p style="text-indent:1.5cm;">${r_semiab.value?escNl(r_semiab.value):"—"}</p>`:"";
+    const pgPsq=incluiPsq?(semPsq?`<h3>${nPsq} — Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:`<h3>${nPsq} — Psiquiatria</h3><p style="text-indent:1.5cm;">${escNl(r_psq.value)}</p>`):"";
+    const pgPsi=`<h3>${nPsi} — Psicologia</h3><p style="text-indent:1.5cm;">${r_psi.value?escNl(r_psi.value):"—"}</p>`;
+    const pgSoc=`<h3>${nSoc} — Serviço Social</h3><p style="text-indent:1.5cm;">${r_soc.value?escNl(r_soc.value):"—"}</p>`;
 
     const pgReal=`
       <h3>Realidade institucional e efeitos do encarceramento</h3>
@@ -2423,7 +2432,7 @@ const App = {
       <p style="text-indent:1.5cm;">${r_real.value?escNl(r_real.value):"—"}</p>`;
 
     const pgSintese=`
-      <h3>10 — Parecer</h3><p style="text-indent:1.5cm;">${r_sin.value?escNl(r_sin.value):"—"}</p>
+      <h3>${nParecer} — Parecer</h3><p style="text-indent:1.5cm;">${r_sin.value?escNl(r_sin.value):"—"}</p>
       ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${escNl(r_diverg.value)}</p>`:""}
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${escNl(r_limit.value)}</p>`:""}
       <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução. Declara-se, nos termos do art. 10, VI, da Portaria, que não foi utilizada inteligência artificial generativa ou tecnologia preditiva em sua elaboração.</p>
