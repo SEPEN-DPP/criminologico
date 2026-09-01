@@ -567,7 +567,6 @@
       <button data-r="psq" onclick="App.relTab('psq')">Psiquiatria</button>
       <button data-r="psi" onclick="App.relTab('psi')">Psicologia</button>
       <button data-r="soc" onclick="App.relTab('soc')">Serviço Social</button>
-      <button data-r="real" onclick="App.relTab('real')">Realidade Institucional</button>
       <button data-r="sin" onclick="App.relTab('sin')">Parecer</button>
     </nav>
     <div class="relpanel on" id="rp-coord">
@@ -689,13 +688,6 @@
       <label class="f">9 — Serviço Social</label>
       <textarea id="r_soc"></textarea>
       <div class="orient-field">Aborde a realidade histórica e social do avaliado: trajetória familiar, comunitária e laboral, vínculos e rede de apoio, condições socioeconômicas antes e durante o cárcere, e o impacto da prisão sobre o avaliado e sua família (art. 9º, V, da Portaria). Evite termos indeterminados ou estigmatizantes e qualquer prognóstico de reincidência (vedações I e II).</div>
-    </div>
-    <div class="relpanel" id="rp-real">
-      <p class="note">Responsável: <span class="resp-tag" id="rp_realNomes">—</span></p>
-      <label class="f">Realidade institucional e efeitos do encarceramento <span class="muted" style="font-weight:normal; text-transform:none;">(art. 9º, V, da Portaria)</span></label>
-      <div class="chk-list" id="realCheckBox" style="margin-bottom:10px;"></div>
-      <textarea id="r_real"></textarea>
-      <div class="orient-field">A Res. CNPCP 36/2024 determina que o exame considere as condições objetivas da instituição e as determinações sociais e subjetivas relativas à vivência do cárcere e seus danos — evite atribuir exclusivamente ao avaliado situações decorrentes da própria estrutura prisional (oferta de trabalho/educação, acesso a atendimento, condições de convivência).</div>
     </div>
     <div class="relpanel" id="rp-sin">
       <p class="note">Responsável: <span class="resp-tag" id="rp_sinNomes">—</span></p>
@@ -969,15 +961,6 @@ const ETAPA_EXTRA = {
   entrevista:[{f:"hora",p:"Horário",t:"time"},{f:"local",p:"Local"},{f:"dur",p:"Duração aprox."},{f:"prof",p:"Profissionais presentes"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS}],
   convivio:[{f:"hora",p:"Horário",t:"time"},{f:"nome",p:"Nome da pessoa"},{f:"vinc",p:"Vínculo"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS}]
 };
-
-/* realidade institucional e efeitos do encarceramento (item VIII do modelo padronizado; art. 9º, V, da Portaria) */
-const REALIDADE_CHECK = [
-  {k:"trabalho",   t:"Oferta efetiva de trabalho na unidade"},
-  {k:"educacao",   t:"Oferta efetiva de educação/cursos"},
-  {k:"atendimento",t:"Acesso a atendimento psicológico/social/saúde"},
-  {k:"convivencia",t:"Condições de convivência e regime"},
-  {k:"limitacoes", t:"Limitações institucionais que afetaram oportunidades de participação"}
-];
 
 /* parágrafos-modelo do Anexo II (modelo padrão DPP) — usados como texto inicial/sugestão
    nas abas de conteúdo do relatório; a equipe edita/substitui conforme o caso concreto */
@@ -1969,7 +1952,7 @@ const App = {
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
     ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_beneficio","e_dataIni","e_dataConcl",
      "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
-     "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_semiab","r_soc","r_psi","r_psq","r_real","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
+     "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_semiab","r_soc","r_psi","r_psq","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
     r_met.value=TEXTO_MODELO.met;
     r_direcao.value=TEXTO_MODELO.direcao; r_chefiaSeg.value=TEXTO_MODELO.chefiaSeg; r_execPenal.value=TEXTO_MODELO.execPenal;
     r_ativLab.value=TEXTO_MODELO.ativLab; r_ensino.value=TEXTO_MODELO.ensino; r_semiab.value=TEXTO_MODELO.semiab;
@@ -1990,7 +1973,6 @@ const App = {
     document.getElementById("quesitosBox").innerHTML="";
     document.getElementById("chefesExtraBox").innerHTML="";
     this.renderEtapas();
-    this.renderChk("realCheckBox", REALIDADE_CHECK);
     this.aplicarSuprimir({});
     this.relTab("coord");
     this.novoTab("ident");
@@ -2032,7 +2014,6 @@ const App = {
     const coord=document.getElementById("q_coord").value.trim()||"—";
     document.getElementById("rp_coordNomes").textContent=coord;
     document.getElementById("rp_sinNomes").textContent=coord;
-    document.getElementById("rp_realNomes").textContent=coord;
     document.getElementById("rp_direcaoNome").textContent=direcao||"—";
     document.getElementById("rp_chefiaSegNome").textContent=chefiaSeg||"—";
     document.getElementById("rp_execPenalNome").textContent=execPenal||"—";
@@ -2076,10 +2057,9 @@ const App = {
         defQuesitos:document.getElementById("q_defQuesitos").value,
         lista:this.lerQuesitos()
       },
-      realCheck:this.lerChk("realCheckBox", REALIDADE_CHECK),
       sup:this.lerSuprimir(),
       etapas:this.lerEtapas(),
-      rel:{met:r_met.value,direcao:r_direcao.value,chefiaSeg:r_chefiaSeg.value,execPenal:r_execPenal.value,ativLab:r_ativLab.value,ensino:r_ensino.value,semiab:r_semiab.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,real:r_real.value,sin:r_sin.value,diverg:r_diverg.value,limit:r_limit.value},
+      rel:{met:r_met.value,direcao:r_direcao.value,chefiaSeg:r_chefiaSeg.value,execPenal:r_execPenal.value,ativLab:r_ativLab.value,ensino:r_ensino.value,semiab:r_semiab.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,sin:r_sin.value,diverg:r_diverg.value,limit:r_limit.value},
       obs:document.getElementById("e_obs").value
     });
     if(!this.editId){ this.data.exames.push(ex); this.editId=ex.id; }
@@ -2126,13 +2106,12 @@ const App = {
     document.getElementById("q_defQuesitos").value=ex.quesitos?.defQuesitos||"nao";
     document.getElementById("quesitosBox").innerHTML="";
     (ex.quesitos?.lista||[]).forEach(q=>this.addQuesito(q));
-    this.renderChk("realCheckBox", REALIDADE_CHECK, ex.realCheck||{});
     this.aplicarSuprimir(ex.sup);
     this.relTab("coord"); this.novoTab("ident"); this.syncRespNomes();
     r_met.value=ex.rel?.met||TEXTO_MODELO.met; r_direcao.value=ex.rel?.direcao||TEXTO_MODELO.direcao; r_chefiaSeg.value=ex.rel?.chefiaSeg||TEXTO_MODELO.chefiaSeg;
     r_execPenal.value=ex.rel?.execPenal||TEXTO_MODELO.execPenal; r_ativLab.value=ex.rel?.ativLab||TEXTO_MODELO.ativLab; r_ensino.value=ex.rel?.ensino||TEXTO_MODELO.ensino; r_semiab.value=ex.rel?.semiab||TEXTO_MODELO.semiab;
     r_soc.value=ex.rel?.soc||TEXTO_MODELO.soc; r_psi.value=ex.rel?.psi||TEXTO_MODELO.psi; r_psq.value=ex.rel?.psq||TEXTO_MODELO.psq;
-    r_real.value=ex.rel?.real||""; r_sin.value=ex.rel?.sin||""; r_diverg.value=ex.rel?.diverg||""; r_limit.value=ex.rel?.limit||"";
+    r_sin.value=ex.rel?.sin||""; r_diverg.value=ex.rel?.diverg||""; r_limit.value=ex.rel?.limit||"";
     document.getElementById("condBox").innerHTML="";
     (ex.conds&&ex.conds.length?ex.conds:[{}]).forEach(c=>this.addCond(c));
     this.renderEtapas(ex.etapas||{});
@@ -2335,8 +2314,6 @@ const App = {
     const semPsq=document.getElementById("q_semPsq").checked;
     const entrevistas=[et.ent1,et.ent2,et.entConv].filter(x=>x&&x.ok&&x.data).map(x=>fmt(x.data)).join(", ")||"—";
     const regimeLabel={fechado:"Fechado",semiaberto:"Semiaberto",aberto:"Aberto",domiciliar:"Prisão domiciliar"}[document.getElementById("e_regime").value]||"não informado";
-    const realVal=this.lerChk("realCheckBox", REALIDADE_CHECK);
-    const realMarcados=REALIDADE_CHECK.filter(i=>realVal[i.k]).map(i=>i.t);
     const quesitos=this.lerQuesitos();
     const origemLabel={mp:"Ministério Público",defesa:"Defesa",juizo:"Juízo"};
     const defesaNome=document.getElementById("q_defesaNome").value.trim();
@@ -2426,11 +2403,6 @@ const App = {
     const pgPsi=`<h3>${nPsi} — Psicologia</h3><p style="text-indent:1.5cm;">${r_psi.value?escNl(r_psi.value):"—"}</p>`;
     const pgSoc=`<h3>${nSoc} — Serviço Social</h3><p style="text-indent:1.5cm;">${r_soc.value?escNl(r_soc.value):"—"}</p>`;
 
-    const pgReal=`
-      <h3>Realidade institucional e efeitos do encarceramento</h3>
-      ${realMarcados.length?`<p><b>Fatores considerados:</b> ${esc(realMarcados.join("; "))}.</p>`:""}
-      <p style="text-indent:1.5cm;">${r_real.value?escNl(r_real.value):"—"}</p>`;
-
     const pgSintese=`
       <h3>${nParecer} — Parecer</h3><p style="text-indent:1.5cm;">${r_sin.value?escNl(r_sin.value):"—"}</p>
       ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${escNl(r_diverg.value)}</p>`:""}
@@ -2439,7 +2411,7 @@ const App = {
       <p style="margin-top:16px;">${esc(cocNome)}, ${new Date().toLocaleDateString("pt-BR")}.</p>
       <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}<br><i>${x[0]}</i></p>`).join("")}</div>`;
 
-    const paginas=[pgCapa,pgIdent,pgMetodologia,pgDirecao,pgChefiaSeg,pgExecPenal,pgAtivLab,pgEnsino,pgSemiab,pgPsq,pgPsi,pgSoc,pgReal,pgSintese].filter(Boolean);
+    const paginas=[pgCapa,pgIdent,pgMetodologia,pgDirecao,pgChefiaSeg,pgExecPenal,pgAtivLab,pgEnsino,pgSemiab,pgPsq,pgPsi,pgSoc,pgSintese].filter(Boolean);
     return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};"><div class="pgHead">${headerHtml}</div><div class="pgBody">${corpo}</div><div class="pgFoot">${footerHtml}</div></div>`).join("");
   },
   checarAntesDeExportar(acao){
