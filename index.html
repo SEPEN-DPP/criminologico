@@ -495,16 +495,14 @@
 
     <div class="novopanel" id="np-equipe">
       <div id="eqBanner" class="lawbox"></div>
-      <h3>Equipe examinadora <span class="muted" style="font-size:12px; font-weight:normal;">(art. 5º da Portaria — informar nome e registro de classe)</span></h3>
+      <h3>Equipe examinadora</h3>
       <div class="row c2">
-        <div>
-          <label class="f">Chefe de serviço 1</label><input type="text" id="q_c1" placeholder="Nome / matrícula" oninput="App.syncRespNomes()">
-          <input type="text" id="q_c1Funcao" placeholder="Função na unidade (ex.: Diretor(a), Chefe de Segurança, Coord. de Execução Penal…)" style="margin-top:6px;">
-        </div>
-        <div>
-          <label class="f">Chefe de serviço 2</label><input type="text" id="q_c2" placeholder="Nome / matrícula" oninput="App.syncRespNomes()">
-          <input type="text" id="q_c2Funcao" placeholder="Função na unidade (ex.: Coord. de Atividades Laborais, Coord. de Ensino…)" style="margin-top:6px;">
-        </div>
+        <div><label class="f">Diretor(a) da Unidade</label><input type="text" id="q_direcao" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
+        <div><label class="f">Chefe de Segurança</label><input type="text" id="q_chefiaSeg" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
+        <div><label class="f">Coordenador(a) de Execução Penal</label><input type="text" id="q_execPenal" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
+        <div><label class="f">Coordenador(a) de Atividades Laborais</label><input type="text" id="q_ativLab" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
+        <div><label class="f">Coordenador(a) de Ensino e Promoção Social</label><input type="text" id="q_ensino" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
+        <div><label class="f">Coordenador(a) da Ala de Semiaberto</label><input type="text" id="q_semiab" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
         <div><label class="f">Psiquiatra</label><input type="text" id="q_psq" placeholder="Nome / CRM" oninput="App.syncRespNomes()"></div>
         <div><label class="f">Psicólogo(a)</label><input type="text" id="q_psi" placeholder="Nome / CRP" oninput="App.syncRespNomes()"></div>
         <div><label class="f">Assistente social</label><input type="text" id="q_as" placeholder="Nome / CRESS" oninput="App.syncRespNomes()"></div>
@@ -525,20 +523,13 @@
 
     <div class="novopanel" id="np-quesitos">
     <h3>Quesitos e garantias processuais <span class="muted" style="font-size:12px; font-weight:normal;">(art. 9º, I, da Portaria; Res. CNPCP 36/2024)</span></h3>
-    <p class="note">A Resolução CNPCP nº 36/2024 prevê a prévia intimação do Ministério Público e da defesa para apresentação de quesitos e arguição de impedimento/suspeição, além da presença da defesa técnica na realização do exame.</p>
     <div class="row c2">
       <div><label class="f">Determinação judicial / documento de origem</label><input type="text" id="q_detOrigem" placeholder="ex.: decisão do evento n. 211"></div>
       <div><label class="f">Impedimento ou suspeição arguido</label><input type="text" id="q_impedimento" placeholder="Descreva, se houver — ou deixe em branco"></div>
     </div>
-    <div class="row c3">
+    <div class="row c2">
       <div><label class="f">Defesa técnica presente (nome)</label><input type="text" id="q_defesaNome" placeholder="Nome do(a) advogado(a)/defensor(a)"></div>
       <div><label class="f">OAB / Defensoria</label><input type="text" id="q_defesaOAB" placeholder="ex.: OAB/SC 12345"></div>
-      <div><label class="f">Pessoa examinada tomou ciência</label>
-        <select id="q_pessoaCiencia">
-          <option value="nao">Não</option>
-          <option value="sim">Sim</option>
-        </select>
-      </div>
     </div>
     <div class="row c2">
       <div><label class="f">Ministério Público apresentou quesitos?</label>
@@ -564,44 +555,72 @@
     <div id="etapasBox"></div>
 
     <hr class="sep">
-    <h3>Conteúdo do relatório <span class="muted" style="font-size:12px; font-weight:normal;">(estrutura do item 8 do Manual)</span> — uma aba por profissional responsável</h3>
+    <h3>Relatório</h3>
     <nav class="subtabs" id="relTabs">
       <button class="on" data-r="coord" onclick="App.relTab('coord')">Metodologia</button>
-      <button data-r="cheI" onclick="App.relTab('cheI')">Chefia I – Segurança</button>
-      <button data-r="cheII" onclick="App.relTab('cheII')">Chefia II – Trab./Educação</button>
-      <button data-r="soc" onclick="App.relTab('soc')">Serviço Social</button>
-      <button data-r="psi" onclick="App.relTab('psi')">Psicologia</button>
+      <button data-r="direcao" onclick="App.relTab('direcao')">Direção</button>
+      <button data-r="chefiaSeg" onclick="App.relTab('chefiaSeg')">Chefia de Segurança</button>
+      <button data-r="execPenal" onclick="App.relTab('execPenal')">Execução Penal</button>
+      <button data-r="ativLab" onclick="App.relTab('ativLab')">Atividades Laborais</button>
+      <button data-r="ensino" onclick="App.relTab('ensino')">Ensino e Promoção Social</button>
+      <button data-r="semiab" onclick="App.relTab('semiab')">Ala de Semiaberto</button>
       <button data-r="psq" onclick="App.relTab('psq')">Psiquiatria</button>
+      <button data-r="psi" onclick="App.relTab('psi')">Psicologia</button>
+      <button data-r="soc" onclick="App.relTab('soc')">Serviço Social</button>
       <button data-r="real" onclick="App.relTab('real')">Realidade Institucional</button>
-      <button data-r="sin" onclick="App.relTab('sin')">Síntese conclusiva</button>
+      <button data-r="sin" onclick="App.relTab('sin')">Parecer</button>
     </nav>
     <div class="relpanel on" id="rp-coord">
-      <p class="note">Responsáveis: <span class="resp-tag" id="rp_coordNomes">—</span></p>
-      <label class="f">II — Metodologia (declaração expressa dos métodos, instrumentos, datas das entrevistas e remissão fundamentada ao exame de ingresso)</label>
+      <p class="note">Responsável: <span class="resp-tag" id="rp_coordNomes">—</span></p>
+      <label class="f">III — Metodologia (declaração expressa dos métodos, instrumentos, datas das entrevistas e remissão fundamentada ao exame de ingresso)</label>
       <textarea id="r_met"></textarea>
       <div class="orient-field">Descreva os métodos e instrumentos utilizados (entrevistas, dinâmicas, testes), as datas de cada entrevista e uma remissão fundamentada ao exame de ingresso, quando existente, indicando o que mudou desde então. Não inclua aqui prognóstico de reincidência, classificação de segurança ou juízo sobre a gravidade do delito (vedações do art. 10).</div>
     </div>
-    <div class="relpanel" id="rp-cheI">
-      <p class="note">Responsável: <span class="resp-tag" id="rp_cheINome">—</span></p>
-      <label class="f">Chefia de Serviço I — Segurança / rotina institucional</label>
-      <textarea id="r_cheI"></textarea>
-      <div class="orient-field">Cumprimento das normas e rotina institucional; natureza e quantidade de registros disciplinares, com remissão aos documentos oficiais; intercorrências institucionais relevantes e atuais; relacionamento funcional observável com servidores e demais custodiados; responsabilidades/atividades institucionais assumidas. Registre apenas condições atuais e observáveis, sem prognóstico de reincidência.</div>
+    <div class="relpanel" id="rp-direcao">
+      <p class="note">Responsável: <span class="resp-tag" id="rp_direcaoNome">—</span></p>
+      <label class="f">1 — Direção</label>
+      <textarea id="r_direcao"></textarea>
+      <div class="orient-field">Participação nas rotinas da unidade, observância das orientações administrativas e comportamento institucional geral; eventuais intercorrências relevantes no período analisado.</div>
     </div>
-    <div class="relpanel" id="rp-cheII">
-      <p class="note">Responsável: <span class="resp-tag" id="rp_cheIINome">—</span></p>
-      <label class="f">Chefia de Serviço II — Trabalho, educação e atividades</label>
-      <textarea id="r_cheII"></textarea>
-      <div class="orient-field">Participação em atividades laborais e assiduidade; participação educacional, cursos e frequência; atividades de leitura, cultura, esporte ou projetos sociais; desempenho e cumprimento de compromissos institucionais; trabalho externo ou adaptação ao semiaberto, quando aplicável.</div>
+    <div class="relpanel" id="rp-chefiaSeg">
+      <p class="note">Responsável: <span class="resp-tag" id="rp_chefiaSegNome">—</span></p>
+      <label class="f">2 — Chefia de Segurança</label>
+      <textarea id="r_chefiaSeg"></textarea>
+      <div class="orient-field">Boletim Penal Informativo e registros disciplinares (pretéritos e atuais), situação de reabilitação, envolvimento em conflitos internos ou resistência às rotinas institucionais. Registre apenas condições atuais e observáveis, sem prognóstico de reincidência.</div>
     </div>
-    <div class="relpanel" id="rp-soc">
-      <p class="note">Responsável: <span class="resp-tag" id="rp_socNome">—</span></p>
-      <label class="f">III — Relatório social</label>
-      <textarea id="r_soc"></textarea>
-      <div class="orient-field">Aborde a realidade histórica e social do avaliado: trajetória familiar, comunitária e laboral, vínculos e rede de apoio, condições socioeconômicas antes e durante o cárcere, e o impacto da prisão sobre o avaliado e sua família (art. 9º, V, da Portaria). Evite termos indeterminados ou estigmatizantes e qualquer prognóstico de reincidência (vedações I e II).</div>
+    <div class="relpanel" id="rp-execPenal">
+      <p class="note">Responsável: <span class="resp-tag" id="rp_execPenalNome">—</span></p>
+      <label class="f">3 — Execução Penal</label>
+      <textarea id="r_execPenal"></textarea>
+      <div class="orient-field">Histórico de cumprimento de pena (regimes, progressões), saídas temporárias usufruídas e eventual direito atual, e situação executória (pendências documentais ou inconsistências formais).</div>
+    </div>
+    <div class="relpanel" id="rp-ativLab">
+      <p class="note">Responsável: <span class="resp-tag" id="rp_ativLabNome">—</span></p>
+      <label class="f">4 — Atividades Laborais</label>
+      <textarea id="r_ativLab"></textarea>
+      <div class="orient-field">Participação em atividade laboral interna ou externa, frequência e desempenho; quando não inserido, se a ausência decorre de falta de vaga (limitação institucional) e não de conduta do avaliado.</div>
+    </div>
+    <div class="relpanel" id="rp-ensino">
+      <p class="note">Responsável: <span class="resp-tag" id="rp_ensinoNome">—</span></p>
+      <label class="f">5 — Ensino e Promoção Social</label>
+      <textarea id="r_ensino"></textarea>
+      <div class="orient-field">Participação em atividades educacionais e projetos de promoção social, frequência e engajamento; quando não inserido, se decorre da falta de oferta na unidade.</div>
+    </div>
+    <div class="relpanel" id="rp-semiab">
+      <p class="note">Responsável: <span class="resp-tag" id="rp_semiabNome">—</span></p>
+      <label class="f">6 — Ala de Semiaberto – Trabalho Externo</label>
+      <textarea id="r_semiab"></textarea>
+      <div class="orient-field">Aplicável quando o avaliado está no regime semiaberto: adaptação à rotina, cumprimento de horários e das regras dos deslocamentos/trabalho externo autorizados.</div>
+    </div>
+    <div class="relpanel" id="rp-psq">
+      <p class="note">Responsável: <span class="resp-tag" id="rp_psqNome">—</span></p>
+      <label class="f">7 — Psiquiatria (quando houver)</label>
+      <textarea id="r_psq"></textarea>
+      <div class="orient-field">Preencha quando houver psiquiatra na equipe: eventuais diagnósticos, tratamento em curso, medicação e seu impacto sobre a avaliação. Se não houver psiquiatra disponível, use a opção correspondente na aba Equipe em vez de preencher este campo. Vedado fundamentar em periculosidade ou sugerir classificação de segurança (vedações II e IV).</div>
     </div>
     <div class="relpanel" id="rp-psi">
       <p class="note">Responsável: <span class="resp-tag" id="rp_psiNome">—</span></p>
-      <label class="f">IV — Relatório psicológico</label>
+      <label class="f">8 — Psicologia</label>
       <textarea id="r_psi"></textarea>
       <div class="orient-field">Registre a análise a partir das entrevistas e, quando aplicável, de instrumentos técnicos validados: percepções sobre a vivência do cárcere, saúde mental e projetos de vida. Não estabeleça nexo causal entre o delito e a personalidade do avaliado, nem sugira prognóstico de reincidência (vedações I e III).</div>
       <details class="roteiro-box">
@@ -636,22 +655,22 @@
         <p><b>Documento produzido:</b> Relatório Psicológico nos moldes da Resolução CFP n° 06/2019.</p>
       </details>
     </div>
-    <div class="relpanel" id="rp-psq">
-      <p class="note">Responsável: <span class="resp-tag" id="rp_psqNome">—</span></p>
-      <label class="f">V — Análise psiquiátrica (quando houver)</label>
-      <textarea id="r_psq"></textarea>
-      <div class="orient-field">Preencha quando houver psiquiatra na equipe: eventuais diagnósticos, tratamento em curso, medicação e seu impacto sobre a avaliação. Se não houver psiquiatra disponível, use a opção correspondente na aba Equipe em vez de preencher este campo. Vedado fundamentar em periculosidade ou sugerir classificação de segurança (vedações II e IV).</div>
+    <div class="relpanel" id="rp-soc">
+      <p class="note">Responsável: <span class="resp-tag" id="rp_socNome">—</span></p>
+      <label class="f">9 — Serviço Social</label>
+      <textarea id="r_soc"></textarea>
+      <div class="orient-field">Aborde a realidade histórica e social do avaliado: trajetória familiar, comunitária e laboral, vínculos e rede de apoio, condições socioeconômicas antes e durante o cárcere, e o impacto da prisão sobre o avaliado e sua família (art. 9º, V, da Portaria). Evite termos indeterminados ou estigmatizantes e qualquer prognóstico de reincidência (vedações I e II).</div>
     </div>
     <div class="relpanel" id="rp-real">
-      <p class="note">Responsáveis: <span class="resp-tag" id="rp_realNomes">—</span></p>
+      <p class="note">Responsável: <span class="resp-tag" id="rp_realNomes">—</span></p>
       <label class="f">Realidade institucional e efeitos do encarceramento <span class="muted" style="font-weight:normal; text-transform:none;">(art. 9º, V, da Portaria)</span></label>
       <div class="chk-list" id="realCheckBox" style="margin-bottom:10px;"></div>
       <textarea id="r_real"></textarea>
       <div class="orient-field">A Res. CNPCP 36/2024 determina que o exame considere as condições objetivas da instituição e as determinações sociais e subjetivas relativas à vivência do cárcere e seus danos — evite atribuir exclusivamente ao avaliado situações decorrentes da própria estrutura prisional (oferta de trabalho/educação, acesso a atendimento, condições de convivência).</div>
     </div>
     <div class="relpanel" id="rp-sin">
-      <p class="note">Responsáveis: <span class="resp-tag" id="rp_sinNomes">—</span></p>
-      <label class="f">VI — Síntese conclusiva (informativa e descritiva)</label>
+      <p class="note">Responsável: <span class="resp-tag" id="rp_sinNomes">—</span></p>
+      <label class="f">10 — Parecer</label>
       <textarea id="r_sin"></textarea>
       <div class="orient-field">Redija uma síntese informativa e descritiva do conjunto do exame — não uma conclusão sobre o mérito da progressão; o relatório não vincula o Juízo da Execução (art. 10, parágrafo único). Não fundamente na gravidade abstrata do delito, nas circunstâncias do crime ou no tempo de pena (vedação V), nem utilize IA generativa ou tecnologia preditiva na redação (vedação VI).</div>
       <label class="f" style="margin-top:12px;">Divergências técnicas, se houver <span class="muted" style="font-weight:normal; text-transform:none;">(registrar com a justificativa do posicionamento discordante)</span></label>
@@ -1273,7 +1292,7 @@ const App = {
       }
       /* migração: nome antigo "SR0X — ..." vira "CO 0X — ..." (mesma numeração, só troca o rótulo) */
       if(/^SR0\d\s/i.test(c.nome||"")) c.nome=c.nome.replace(/^SR0(\d)\s/i,"CO 0$1 ");
-      if(!c.equipePadrao) c.equipePadrao={c1:"",c2:"",psq:"",psi:"",as:""};
+      if(!c.equipePadrao) c.equipePadrao={direcao:"",chefiaSeg:"",execPenal:"",ativLab:"",ensino:"",semiab:"",psq:"",psi:"",as:""};
     });
     this.persist();
     this.coc = this.data.cocs[0].id;
@@ -1306,7 +1325,7 @@ const App = {
     /* Equipe examinadora (art. 5º) so e designada por quem tem alcada regional pra isso
        (SR) ou pelo DPP — DIR/CPEN/USUARIO so acompanham os nomes ja definidos. */
     const podeDesignarEquipe = !perfil || perfil.perfil==="DPP" || perfil.perfil==="SR";
-    ["q_c1","q_c1Funcao","q_c2","q_c2Funcao","q_psq","q_psi","q_as","q_coord","q_semPsq"].forEach(id=>{
+    ["q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_semPsq"].forEach(id=>{
       const el=document.getElementById(id); if(el) el.disabled = !podeDesignarEquipe;
     });
     const notaEquipe=document.getElementById("eqSomenteLeituraNota");
@@ -1903,19 +1922,18 @@ const App = {
     this.editId=null;
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
     ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_beneficio","e_dataIni","e_dataConcl",
-     "q_c1","q_c1Funcao","q_c2","q_c2Funcao","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
-     "r_met","r_cheI","r_cheII","r_soc","r_psi","r_psq","r_real","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
+     "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
+     "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_semiab","r_soc","r_psi","r_psq","r_real","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
     document.getElementById("e_tipo").value="progressao";
     document.getElementById("e_regime").value="";
     document.getElementById("e_faltaNaoReab").value="";
     document.getElementById("e_exameAnterior").value="nao";
     document.getElementById("q_mpQuesitos").value="nao";
     document.getElementById("q_defQuesitos").value="nao";
-    document.getElementById("q_pessoaCiencia").value="nao";
     document.getElementById("q_semPsq").checked=false;
     document.getElementById("e_modal").value="presencial"; this.modalChange();
     const eqp=(this.data.cocs.find(c=>c.id===this.coc)||{}).equipePadrao||{};
-    q_c1.value=eqp.c1||""; q_c1Funcao.value=eqp.c1Funcao||""; q_c2.value=eqp.c2||""; q_c2Funcao.value=eqp.c2Funcao||""; q_psq.value=eqp.psq||""; q_psi.value=eqp.psi||""; q_as.value=eqp.as||""; document.getElementById("q_coord").value=eqp.coord||"";
+    q_direcao.value=eqp.direcao||""; q_chefiaSeg.value=eqp.chefiaSeg||""; q_execPenal.value=eqp.execPenal||""; q_ativLab.value=eqp.ativLab||""; q_ensino.value=eqp.ensino||""; q_semiab.value=eqp.semiab||""; q_psq.value=eqp.psq||""; q_psi.value=eqp.psi||""; q_as.value=eqp.as||""; document.getElementById("q_coord").value=eqp.coord||"";
     this.renderUnidadeSel("");
     document.getElementById("condBox").innerHTML="";
     this.addCond();
@@ -1937,14 +1955,19 @@ const App = {
     document.querySelectorAll(".relpanel").forEach(p=>p.classList.toggle("on", p.id==="rp-"+r));
   },
   syncRespNomes(){
-    const c1=q_c1.value.trim(), c2=q_c2.value.trim();
+    const direcao=q_direcao.value.trim(), chefiaSeg=q_chefiaSeg.value.trim(), execPenal=q_execPenal.value.trim();
+    const ativLab=q_ativLab.value.trim(), ensino=q_ensino.value.trim(), semiab=q_semiab.value.trim();
     const psq=q_psq.value.trim(), psi=q_psi.value.trim(), as=q_as.value.trim();
-    const coord=[c1,c2].filter(Boolean).join(" e ")||"—";
+    const coord=document.getElementById("q_coord").value.trim()||"—";
     document.getElementById("rp_coordNomes").textContent=coord;
     document.getElementById("rp_sinNomes").textContent=coord;
     document.getElementById("rp_realNomes").textContent=coord;
-    document.getElementById("rp_cheINome").textContent=c1||"—";
-    document.getElementById("rp_cheIINome").textContent=c2||"—";
+    document.getElementById("rp_direcaoNome").textContent=direcao||"—";
+    document.getElementById("rp_chefiaSegNome").textContent=chefiaSeg||"—";
+    document.getElementById("rp_execPenalNome").textContent=execPenal||"—";
+    document.getElementById("rp_ativLabNome").textContent=ativLab||"—";
+    document.getElementById("rp_ensinoNome").textContent=ensino||"—";
+    document.getElementById("rp_semiabNome").textContent=semiab||"—";
     document.getElementById("rp_socNome").textContent=as||"—";
     document.getElementById("rp_psiNome").textContent=psi||"—";
     document.getElementById("rp_psqNome").textContent=psq||(document.getElementById("q_semPsq").checked?"sem psiquiatra na equipe":"—");
@@ -1972,20 +1995,19 @@ const App = {
       dataIni:document.getElementById("e_dataIni").value,
       dataConcl:document.getElementById("e_dataConcl").value,
       conds:this.lerConds(),
-      equipe:{c1:q_c1.value.trim(),c1Funcao:q_c1Funcao.value.trim(),c2:q_c2.value.trim(),c2Funcao:q_c2Funcao.value.trim(),chefesExtra:this.lerChefesExtra(),psq:q_psq.value.trim(),psi:q_psi.value.trim(),as:q_as.value.trim(),semPsq:document.getElementById("q_semPsq").checked,coord:document.getElementById("q_coord").value.trim()},
+      equipe:{direcao:q_direcao.value.trim(),chefiaSeg:q_chefiaSeg.value.trim(),execPenal:q_execPenal.value.trim(),ativLab:q_ativLab.value.trim(),ensino:q_ensino.value.trim(),semiab:q_semiab.value.trim(),chefesExtra:this.lerChefesExtra(),psq:q_psq.value.trim(),psi:q_psi.value.trim(),as:q_as.value.trim(),semPsq:document.getElementById("q_semPsq").checked,coord:document.getElementById("q_coord").value.trim()},
       quesitos:{
         detOrigem:document.getElementById("q_detOrigem").value.trim(),
         impedimento:document.getElementById("q_impedimento").value.trim(),
         defesaNome:document.getElementById("q_defesaNome").value.trim(),
         defesaOAB:document.getElementById("q_defesaOAB").value.trim(),
-        pessoaCiencia:document.getElementById("q_pessoaCiencia").value,
         mpQuesitos:document.getElementById("q_mpQuesitos").value,
         defQuesitos:document.getElementById("q_defQuesitos").value,
         lista:this.lerQuesitos()
       },
       realCheck:this.lerChk("realCheckBox", REALIDADE_CHECK),
       etapas:this.lerEtapas(),
-      rel:{met:r_met.value,cheI:r_cheI.value,cheII:r_cheII.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,real:r_real.value,sin:r_sin.value,diverg:r_diverg.value,limit:r_limit.value},
+      rel:{met:r_met.value,direcao:r_direcao.value,chefiaSeg:r_chefiaSeg.value,execPenal:r_execPenal.value,ativLab:r_ativLab.value,ensino:r_ensino.value,semiab:r_semiab.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,real:r_real.value,sin:r_sin.value,diverg:r_diverg.value,limit:r_limit.value},
       obs:document.getElementById("e_obs").value
     });
     if(!this.editId){ this.data.exames.push(ex); this.editId=ex.id; }
@@ -2019,7 +2041,7 @@ const App = {
     document.getElementById("e_dataIni").value=ex.dataIni||"";
     document.getElementById("e_dataConcl").value=ex.dataConcl||"";
     document.getElementById("e_modal").value=ex.modal||"presencial"; this.modalChange();
-    q_c1.value=ex.equipe?.c1||""; q_c1Funcao.value=ex.equipe?.c1Funcao||""; q_c2.value=ex.equipe?.c2||""; q_c2Funcao.value=ex.equipe?.c2Funcao||""; q_psq.value=ex.equipe?.psq||""; q_psi.value=ex.equipe?.psi||""; q_as.value=ex.equipe?.as||"";
+    q_direcao.value=ex.equipe?.direcao||""; q_chefiaSeg.value=ex.equipe?.chefiaSeg||""; q_execPenal.value=ex.equipe?.execPenal||""; q_ativLab.value=ex.equipe?.ativLab||""; q_ensino.value=ex.equipe?.ensino||""; q_semiab.value=ex.equipe?.semiab||""; q_psq.value=ex.equipe?.psq||""; q_psi.value=ex.equipe?.psi||""; q_as.value=ex.equipe?.as||"";
     document.getElementById("q_coord").value=ex.equipe?.coord||"";
     document.getElementById("chefesExtraBox").innerHTML="";
     (ex.equipe?.chefesExtra||[]).forEach(c=>this.addChefeExtra(c));
@@ -2028,14 +2050,14 @@ const App = {
     document.getElementById("q_impedimento").value=ex.quesitos?.impedimento||"";
     document.getElementById("q_defesaNome").value=ex.quesitos?.defesaNome||"";
     document.getElementById("q_defesaOAB").value=ex.quesitos?.defesaOAB||"";
-    document.getElementById("q_pessoaCiencia").value=ex.quesitos?.pessoaCiencia||"nao";
     document.getElementById("q_mpQuesitos").value=ex.quesitos?.mpQuesitos||"nao";
     document.getElementById("q_defQuesitos").value=ex.quesitos?.defQuesitos||"nao";
     document.getElementById("quesitosBox").innerHTML="";
     (ex.quesitos?.lista||[]).forEach(q=>this.addQuesito(q));
     this.renderChk("realCheckBox", REALIDADE_CHECK, ex.realCheck||{});
     this.relTab("coord"); this.novoTab("ident"); this.syncRespNomes();
-    r_met.value=ex.rel?.met||""; r_cheI.value=ex.rel?.cheI||""; r_cheII.value=ex.rel?.cheII||"";
+    r_met.value=ex.rel?.met||""; r_direcao.value=ex.rel?.direcao||""; r_chefiaSeg.value=ex.rel?.chefiaSeg||"";
+    r_execPenal.value=ex.rel?.execPenal||""; r_ativLab.value=ex.rel?.ativLab||""; r_ensino.value=ex.rel?.ensino||""; r_semiab.value=ex.rel?.semiab||"";
     r_soc.value=ex.rel?.soc||""; r_psi.value=ex.rel?.psi||""; r_psq.value=ex.rel?.psq||"";
     r_real.value=ex.rel?.real||""; r_sin.value=ex.rel?.sin||""; r_diverg.value=ex.rel?.diverg||""; r_limit.value=ex.rel?.limit||"";
     document.getElementById("condBox").innerHTML="";
@@ -2244,12 +2266,11 @@ const App = {
     const realMarcados=REALIDADE_CHECK.filter(i=>realVal[i.k]).map(i=>i.t);
     const quesitos=this.lerQuesitos();
     const origemLabel={mp:"Ministério Público",defesa:"Defesa",juizo:"Juízo"};
-    const pessoaCiencia=document.getElementById("q_pessoaCiencia").value==="sim";
     const defesaNome=document.getElementById("q_defesaNome").value.trim();
     const defesaOAB=document.getElementById("q_defesaOAB").value.trim();
     const coordNome=document.getElementById("q_coord").value.trim();
     const funcaoRotulo=(base,funcao)=> funcao?(base+" — "+esc(funcao)):base;
-    const eq=[[funcaoRotulo("Chefe de serviço",q_c1Funcao.value.trim()),q_c1.value],[funcaoRotulo("Chefe de serviço",q_c2Funcao.value.trim()),q_c2.value],...this.lerChefesExtra().map(c=>[funcaoRotulo("Chefe de serviço",c.funcao),c.nome]),["Psiquiatra",q_psq.value],["Psicólogo(a)",q_psi.value],["Assistente social",q_as.value]].filter(x=>x[1]);
+    const eq=[["Diretor(a) da Unidade",q_direcao.value],["Chefe de Segurança",q_chefiaSeg.value],["Coordenador(a) de Execução Penal",q_execPenal.value],["Coordenador(a) de Atividades Laborais",q_ativLab.value],["Coordenador(a) de Ensino e Promoção Social",q_ensino.value],["Coordenador(a) da Ala de Semiaberto",q_semiab.value],...this.lerChefesExtra().map(c=>[funcaoRotulo("Chefe de serviço",c.funcao),c.nome]),["Psiquiatra",q_psq.value],["Psicólogo(a)",q_psi.value],["Assistente social",q_as.value]].filter(x=>x[1]);
     if(coordNome) eq.push(["Responsável/Coordenação do Centro", coordNome]);
     const assinExtra=[];
     if(defesaNome) assinExtra.push(["Defesa técnica — ciência", defesaNome+(defesaOAB?" ("+defesaOAB+")":"")]);
@@ -2304,33 +2325,37 @@ const App = {
       <b>Defesa técnica presente:</b> ${defesaNome?esc(defesaNome)+(defesaOAB?" ("+esc(defesaOAB)+")":""):"não informada"}<br>
       <b>Ministério Público apresentou quesitos:</b> ${document.getElementById("q_mpQuesitos").value==="sim"?"Sim":"Não"} &nbsp; <b>Defesa apresentou quesitos:</b> ${document.getElementById("q_defQuesitos").value==="sim"?"Sim":"Não"}<br>
       ${document.getElementById("q_impedimento").value.trim()?`<b>Impedimento/suspeição arguido:</b> ${esc(document.getElementById("q_impedimento").value.trim())}<br>`:""}
-      Assegurados os direitos ao silêncio e à afirmação de inocência, sem valoração desfavorável.${pessoaCiencia?" O(a) avaliado(a) tomou ciência da realização do exame.":""}</p>
+      Assegurados os direitos ao silêncio e à afirmação de inocência, sem valoração desfavorável.</p>
       ${quesitos.length?quesitos.map((q,i)=>`<p><b>Quesito ${i+1} (${origemLabel[q.origem]||q.origem}):</b> ${esc(q.pergunta)||"—"}<br><b>Resposta:</b> ${q.resposta?escNl(q.resposta):"—"}</p>`).join(""):""}`;
 
     const pgMetodologia=`
       <h3>III — Metodologia</h3><p style="text-indent:1.5cm;">${r_met.value?escNl(r_met.value):"—"}</p>
       <p><b>Entrevistas realizadas em:</b> ${entrevistas} (modalidade: ${document.getElementById("e_modal").value==="video"?"por videoconferência, nos termos do art. 9º, §§1º e 2º, da Portaria":"presencial"}).</p>`;
 
-    const pgCheI=`<h3>IV — Chefia de Serviço I (segurança/rotina institucional)</h3><p style="text-indent:1.5cm;">${r_cheI.value?escNl(r_cheI.value):"—"}</p>`;
-    const pgCheII=`<h3>V — Chefia de Serviço II (trabalho/educação)</h3><p style="text-indent:1.5cm;">${r_cheII.value?escNl(r_cheII.value):"—"}</p>`;
-    const pgSoc=`<h3>VI — Relatório social</h3><p style="text-indent:1.5cm;">${r_soc.value?escNl(r_soc.value):"—"}</p>`;
-    const pgPsi=`<h3>VII — Relatório psicológico</h3><p style="text-indent:1.5cm;">${r_psi.value?escNl(r_psi.value):"—"}</p>`;
-    const pgPsq=r_psq.value.trim()?`<h3>VIII — Análise psiquiátrica</h3><p style="text-indent:1.5cm;">${escNl(r_psq.value)}</p>`:(semPsq?`<h3>Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:"");
+    const pgDirecao=`<h3>1 — Direção</h3><p style="text-indent:1.5cm;">${r_direcao.value?escNl(r_direcao.value):"—"}</p>`;
+    const pgChefiaSeg=`<h3>2 — Chefia de Segurança</h3><p style="text-indent:1.5cm;">${r_chefiaSeg.value?escNl(r_chefiaSeg.value):"—"}</p>`;
+    const pgExecPenal=`<h3>3 — Execução Penal</h3><p style="text-indent:1.5cm;">${r_execPenal.value?escNl(r_execPenal.value):"—"}</p>`;
+    const pgAtivLab=`<h3>4 — Atividades Laborais</h3><p style="text-indent:1.5cm;">${r_ativLab.value?escNl(r_ativLab.value):"—"}</p>`;
+    const pgEnsino=`<h3>5 — Ensino e Promoção Social</h3><p style="text-indent:1.5cm;">${r_ensino.value?escNl(r_ensino.value):"—"}</p>`;
+    const pgSemiab=`<h3>6 — Ala de Semiaberto – Trabalho Externo</h3><p style="text-indent:1.5cm;">${r_semiab.value?escNl(r_semiab.value):"—"}</p>`;
+    const pgPsq=r_psq.value.trim()?`<h3>7 — Psiquiatria</h3><p style="text-indent:1.5cm;">${escNl(r_psq.value)}</p>`:(semPsq?`<h3>7 — Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:"");
+    const pgPsi=`<h3>8 — Psicologia</h3><p style="text-indent:1.5cm;">${r_psi.value?escNl(r_psi.value):"—"}</p>`;
+    const pgSoc=`<h3>9 — Serviço Social</h3><p style="text-indent:1.5cm;">${r_soc.value?escNl(r_soc.value):"—"}</p>`;
 
     const pgReal=`
-      <h3>IX — Realidade institucional e efeitos do encarceramento</h3>
+      <h3>Realidade institucional e efeitos do encarceramento</h3>
       ${realMarcados.length?`<p><b>Fatores considerados:</b> ${esc(realMarcados.join("; "))}.</p>`:""}
       <p style="text-indent:1.5cm;">${r_real.value?escNl(r_real.value):"—"}</p>`;
 
     const pgSintese=`
-      <h3>X — Síntese conclusiva</h3><p style="text-indent:1.5cm;">${r_sin.value?escNl(r_sin.value):"—"}</p>
+      <h3>10 — Parecer</h3><p style="text-indent:1.5cm;">${r_sin.value?escNl(r_sin.value):"—"}</p>
       ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${escNl(r_diverg.value)}</p>`:""}
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${escNl(r_limit.value)}</p>`:""}
       <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução. Declara-se, nos termos do art. 10, VI, da Portaria, que não foi utilizada inteligência artificial generativa ou tecnologia preditiva em sua elaboração.</p>
       <p style="margin-top:16px;">${esc(cocNome)}, ${new Date().toLocaleDateString("pt-BR")}.</p>
       <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}<br><i>${x[0]}</i></p>`).join("")}</div>`;
 
-    const paginas=[pgCapa,pgIdent,pgMetodologia,pgCheI,pgCheII,pgSoc,pgPsi,pgPsq,pgReal,pgSintese].filter(Boolean);
+    const paginas=[pgCapa,pgIdent,pgMetodologia,pgDirecao,pgChefiaSeg,pgExecPenal,pgAtivLab,pgEnsino,pgSemiab,pgPsq,pgPsi,pgSoc,pgReal,pgSintese].filter(Boolean);
     return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};"><div class="pgHead">${headerHtml}</div><div class="pgBody">${corpo}</div><div class="pgFoot">${footerHtml}</div></div>`).join("");
   },
   checarAntesDeExportar(acao){
@@ -2370,10 +2395,12 @@ const App = {
         <hr class="sep">
         <label class="f">Equipe padrão do centro <span class="muted" style="font-weight:normal; text-transform:none;">— pré-preenche exames novos deste centro</span></label>
         <div class="row c2">
-          <input type="text" placeholder="Chefe de serviço 1" value="${esc((c.equipePadrao||{}).c1)}" onchange="App.atualizarEquipePadrao('${c.id}','c1',this.value)">
-          <input type="text" placeholder="Função na unidade (chefe 1)" value="${esc((c.equipePadrao||{}).c1Funcao)}" onchange="App.atualizarEquipePadrao('${c.id}','c1Funcao',this.value)">
-          <input type="text" placeholder="Chefe de serviço 2" value="${esc((c.equipePadrao||{}).c2)}" onchange="App.atualizarEquipePadrao('${c.id}','c2',this.value)">
-          <input type="text" placeholder="Função na unidade (chefe 2)" value="${esc((c.equipePadrao||{}).c2Funcao)}" onchange="App.atualizarEquipePadrao('${c.id}','c2Funcao',this.value)">
+          <input type="text" placeholder="Diretor(a) da Unidade" value="${esc((c.equipePadrao||{}).direcao)}" onchange="App.atualizarEquipePadrao('${c.id}','direcao',this.value)">
+          <input type="text" placeholder="Chefe de Segurança" value="${esc((c.equipePadrao||{}).chefiaSeg)}" onchange="App.atualizarEquipePadrao('${c.id}','chefiaSeg',this.value)">
+          <input type="text" placeholder="Coordenador(a) de Execução Penal" value="${esc((c.equipePadrao||{}).execPenal)}" onchange="App.atualizarEquipePadrao('${c.id}','execPenal',this.value)">
+          <input type="text" placeholder="Coordenador(a) de Atividades Laborais" value="${esc((c.equipePadrao||{}).ativLab)}" onchange="App.atualizarEquipePadrao('${c.id}','ativLab',this.value)">
+          <input type="text" placeholder="Coordenador(a) de Ensino e Promoção Social" value="${esc((c.equipePadrao||{}).ensino)}" onchange="App.atualizarEquipePadrao('${c.id}','ensino',this.value)">
+          <input type="text" placeholder="Coordenador(a) da Ala de Semiaberto" value="${esc((c.equipePadrao||{}).semiab)}" onchange="App.atualizarEquipePadrao('${c.id}','semiab',this.value)">
           <input type="text" placeholder="Psiquiatra" value="${esc((c.equipePadrao||{}).psq)}" onchange="App.atualizarEquipePadrao('${c.id}','psq',this.value)">
           <input type="text" placeholder="Psicólogo(a)" value="${esc((c.equipePadrao||{}).psi)}" onchange="App.atualizarEquipePadrao('${c.id}','psi',this.value)">
           <input type="text" placeholder="Assistente social" value="${esc((c.equipePadrao||{}).as)}" onchange="App.atualizarEquipePadrao('${c.id}','as',this.value)">
