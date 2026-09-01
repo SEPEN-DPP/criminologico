@@ -4,24 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sistema do Centro de Observação — Exame Criminológico | DPP-SC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --navy:#1C4A32; --navy2:#2E7D52; --steel:#6FA98A; --paper:#F4F6FA; --card:#FFFFFF;
+    /* paleta institucional — Manual de Identidade Visual 2025 (SEJURI/DEASE): cinzas + marrom de destaque */
+    --navy:#414141; --navy2:#5C5C5C; --steel:#969696; --paper:#F4F6FA; --card:#FFFFFF;
     --ink:#1B2437; --mut:#5A6478; --line:#D8DFEA;
     --ok:#1E7D46; --okbg:#E7F4EC; --warn:#9A6A12; --warnbg:#FCF3DF; --crit:#B3261E; --critbg:#FBEAE9;
-    --gold:#8C6D2F;
+    --gold:#7C471D;
     --r:10px;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{font-family:"Segoe UI", -apple-system, Roboto, Arial, sans-serif; color:var(--ink); font-size:15px;
-    background:linear-gradient(180deg, #E1F1E6 0%, #F1F7F2 22%, #FAFCFB 55%, #FFFFFF 100%) fixed;}
+    background:linear-gradient(180deg, #ECECEC 0%, #F2F2F2 22%, #FAFAFA 55%, #FFFFFF 100%) fixed;}
   h1,h2,h3,.serif{font-family:Georgia, "Times New Roman", serif;}
 
   /* ===== layout ===== */
   .topbar-fixa{position:sticky; top:0; z-index:60;}
-  header.app{background:#1C4A32; color:#fff; padding:14px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; border-bottom:3px solid var(--gold);}
+  header.app{background:var(--navy); color:#fff; padding:14px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; border-bottom:3px solid var(--gold);}
   header.app .brand{display:flex; flex-direction:column;}
-  header.app .brand b{font-family:Georgia,serif; font-size:18px; letter-spacing:.3px;}
+  header.app .brand b{font-family:"Saira", Georgia, serif; font-weight:800; text-transform:uppercase; font-size:17px; letter-spacing:.5px;}
   header.app .brand span{font-size:11.5px; opacity:.75; letter-spacing:.4px;}
   header.app .coc-sel{margin-left:auto; display:flex; align-items:center; gap:8px; font-size:13px;}
   header.app select{background:#fff; border:none; border-radius:6px; padding:7px 10px; font-size:13.5px; min-width:230px;}
@@ -48,7 +52,7 @@
   .reportPreview.editing{outline:2px dashed var(--gold); outline-offset:4px; cursor:text;}
   .reportPreview .pageBox{padding-top:18px;}
   .reportPreview .pageBox + .pageBox{margin-top:30px; padding-top:28px; border-top:3px dashed var(--line);}
-  .resp-tag{background:#E3F1E9; color:var(--navy); border-radius:6px; padding:2px 8px; font-weight:700;}
+  .resp-tag{background:#ECECEC; color:var(--navy); border-radius:6px; padding:2px 8px; font-weight:700;}
 
   /* ===== síntese de orientação ===== */
   .orient{border-radius:var(--r); padding:14px 16px; font-size:13.5px; line-height:1.6;}
@@ -84,7 +88,7 @@
   .cal-day:hover{background:#F0F4FB;}
   .cal-day.out{opacity:.35;}
   .cal-day.today{border-color:var(--navy); border-width:2px;}
-  .cal-day.sel{background:#E3F1E9; border-color:var(--navy);}
+  .cal-day.sel{background:#ECECEC; border-color:var(--navy);}
   .cal-day .n{font-weight:700;}
   .cal-day .dots{display:flex; gap:3px; margin-top:5px; flex-wrap:wrap;}
   .cal-dot{width:8px; height:8px; border-radius:50%;}
@@ -143,7 +147,7 @@
   tr:hover td{background:#F0F4FB; cursor:pointer;}
   .badge{display:inline-block; padding:3px 10px; border-radius:20px; font-size:11.5px; font-weight:700;}
   .b-ok{background:var(--okbg); color:var(--ok);} .b-warn{background:var(--warnbg); color:var(--warn);}
-  .b-crit{background:var(--critbg); color:var(--crit);} .b-navy{background:#E3F1E9; color:var(--navy);}
+  .b-crit{background:var(--critbg); color:var(--crit);} .b-navy{background:#ECECEC; color:var(--navy);}
   .b-mut{background:#EEF0F4; color:var(--mut);}
   .prog{height:7px; background:#E4E9F2; border-radius:4px; overflow:hidden; min-width:70px;}
   .prog i{display:block; height:100%; background:var(--navy); border-radius:4px;}
@@ -560,16 +564,6 @@
     <div id="etapasBox"></div>
 
     <hr class="sep">
-    <h3>Metodologia empregada <span class="muted" style="font-size:12px; font-weight:normal;">(procedimentos efetivamente realizados)</span></h3>
-    <div class="chk-list" id="metCheckBox"></div>
-
-    <h3 style="margin-top:16px;">Fontes documentais consultadas</h3>
-    <div class="chk-list" id="fontesCheckBox"></div>
-    <div class="row c2" style="margin-top:8px;">
-      <div><label class="f">Outras fontes (especificar)</label><input type="text" id="q_fontesOutras"></div>
-    </div>
-
-    <hr class="sep">
     <h3>Conteúdo do relatório <span class="muted" style="font-size:12px; font-weight:normal;">(estrutura do item 8 do Manual)</span> — uma aba por profissional responsável</h3>
     <nav class="subtabs" id="relTabs">
       <button class="on" data-r="coord" onclick="App.relTab('coord')">Metodologia</button>
@@ -667,18 +661,8 @@
     </div>
     <p class="note">Antes de imprimir, o texto passa automaticamente pelo verificador de vedações do art. 10.</p>
 
-    <label style="display:flex; align-items:flex-start; gap:8px; margin-top:6px; font-size:13.5px; background:#F5F2E8; border:1px solid #DCD3B8; border-radius:8px; padding:10px 12px;">
-      <input type="checkbox" id="e_semIA" style="width:18px; height:18px; margin-top:2px; flex-shrink:0;">
-      <span>Declaro que este relatório <b>não</b> foi elaborado, total ou parcialmente, com uso de inteligência artificial generativa ou tecnologia preditiva (art. 10, VI, da Portaria) — obrigatório para gerar o documento.</span>
-    </label>
-
     <label class="f">Observações internas</label>
     <textarea id="e_obs" style="min-height:60px;"></textarea>
-
-    <hr class="sep">
-    <h3>Checklist de conformidade antes da juntada</h3>
-    <p class="note">Confira antes de gerar o relatório final. Não bloqueia a geração — é um lembrete de revisão, a exemplo do verificador de vedações.</p>
-    <div class="chk-list" id="conformeBox"></div>
 
     <div class="btnrow">
       <button class="btn" onclick="App.salvar()">Salvar exame</button>
@@ -924,15 +908,9 @@ const UNIDADES_INFO = {
 
 /* etapas do fluxo (Res. 36/2024) */
 const ETAPAS = [
-  {k:"defesa",   t:"Defesa técnica assegurada e ciência dos direitos ao silêncio e à afirmação de inocência", s:"Nenhum dos dois pode ser valorado em desfavor do avaliado — registrar antes de iniciar (art. 9º, I, da Portaria)", data:true},
   {k:"ent1",     t:"1ª entrevista com o avaliado", s:"Mínimo legal: duas entrevistas, preferencialmente presenciais (art. 9º, II)", data:true, extra:"entrevista"},
   {k:"ent2",     t:"2ª entrevista com o avaliado", s:"Vedado exame com entrevista única ou baseado só em formulários padronizados (art. 9º, III)", data:true, extra:"entrevista"},
-  {k:"entConv",  t:"Entrevista com pessoa do convívio (familiar, coapenado ou servidor)", s:"Obrigatória, mínimo de 1 — não é mais facultativa (art. 9º, II, da Portaria)", data:true, extra:"convivio"},
-  {k:"anSoc",    t:"Relatório social concluído", s:"Assistente social", data:false},
-  {k:"anPsi",    t:"Relatório psicológico concluído", s:"Psicólogo(a)", data:false},
-  {k:"anPsq",    t:"Análise psiquiátrica concluída (quando houver)", s:"Psiquiatra", data:false},
-  {k:"relat",    t:"Relatório circunstanciado redigido e verificado", s:"Metodologia declarada + remissão ao exame de ingresso", data:false},
-  {k:"encam",    t:"Encaminhado ao Juízo da Execução (e à CTC, no que couber)", s:"Art. 1º, parágrafo único, da Portaria", data:true}
+  {k:"entConv",  t:"Entrevista com pessoa do convívio (familiar, coapenado ou servidor)", s:"Obrigatória, mínimo de 1 — não é mais facultativa (art. 9º, II, da Portaria)", data:true, extra:"convivio"}
 ];
 /* área/profissional responsável pela entrevista — usada para filtrar o calendário por Psicologia/Serviço Social */
 const AREA_OPTS = [{v:"",t:"Equipe (conjunta)"},{v:"psi",t:"Psicologia"},{v:"social",t:"Serviço Social"}];
@@ -944,28 +922,6 @@ const ETAPA_EXTRA = {
   convivio:[{f:"hora",p:"Horário",t:"time"},{f:"nome",p:"Nome da pessoa"},{f:"vinc",p:"Vínculo"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS}]
 };
 
-/* checklist de metodologia empregada (item III do modelo padronizado — procedimentos efetivamente realizados) */
-const METODOLOGIA_CHECK = [
-  {k:"ent2mais",  t:"Duas ou mais entrevistas com a pessoa examinada"},
-  {k:"entConvPres", t:"Entrevista(s) presencial(is) com pessoa(s) do convívio"},
-  {k:"prontuario", t:"Análise do prontuário e do histórico prisional"},
-  {k:"bpi",       t:"Análise do Boletim Penal Informativo e registros disciplinares"},
-  {k:"laborais",  t:"Análise de atividades laborais, educacionais e de remição"},
-  {k:"registrosInst", t:"Consulta a registros de atendimentos e encaminhamentos institucionais, quando pertinentes e lícitos"},
-  {k:"remota",    t:"Entrevista complementar remota (especificar finalidade e motivo nas observações)"},
-  {k:"outrosProc",t:"Outros procedimentos técnico-científicos admitidos pelo conselho profissional"}
-];
-/* fontes documentais consultadas (item IV do modelo padronizado) */
-const FONTES_CHECK = [
-  {k:"bpi",        t:"Boletim Penal Informativo"},
-  {k:"atestado",   t:"Atestado/relatório de conduta carcerária"},
-  {k:"disciplinares", t:"Registros disciplinares/PADs"},
-  {k:"trabEst",    t:"Histórico de trabalho e estudo"},
-  {k:"remicao",    t:"Grades de remição"},
-  {k:"tecnicosAnt",t:"Relatórios técnicos anteriores"},
-  {k:"ingresso",   t:"Exame criminológico de ingresso, quando existente"},
-  {k:"pecas",      t:"Peças processuais estritamente necessárias"}
-];
 /* realidade institucional e efeitos do encarceramento (item VIII do modelo padronizado; art. 9º, V, da Portaria) */
 const REALIDADE_CHECK = [
   {k:"trabalho",   t:"Oferta efetiva de trabalho na unidade"},
@@ -974,23 +930,6 @@ const REALIDADE_CHECK = [
   {k:"convivencia",t:"Condições de convivência e regime"},
   {k:"limitacoes", t:"Limitações institucionais que afetaram oportunidades de participação"}
 ];
-/* checklist de conformidade antes da juntada (Anexo do modelo padronizado) */
-const CONFORMIDADE = [
-  {k:"marco",      t:"A hipótese está abrangida temporalmente pela obrigatoriedade (fatos a partir de 11/4/2024) ou há determinação judicial específica para fatos anteriores?"},
-  {k:"intimacao",  t:"Ministério Público e defesa foram previamente intimados para quesitos ou arguição de impedimento/suspeição?"},
-  {k:"defesaPresente", t:"Houve presença da defesa técnica na realização do exame?"},
-  {k:"silencio",   t:"O direito ao silêncio e à afirmação de inocência foi preservado, sem valoração desfavorável?"},
-  {k:"equipeCompleta", t:"A equipe está composta por 2 chefes de serviço, 1 psiquiatra, 1 psicólogo e 1 assistente social (ou dispensa de psiquiatra devidamente registrada)?"},
-  {k:"duasEntrevistas", t:"Foram realizadas 2 ou mais entrevistas com a pessoa examinada?"},
-  {k:"entrevistaConvivio", t:"Foi realizada ao menos 1 entrevista com pessoa do convívio?"},
-  {k:"metodologiaDeclarada", t:"A metodologia foi declarada expressamente no laudo?"},
-  {k:"realidadeConsiderada", t:"Foram consideradas a realidade histórica/social, as condições institucionais e os efeitos do cárcere?"},
-  {k:"semVedacoes", t:"O laudo evita prognóstico de reincidência, termos estigmatizantes, determinismo delito-personalidade, gravidade do delito, tempo de pena e classificação de segurança?"},
-  {k:"semIA",      t:"Não foi utilizada IA generativa ou tecnologia preditiva na elaboração do conteúdo técnico?"},
-  {k:"divergencias", t:"Eventuais divergências técnicas foram expressamente registradas e fundamentadas?"},
-  {k:"aptoJuntada", t:"O laudo está redigido e apto à juntada no processo de execução?"}
-];
-
 /* termos vedados — art. 10, incisos I a V (o inciso VI, sobre uso de IA generativa/tecnologia preditiva, é uma declaração e não é detectável por varredura de texto) */
 const VEDADOS = [
   {re:/prognóstic[a-zà-ÿ]*/gi, ved:"I — prognóstico de reincidência"},
@@ -1733,7 +1672,7 @@ const App = {
     const lista=centro.unidades||[];
     const sel=document.getElementById("e_unid");
     sel.innerHTML = `<option value="">Selecione a unidade…</option>`
-      + lista.map(u=>`<option value="${u}">${u}</option>`).join("")
+      + lista.map(u=>`<option value="${esc(u)}">${esc(u)}</option>`).join("")
       + `<option value="_outra">Outra / não listada…</option>`;
     this.setUnidadeValor(selVal||"");
   },
@@ -1964,7 +1903,7 @@ const App = {
     this.editId=null;
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
     ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_beneficio","e_dataIni","e_dataConcl",
-     "q_c1","q_c1Funcao","q_c2","q_c2Funcao","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB","q_fontesOutras",
+     "q_c1","q_c1Funcao","q_c2","q_c2Funcao","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
      "r_met","r_cheI","r_cheII","r_soc","r_psi","r_psq","r_real","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
     document.getElementById("e_tipo").value="progressao";
     document.getElementById("e_regime").value="";
@@ -1974,7 +1913,6 @@ const App = {
     document.getElementById("q_defQuesitos").value="nao";
     document.getElementById("q_pessoaCiencia").value="nao";
     document.getElementById("q_semPsq").checked=false;
-    document.getElementById("e_semIA").checked=false;
     document.getElementById("e_modal").value="presencial"; this.modalChange();
     const eqp=(this.data.cocs.find(c=>c.id===this.coc)||{}).equipePadrao||{};
     q_c1.value=eqp.c1||""; q_c1Funcao.value=eqp.c1Funcao||""; q_c2.value=eqp.c2||""; q_c2Funcao.value=eqp.c2Funcao||""; q_psq.value=eqp.psq||""; q_psi.value=eqp.psi||""; q_as.value=eqp.as||""; document.getElementById("q_coord").value=eqp.coord||"";
@@ -1984,10 +1922,7 @@ const App = {
     document.getElementById("quesitosBox").innerHTML="";
     document.getElementById("chefesExtraBox").innerHTML="";
     this.renderEtapas();
-    this.renderChk("metCheckBox", METODOLOGIA_CHECK);
-    this.renderChk("fontesCheckBox", FONTES_CHECK);
     this.renderChk("realCheckBox", REALIDADE_CHECK);
-    this.renderChk("conformeBox", CONFORMIDADE);
     this.relTab("coord");
     this.novoTab("ident");
     this.syncRespNomes();
@@ -2048,14 +1983,9 @@ const App = {
         defQuesitos:document.getElementById("q_defQuesitos").value,
         lista:this.lerQuesitos()
       },
-      metCheck:this.lerChk("metCheckBox", METODOLOGIA_CHECK),
-      fontesCheck:this.lerChk("fontesCheckBox", FONTES_CHECK),
-      fontesOutras:document.getElementById("q_fontesOutras").value.trim(),
       realCheck:this.lerChk("realCheckBox", REALIDADE_CHECK),
-      conforme:this.lerChk("conformeBox", CONFORMIDADE),
       etapas:this.lerEtapas(),
       rel:{met:r_met.value,cheI:r_cheI.value,cheII:r_cheII.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,real:r_real.value,sin:r_sin.value,diverg:r_diverg.value,limit:r_limit.value},
-      semIA:document.getElementById("e_semIA").checked,
       obs:document.getElementById("e_obs").value
     });
     if(!this.editId){ this.data.exames.push(ex); this.editId=ex.id; }
@@ -2094,7 +2024,6 @@ const App = {
     document.getElementById("chefesExtraBox").innerHTML="";
     (ex.equipe?.chefesExtra||[]).forEach(c=>this.addChefeExtra(c));
     document.getElementById("q_semPsq").checked=!!ex.equipe?.semPsq;
-    document.getElementById("e_semIA").checked=!!ex.semIA;
     document.getElementById("q_detOrigem").value=ex.quesitos?.detOrigem||"";
     document.getElementById("q_impedimento").value=ex.quesitos?.impedimento||"";
     document.getElementById("q_defesaNome").value=ex.quesitos?.defesaNome||"";
@@ -2104,11 +2033,7 @@ const App = {
     document.getElementById("q_defQuesitos").value=ex.quesitos?.defQuesitos||"nao";
     document.getElementById("quesitosBox").innerHTML="";
     (ex.quesitos?.lista||[]).forEach(q=>this.addQuesito(q));
-    document.getElementById("q_fontesOutras").value=ex.fontesOutras||"";
-    this.renderChk("metCheckBox", METODOLOGIA_CHECK, ex.metCheck||{});
-    this.renderChk("fontesCheckBox", FONTES_CHECK, ex.fontesCheck||{});
     this.renderChk("realCheckBox", REALIDADE_CHECK, ex.realCheck||{});
-    this.renderChk("conformeBox", CONFORMIDADE, ex.conforme||{});
     this.relTab("coord"); this.novoTab("ident"); this.syncRespNomes();
     r_met.value=ex.rel?.met||""; r_cheI.value=ex.rel?.cheI||""; r_cheII.value=ex.rel?.cheII||"";
     r_soc.value=ex.rel?.soc||""; r_psi.value=ex.rel?.psi||""; r_psq.value=ex.rel?.psq||"";
@@ -2181,9 +2106,9 @@ const App = {
     const unidLabel = unidFiltro==="_semunidade" ? "sem unidade definida" : unidFiltro;
 
     document.getElementById("painelUnidadeAtualBox").innerHTML = unidFiltro
-      ? `<p class="note" style="margin-bottom:10px;">Unidade: <b>${unidLabel}</b> — <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ voltar ao painel do centro</button></p>`
+      ? `<p class="note" style="margin-bottom:10px;">Unidade: <b>${esc(unidLabel)}</b> — <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ voltar ao painel do centro</button></p>`
       : "";
-    document.getElementById("prazosTitle").innerHTML = `Prazos críticos${unidFiltro?(" — "+unidLabel):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 8º da Portaria; Res. CNPCP 36/2024)</span>`;
+    document.getElementById("prazosTitle").innerHTML = `Prazos críticos${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 8º da Portaria; Res. CNPCP 36/2024)</span>`;
 
     const exsCentro=this.data.exames.filter(e=>e.coc===this.coc);
     const exs=this.filtrarPorUnidade(exsCentro, unidFiltro, unidadesDoCentro);
@@ -2315,11 +2240,6 @@ const App = {
     const semPsq=document.getElementById("q_semPsq").checked;
     const entrevistas=[et.ent1,et.ent2,et.entConv].filter(x=>x&&x.ok&&x.data).map(x=>fmt(x.data)).join(", ")||"—";
     const regimeLabel={fechado:"Fechado",semiaberto:"Semiaberto",aberto:"Aberto",domiciliar:"Prisão domiciliar"}[document.getElementById("e_regime").value]||"não informado";
-    const metVal=this.lerChk("metCheckBox", METODOLOGIA_CHECK);
-    const metMarcados=METODOLOGIA_CHECK.filter(i=>metVal[i.k]).map(i=>i.t);
-    const fontesVal=this.lerChk("fontesCheckBox", FONTES_CHECK);
-    const fontesMarcadas=FONTES_CHECK.filter(i=>fontesVal[i.k]).map(i=>i.t);
-    const fontesOutras=document.getElementById("q_fontesOutras").value.trim();
     const realVal=this.lerChk("realCheckBox", REALIDADE_CHECK);
     const realMarcados=REALIDADE_CHECK.filter(i=>realVal[i.k]).map(i=>i.t);
     const quesitos=this.lerQuesitos();
@@ -2384,14 +2304,12 @@ const App = {
       <b>Defesa técnica presente:</b> ${defesaNome?esc(defesaNome)+(defesaOAB?" ("+esc(defesaOAB)+")":""):"não informada"}<br>
       <b>Ministério Público apresentou quesitos:</b> ${document.getElementById("q_mpQuesitos").value==="sim"?"Sim":"Não"} &nbsp; <b>Defesa apresentou quesitos:</b> ${document.getElementById("q_defQuesitos").value==="sim"?"Sim":"Não"}<br>
       ${document.getElementById("q_impedimento").value.trim()?`<b>Impedimento/suspeição arguido:</b> ${esc(document.getElementById("q_impedimento").value.trim())}<br>`:""}
-      Assegurados os direitos ao silêncio e à afirmação de inocência, sem valoração desfavorável${et.defesa&&et.defesa.data?(" — ciência em "+fmt(et.defesa.data)):""}.${pessoaCiencia?" O(a) avaliado(a) tomou ciência da realização do exame.":""}</p>
+      Assegurados os direitos ao silêncio e à afirmação de inocência, sem valoração desfavorável.${pessoaCiencia?" O(a) avaliado(a) tomou ciência da realização do exame.":""}</p>
       ${quesitos.length?quesitos.map((q,i)=>`<p><b>Quesito ${i+1} (${origemLabel[q.origem]||q.origem}):</b> ${esc(q.pergunta)||"—"}<br><b>Resposta:</b> ${q.resposta?escNl(q.resposta):"—"}</p>`).join(""):""}`;
 
     const pgMetodologia=`
       <h3>III — Metodologia</h3><p style="text-indent:1.5cm;">${r_met.value?escNl(r_met.value):"—"}</p>
-      <p><b>Entrevistas realizadas em:</b> ${entrevistas} (modalidade: ${document.getElementById("e_modal").value==="video"?"por videoconferência, nos termos do art. 9º, §§1º e 2º, da Portaria":"presencial"}).</p>
-      ${metMarcados.length?`<p><b>Procedimentos realizados:</b> ${esc(metMarcados.join("; "))}.</p>`:""}
-      ${fontesMarcadas.length||fontesOutras?`<p><b>Fontes documentais consultadas:</b> ${esc([...fontesMarcadas, fontesOutras].filter(Boolean).join("; "))}.</p>`:""}`;
+      <p><b>Entrevistas realizadas em:</b> ${entrevistas} (modalidade: ${document.getElementById("e_modal").value==="video"?"por videoconferência, nos termos do art. 9º, §§1º e 2º, da Portaria":"presencial"}).</p>`;
 
     const pgCheI=`<h3>IV — Chefia de Serviço I (segurança/rotina institucional)</h3><p style="text-indent:1.5cm;">${r_cheI.value?escNl(r_cheI.value):"—"}</p>`;
     const pgCheII=`<h3>V — Chefia de Serviço II (trabalho/educação)</h3><p style="text-indent:1.5cm;">${r_cheII.value?escNl(r_cheII.value):"—"}</p>`;
@@ -2416,15 +2334,8 @@ const App = {
     return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};"><div class="pgHead">${headerHtml}</div><div class="pgBody">${corpo}</div><div class="pgFoot">${footerHtml}</div></div>`).join("");
   },
   checarAntesDeExportar(acao){
-    if(!document.getElementById("e_semIA").checked){
-      alert("Antes de "+acao+" o relatório, marque a declaração de que o texto não foi elaborado com uso de IA generativa/tecnologia preditiva (art. 10, VI, da Portaria).");
-      return false;
-    }
     const flags=this.verificarRelatorio();
     if(flags.length && !confirm(flags.length+" expressão(ões) potencialmente vedada(s) foram apontadas. "+acao.charAt(0).toUpperCase()+acao.slice(1)+" mesmo assim?\n\nRecomenda-se revisar antes da emissão (art. 10 da Portaria).")) return false;
-    const conformeVal=this.lerChk("conformeBox", CONFORMIDADE);
-    const faltando=CONFORMIDADE.filter(i=>!conformeVal[i.k]).length;
-    if(faltando && !confirm(faltando+" item(ns) do checklist de conformidade ainda não foram confirmados. "+acao.charAt(0).toUpperCase()+acao.slice(1)+" mesmo assim?")) return false;
     return true;
   },
   imprimir(){
