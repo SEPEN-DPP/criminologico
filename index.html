@@ -948,9 +948,9 @@ const UNIDADES_INFO = {
 
 /* etapas do fluxo (Res. 36/2024) */
 const ETAPAS = [
-  {k:"ent1",     t:"1ª entrevista com o avaliado", s:"Mínimo legal: duas entrevistas, preferencialmente presenciais (art. 9º, II)", data:true, extra:"entrevista"},
-  {k:"ent2",     t:"2ª entrevista com o avaliado", s:"Vedado exame com entrevista única ou baseado só em formulários padronizados (art. 9º, III)", data:true, extra:"entrevista"},
-  {k:"entConv",  t:"Entrevista com pessoa do convívio (familiar, coapenado ou servidor)", s:"Obrigatória, mínimo de 1 — não é mais facultativa (art. 9º, II, da Portaria)", data:true, extra:"convivio"}
+  {k:"ent1",     t:"1ª entrevista com o avaliado", s:"", data:true, extra:"entrevista"},
+  {k:"ent2",     t:"2ª entrevista com o avaliado", s:"", data:true, extra:"entrevista"},
+  {k:"entConv",  t:"Entrevista com pessoa do convívio (familiar, coapenado ou servidor)", s:"", data:true, extra:"convivio"}
 ];
 /* área/profissional responsável pela entrevista — usada para filtrar o calendário por Psicologia/Serviço Social */
 const AREA_OPTS = [{v:"",t:"Equipe (conjunta)"},{v:"psi",t:"Psicologia"},{v:"social",t:"Serviço Social"}];
@@ -2687,12 +2687,20 @@ document.addEventListener("click", (e)=>{
 /* ---------- Configurações > Usuários ---------- */
 const UsuariosUI = {
   _cache: [],
+  _erroCarregar: null,
   async carregar(){
+    this._erroCarregar = null;
     const p = meuPerfilDoc?.perfil;
     let lista = [];
-    if(p==="DPP") lista = (await getDocs(collection(db,"usuarios"))).docs.map(d=>({id:d.id, ...d.data()}));
-    else if(p==="SR") lista = (await getDocs(query(collection(db,"usuarios"), where("sr","==", meuPerfilDoc.sr)))).docs.map(d=>({id:d.id, ...d.data()}));
-    else if(p==="DIR"||p==="CPEN") lista = (await getDocs(query(collection(db,"usuarios"), where("unidade","==", meuPerfilDoc.unidade)))).docs.map(d=>({id:d.id, ...d.data()}));
+    try{
+      if(p==="DPP") lista = (await getDocs(collection(db,"usuarios"))).docs.map(d=>({id:d.id, ...d.data()}));
+      else if(p==="SR") lista = (await getDocs(query(collection(db,"usuarios"), where("sr","==", meuPerfilDoc.sr)))).docs.map(d=>({id:d.id, ...d.data()}));
+      else if(p==="DIR"||p==="CPEN") lista = (await getDocs(query(collection(db,"usuarios"), where("unidade","==", meuPerfilDoc.unidade)))).docs.map(d=>({id:d.id, ...d.data()}));
+    }catch(e){
+      console.error("Falha ao carregar contas de usuários:", e);
+      this._erroCarregar = e?.code || e?.message || String(e);
+      lista = [];
+    }
     this._cache = lista;
     return lista;
   },
@@ -2707,6 +2715,17 @@ const UsuariosUI = {
       : "Contas de Usuário da sua unidade.";
 
     const lista = this._cache.length ? this._cache : await this.carregar();
+    if(this._erroCarregar){
+      pend.innerHTML = `<div class="lawbox" style="background:#FBEAEA; border-color:#E3B4B4; border-left-color:#B4232B;">
+        <b>Não foi possível carregar as contas de usuários.</b><br>
+        Erro: <code>${esc(this._erroCarregar)}</code><br>
+        Isso costuma acontecer quando as regras de segurança do Firestore (coleção "usuarios") ainda não foram publicadas no
+        Console do Firebase — fale com quem administra o projeto Firebase para conferir/publicar as regras.
+      </div>`;
+      box.innerHTML = "";
+      NotifUI.atualizarContagem(0);
+      return;
+    }
     const pendentes = lista.filter(u=>u.status==="PENDENTE");
 
     pend.innerHTML = pendentes.length ? `
@@ -2832,6 +2851,11 @@ const NotifUI = {
   async render(){
     const painel = document.getElementById("sinoPainel");
     const lista = await UsuariosUI.carregar();
+    if(UsuariosUI._erroCarregar){
+      painel.innerHTML = `<div style="padding:14px; font-size:12.5px; color:#B4232B;">Não foi possível verificar pedidos pendentes (erro: ${esc(UsuariosUI._erroCarregar)}). Veja a aba Configurações → Usuários para detalhes.</div>`;
+      this.atualizarContagem(0);
+      return;
+    }
     const pendentes = lista.filter(u=>u.status==="PENDENTE" && podeAprovar(u));
     painel.innerHTML = pendentes.length ? pendentes.map(u=>`
       <div style="padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px;">
