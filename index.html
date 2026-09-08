@@ -40,6 +40,8 @@
   nav.subtabs{display:flex; gap:2px; flex-wrap:wrap; border-bottom:1px solid var(--line); margin:10px 0 14px;}
   nav.subtabs button{border:none; background:#EEF1F7; color:var(--mut); padding:8px 14px; font-size:12.5px; font-weight:700; border-radius:7px 7px 0 0; cursor:pointer;}
   nav.subtabs button.on{background:var(--navy); color:#fff;}
+  nav.subtabs button.relok::after{content:" ✓"; color:var(--ok); font-weight:800;}
+  nav.subtabs button.relok.on::after{color:#9fe3b0;}
   .relpanel{display:none;} .relpanel.on{display:block;}
   .novopanel{display:none;} .novopanel.on{display:block;}
   .novoLayout{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start;}
@@ -573,12 +575,20 @@
     </nav>
     <div class="relpanel on" id="rp-coord">
       <p class="note">Responsável: <span class="resp-tag" id="rp_coordNomes">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_coord" style="width:15px; height:15px;" onchange="App.toggleRelOk('coord')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label class="f">III — Metodologia (declaração expressa dos métodos, instrumentos, datas das entrevistas e remissão fundamentada ao exame de ingresso)</label>
       <textarea id="r_met"></textarea>
       <div class="orient-field">Descreva os métodos e instrumentos utilizados (entrevistas, dinâmicas, testes), as datas de cada entrevista e uma remissão fundamentada ao exame de ingresso, quando existente, indicando o que mudou desde então. Não inclua aqui prognóstico de reincidência, classificação de segurança ou juízo sobre a gravidade do delito (vedações do art. 10).</div>
     </div>
     <div class="relpanel" id="rp-direcao">
       <p class="note">Responsável: <span class="resp-tag" id="rp_direcaoNome">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_direcao" style="width:15px; height:15px;" onchange="App.toggleRelOk('direcao')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_direcao" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('direcao')">
         <span>Não se aplica a este exame — suprimir esta seção do relatório</span>
@@ -589,6 +599,10 @@
     </div>
     <div class="relpanel" id="rp-chefiaSeg">
       <p class="note">Responsável: <span class="resp-tag" id="rp_chefiaSegNome">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_chefiaSeg" style="width:15px; height:15px;" onchange="App.toggleRelOk('chefiaSeg')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_chefiaSeg" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('chefiaSeg')">
         <span>Não se aplica a este exame — suprimir esta seção do relatório</span>
@@ -599,6 +613,10 @@
     </div>
     <div class="relpanel" id="rp-execPenal">
       <p class="note">Responsável: <span class="resp-tag" id="rp_execPenalNome">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_execPenal" style="width:15px; height:15px;" onchange="App.toggleRelOk('execPenal')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_execPenal" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('execPenal')">
         <span>Não se aplica a este exame — suprimir esta seção do relatório</span>
@@ -609,6 +627,10 @@
     </div>
     <div class="relpanel" id="rp-ativLab">
       <p class="note">Responsável: <span class="resp-tag" id="rp_ativLabNome">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_ativLab" style="width:15px; height:15px;" onchange="App.toggleRelOk('ativLab')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_ativLab" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('ativLab')">
         <span>Não se aplica a este exame — suprimir esta seção do relatório</span>
@@ -619,6 +641,10 @@
     </div>
     <div class="relpanel" id="rp-ensino">
       <p class="note">Responsável: <span class="resp-tag" id="rp_ensinoNome">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_ensino" style="width:15px; height:15px;" onchange="App.toggleRelOk('ensino')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_ensino" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('ensino')">
         <span>Não se aplica a este exame — suprimir esta seção do relatório</span>
@@ -629,6 +655,10 @@
     </div>
     <div class="relpanel" id="rp-semiab">
       <p class="note">Responsável: <span class="resp-tag" id="rp_semiabNome">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_semiab" style="width:15px; height:15px;" onchange="App.toggleRelOk('semiab')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_semiab" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('semiab')">
         <span>Não se aplica a este exame — suprimir esta seção do relatório</span>
@@ -639,6 +669,10 @@
     </div>
     <div class="relpanel" id="rp-psq">
       <p class="note">Responsável: <span class="resp-tag" id="rp_psqNome">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_psq" style="width:15px; height:15px;" onchange="App.toggleRelOk('psq')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_psq" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('psq')">
         <span>Não se aplica a este exame — suprimir esta seção do relatório</span>
@@ -650,6 +684,10 @@
     </div>
     <div class="relpanel" id="rp-psi">
       <p class="note">Responsável: <span class="resp-tag" id="rp_psiNome">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_psi" style="width:15px; height:15px;" onchange="App.toggleRelOk('psi')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label class="f">8 — Psicologia</label>
       <textarea id="r_psi"></textarea>
       <div class="orient-field">Registre a análise a partir das entrevistas e, quando aplicável, de instrumentos técnicos validados: percepções sobre a vivência do cárcere, saúde mental e projetos de vida. Não estabeleça nexo causal entre o delito e a personalidade do avaliado, nem sugira prognóstico de reincidência (vedações I e III).</div>
@@ -687,12 +725,20 @@
     </div>
     <div class="relpanel" id="rp-soc">
       <p class="note">Responsável: <span class="resp-tag" id="rp_socNome">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_soc" style="width:15px; height:15px;" onchange="App.toggleRelOk('soc')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label class="f">9 — Serviço Social</label>
       <textarea id="r_soc"></textarea>
       <div class="orient-field">Aborde a realidade histórica e social do avaliado: trajetória familiar, comunitária e laboral, vínculos e rede de apoio, condições socioeconômicas antes e durante o cárcere, e o impacto da prisão sobre o avaliado e sua família (art. 9º, V, da Portaria). Evite termos indeterminados ou estigmatizantes e qualquer prognóstico de reincidência (vedações I e II).</div>
     </div>
     <div class="relpanel" id="rp-sin">
       <p class="note">Responsável: <span class="resp-tag" id="rp_sinNomes">—</span></p>
+      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
+        <input type="checkbox" id="relok_sin" style="width:15px; height:15px;" onchange="App.toggleRelOk('sin')">
+        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+      </label>
       <label class="f">10 — Parecer</label>
       <textarea id="r_sin"></textarea>
       <div class="orient-field">Redija uma síntese informativa e descritiva do conjunto do exame — não uma conclusão sobre o mérito da progressão; o relatório não vincula o Juízo da Execução (art. 10, parágrafo único). Não fundamente na gravidade abstrata do delito, nas circunstâncias do crime ou no tempo de pena (vedação V), nem utilize IA generativa ou tecnologia preditiva na redação (vedação VI).</div>
@@ -1992,6 +2038,7 @@ const App = {
     document.getElementById("chefesExtraBox").innerHTML="";
     this.renderEtapas();
     this.aplicarSuprimir({});
+    this.aplicarRelOk({});
     this.relTab("coord");
     this.novoTab("ident");
     this.syncRespNomes();
@@ -2024,6 +2071,39 @@ const App = {
       const chk=document.getElementById("sup_"+k), campo=document.getElementById("r_"+k);
       chk.checked=!!sup[k]; campo.disabled=!!sup[k];
     });
+  },
+  /* ---------- seção do relatório concluída pelo(a) responsável ----------
+     cada seção tem um "responsável" (nome na equipe examinadora); quem
+     preenche marca aqui quando termina, e a Direção (ou qualquer um com
+     acesso à unidade/regional, já que é o mesmo exame) vê o progresso sem
+     precisar abrir aba por aba — tanto pelo ✓ nas abas quanto pelo resumo
+     no painel/lista de exames. */
+  REL_OK_KEYS: ["coord","direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","soc","sin"],
+  toggleRelOk(k){
+    const on=document.getElementById("relok_"+k).checked;
+    const btn=document.querySelector('#relTabs button[data-r="'+k+'"]');
+    if(btn) btn.classList.toggle("relok", on);
+  },
+  lerRelOk(){
+    const out={};
+    this.REL_OK_KEYS.forEach(k=>{ out[k]=document.getElementById("relok_"+k).checked; });
+    return out;
+  },
+  aplicarRelOk(relOk){
+    relOk=relOk||{};
+    this.REL_OK_KEYS.forEach(k=>{
+      const chk=document.getElementById("relok_"+k);
+      const on=!!relOk[k];
+      chk.checked=on;
+      const btn=document.querySelector('#relTabs button[data-r="'+k+'"]');
+      if(btn) btn.classList.toggle("relok", on);
+    });
+  },
+  progressoRelOk(relOk){
+    relOk=relOk||{};
+    const total=this.REL_OK_KEYS.length;
+    const feitas=this.REL_OK_KEYS.filter(k=>relOk[k]).length;
+    return {feitas, total};
   },
   syncRespNomes(){
     const direcao=q_direcao.value.trim(), chefiaSeg=q_chefiaSeg.value.trim(), execPenal=q_execPenal.value.trim();
@@ -2076,6 +2156,7 @@ const App = {
         lista:this.lerQuesitos()
       },
       sup:this.lerSuprimir(),
+      relOk:this.lerRelOk(),
       etapas:this.lerEtapas(),
       rel:{met:r_met.value,direcao:r_direcao.value,chefiaSeg:r_chefiaSeg.value,execPenal:r_execPenal.value,ativLab:r_ativLab.value,ensino:r_ensino.value,semiab:r_semiab.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,sin:r_sin.value,diverg:r_diverg.value,limit:r_limit.value},
       obs:document.getElementById("e_obs").value
@@ -2125,6 +2206,7 @@ const App = {
     document.getElementById("quesitosBox").innerHTML="";
     (ex.quesitos?.lista||[]).forEach(q=>this.addQuesito(q));
     this.aplicarSuprimir(ex.sup);
+    this.aplicarRelOk(ex.relOk);
     this.relTab("coord"); this.novoTab("ident"); this.syncRespNomes();
     r_met.value=ex.rel?.met||TEXTO_MODELO.met; r_direcao.value=ex.rel?.direcao||TEXTO_MODELO.direcao; r_chefiaSeg.value=ex.rel?.chefiaSeg||TEXTO_MODELO.chefiaSeg;
     r_execPenal.value=ex.rel?.execPenal||TEXTO_MODELO.execPenal; r_ativLab.value=ex.rel?.ativLab||TEXTO_MODELO.ativLab; r_ensino.value=ex.rel?.ensino||TEXTO_MODELO.ensino; r_semiab.value=ex.rel?.semiab||TEXTO_MODELO.semiab;
@@ -2282,10 +2364,10 @@ const App = {
       : "";
     const showUnidCol = !geral && !unidFiltro;
     document.getElementById("listaBox").innerHTML = exs.length ?
-      `<table><tr><th>Avaliado</th>${geral?"<th>Regional</th>":""}${showUnidCol?"<th>Unidade</th>":""}<th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th></tr>`+
-      exs.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{});
+      `<table><tr><th>Avaliado</th>${geral?"<th>Regional</th>":""}${showUnidCol?"<th>Unidade</th>":""}<th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th><th>Relatório</th></tr>`+
+      exs.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{}); const ro=this.progressoRelOk(e.relOk);
         const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
-        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td>${geral?`<td>${esc(nomeRegional(e.coc))}</td>`:""}${showUnidCol?`<td>${esc(e.unid)||"—"}</td>`:""}<td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
+        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td>${geral?`<td>${esc(nomeRegional(e.coc))}</td>`:""}${showUnidCol?`<td>${esc(e.unid)||"—"}</td>`:""}<td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;}).join("")+`</table>`
       : `<div class="empty">Nenhum exame cadastrado${geral?"":" neste centro"}. ${geral?"":'Use a aba <b>Novo exame</b>.'}</div>`;
   },
 
