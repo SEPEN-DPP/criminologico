@@ -1175,9 +1175,10 @@ const Extractor = {
     if(m){ artigo=m[0].replace(/\s+/g," ").trim(); found.push("Tipificação: "+artigo); }
     m=t.match(/\b(roubo(?:\s+majorad[oa])?|homic[íi]dio(?:\s+qualificad[oa])?|latroc[íi]nio|estupro(?:\s+de\s+vulner[áa]vel)?|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|furto(?:\s+qualificad[oa])?|les[ãa]o\s+corporal|amea[çc]a|estelionato|c[áa]rcere\s+privado|extors[ãa]o)\b/i);
     if(m){ crime=this.titleCase(m[1]); found.push("Crime: "+crime); }
-    /* crimes inequivocamente violentos/hediondos → marca automática do campo (art. 122, §2º, LEP) */
-    const VIOLENTOS=/roubo|homic[íi]dio|latroc[íi]nio|estupro|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|les[ãa]o\s+corporal|amea[çc]a|c[áa]rcere\s+privado|extors[ãa]o/i;
-    const autoViol = crime && VIOLENTOS.test(crime);
+    /* crimes inequivocamente violentos/hediondos → marca automática do campo (art. 122, §2º, LEP);
+       testado contra o texto inteiro (não só contra "crime") para não perder grave ameaça citada
+       fora do primeiro crime capturado */
+    const autoViol = this.VIOLENTOS_RE.test(t);
     if(!artigo && !crime) missing.push("tipificação");
 
     /* aplicar à primeira condenação */
@@ -1206,23 +1207,32 @@ const Extractor = {
 
   /* artigos mais comuns do CP — só para sugerir o nome do crime quando o BPI traz o número solto (ex.: "155") sem o nome; sempre exige conferência */
   CP_ARTIGOS:{"121":"Homicídio","129":"Lesão corporal","148":"Cárcere privado","155":"Furto","157":"Roubo","158":"Extorsão","159":"Extorsão mediante sequestro","171":"Estelionato","213":"Estupro","217-A":"Estupro de vulnerável","33":"Tráfico de drogas"},
+  /* crimes inequivocamente violentos/hediondos, incluindo "grave ameaça" (roubo, extorsão etc. citam a própria palavra "ameaça") →
+     usada tanto na decisão judicial (extrair) quanto no BPI (extrairBPI/bpiTipificacao), sempre testada contra o bloco/texto
+     inteiro — nunca só contra o primeiro crime capturado, para não deixar passar um 2º artigo do mesmo processo (concurso de
+     crimes) que traga violência/grave ameaça quando o 1º artigo capturado é, por si só, não violento (ex.: furto + roubo) */
+  VIOLENTOS_RE:/roubo|homic[íi]dio|latroc[íi]nio|estupro|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|les[ãa]o\s+corporal|amea[çc]a|c[áa]rcere\s+privado|extors[ãa]o/i,
+  /* captura TODOS os artigos e crimes citados no bloco (um processo pode ter mais de uma tipificação — concurso de crimes) —
+     não só o primeiro, para não perder um artigo com violência/grave ameaça que apareça depois de outro no mesmo bloco */
   bpiTipificacao(bloco){
-    let artigo=null, crime=null;
-    let m=bloco.match(/art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?[^.;\n]{0,70}?(?:do|da)\s+(?:C[óo]digo\s+Penal|CP\b|Lei\s+n?[.ºo°]?\s*[\d.\/]+)/i);
-    if(!m) m=bloco.match(/(?<!\d\s)art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?(?:\s*,\s*(?:caput|§+\s*\d+[ºo°]?))*/i);
-    if(m) artigo=m[0].replace(/\s+/g," ").trim();
-    m=bloco.match(/\b(roubo(?:\s+majorad[oa])?|homic[íi]dio(?:\s+qualificad[oa])?|latroc[íi]nio|estupro(?:\s+de\s+vulner[áa]vel)?|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|furto(?:\s+qualificad[oa])?|les[ãa]o\s+corporal|amea[çc]a|estelionato|c[áa]rcere\s+privado|extors[ãa]o)\b/i);
-    if(m) crime=this.titleCase(m[1]);
+    const reArtCP=/art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?[^.;\n]{0,70}?(?:do|da)\s+(?:C[óo]digo\s+Penal|CP\b|Lei\s+n?[.ºo°]?\s*[\d.\/]+)/gi;
+    const reArtSolto=/(?<!\d\s)art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?(?:\s*,\s*(?:caput|§+\s*\d+[ºo°]?))*/gi;
+    const reCrimes=/\b(roubo(?:\s+majorad[oa])?|homic[íi]dio(?:\s+qualificad[oa])?|latroc[íi]nio|estupro(?:\s+de\s+vulner[áa]vel)?|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|furto(?:\s+qualificad[oa])?|les[ãa]o\s+corporal|amea[çc]a|estelionato|c[áa]rcere\s+privado|extors[ãa]o)\b/gi;
+    let artigos=[...bloco.matchAll(reArtCP)].map(m=>m[0].replace(/\s+/g," ").trim());
+    if(!artigos.length) artigos=[...bloco.matchAll(reArtSolto)].map(m=>m[0].replace(/\s+/g," ").trim());
+    let crimes=[...bloco.matchAll(reCrimes)].map(m=>this.titleCase(m[1]));
+    artigos=[...new Set(artigos)];
+    crimes=[...new Set(crimes)];
     /* formato "Amparo legal + número solto" do BPI/Boletim Penal (ex.: "CÓDIGO PENAL (DECRETO-LEI 2848/40) 155 0 Art. 10 a 4 m 0 d") */
-    if(!artigo){
-      m=bloco.match(/(C[óo]digo\s+Penal|Lei\s+de\s+Drogas|Lei\s+n?[.ºo°]?\s*[\d.\/]+|Estatuto\s+da\s+Crian[çc]a[^,;.\n]{0,15})\s*(?:\([^)]{0,40}\))?\s*[^\d]{0,15}?(\d{2,4}(?:-[A-Z])?)\b/i);
+    if(!artigos.length){
+      const m=bloco.match(/(C[óo]digo\s+Penal|Lei\s+de\s+Drogas|Lei\s+n?[.ºo°]?\s*[\d.\/]+|Estatuto\s+da\s+Crian[çc]a[^,;.\n]{0,15})\s*(?:\([^)]{0,40}\))?\s*[^\d]{0,15}?(\d{2,4}(?:-[A-Z])?)\b/i);
       if(m){
         const lei=/c[óo]digo\s+penal/i.test(m[1]) ? "CP" : m[1].replace(/\s+/g," ").trim();
-        artigo="art. "+m[2]+", "+lei;
-        if(!crime && lei==="CP" && this.CP_ARTIGOS[m[2]]) crime=this.CP_ARTIGOS[m[2]];
+        artigos.push("art. "+m[2]+", "+lei);
+        if(!crimes.length && lei==="CP" && this.CP_ARTIGOS[m[2]]) crimes.push(this.CP_ARTIGOS[m[2]]);
       }
     }
-    return {crime, artigo};
+    return {crime: crimes.join(" + "), artigo: artigos.join("; ")};
   },
   bpiData(bloco){
     let m=bloco.match(/(?:data\s+do\s+fato|fatos?\s+(?:ocorrid[oa]s?|praticad[oa]s?)\s+em|delito\s+praticado\s+em|crime\s+(?:cometido|praticado)\s+em)\s*[:\-]?\s*(\d{2})\/(\d{2})\/(\d{4})/i);
@@ -1274,7 +1284,9 @@ const Extractor = {
       const {crime,artigo}=this.bpiTipificacao(bloco);
       const data=semData ? null : this.bpiData(bloco);
       if(!crime && !artigo && !data) return;
-      const violento = crime && /roubo|homic[íi]dio|latroc[íi]nio|estupro|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|les[ãa]o\s+corporal|amea[çc]a|c[áa]rcere\s+privado|extors[ãa]o/i.test(crime);
+      /* testa contra o bloco inteiro (não só contra "crime"): um processo pode ter mais de um
+         artigo/crime, e a violência/grave ameaça pode estar num deles diferente do 1º capturado */
+      const violento = this.VIOLENTOS_RE.test(bloco);
       registros.push({crime:crime||"", artigo:artigo||"", dataFato:data?data.iso:"", dataFmt:data?data.fmt:"—", violento: violento?"sim":"nao"});
     });
 
