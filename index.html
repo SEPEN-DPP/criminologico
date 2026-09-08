@@ -757,6 +757,7 @@
       <button class="btn ghost" onclick="App.verificarRelatorio()">Verificar vedações no relatório</button>
       <button class="btn ghost" onclick="App.imprimir()">Gerar PDF / imprimir</button>
       <button class="btn ghost" id="btnConcluir" onclick="App.concluir()" style="display:none;">Marcar como concluído</button>
+      <button class="btn ghost" id="btnReabrir" onclick="App.reabrir()" style="display:none;">Reabrir exame</button>
       <button class="btn danger" id="btnExcluir" onclick="App.excluir()" style="display:none;">Excluir</button>
     </div>
     <div id="salvoMsg" class="note" style="color:var(--ok); font-weight:700;"></div>
@@ -2044,6 +2045,7 @@ const App = {
     this.syncRespNomes();
     document.getElementById("btnExcluir").style.display="none";
     document.getElementById("btnConcluir").style.display="none";
+    document.getElementById("btnReabrir").style.display="none";
     document.getElementById("salvoMsg").textContent="";
     document.getElementById("verifInline").innerHTML="";
     this.triagem();
@@ -2163,7 +2165,8 @@ const App = {
     });
     if(!this.editId){ this.data.exames.push(ex); this.editId=ex.id; }
     document.getElementById("btnExcluir").style.display="inline-block";
-    document.getElementById("btnConcluir").style.display="inline-block";
+    document.getElementById("btnConcluir").style.display=ex.status==="concluido"?"none":"inline-block";
+    document.getElementById("btnReabrir").style.display=ex.status==="concluido"?"inline-block":"none";
     const msg=document.getElementById("salvoMsg");
     msg.style.color="var(--ok)";
     msg.textContent="✓ Exame salvo ("+new Date().toLocaleTimeString("pt-BR")+")";
@@ -2217,6 +2220,7 @@ const App = {
     this.renderEtapas(ex.etapas||{});
     document.getElementById("btnExcluir").style.display="inline-block";
     document.getElementById("btnConcluir").style.display=ex.status==="concluido"?"none":"inline-block";
+    document.getElementById("btnReabrir").style.display=ex.status==="concluido"?"inline-block":"none";
     document.getElementById("salvoMsg").textContent="";
     document.getElementById("verifInline").innerHTML="";
     this.triagem();
@@ -2227,6 +2231,16 @@ const App = {
     ex.status="concluido"; this.renderDash(); this.renderLista();
     document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+" (concluído)";
     document.getElementById("btnConcluir").style.display="none";
+    document.getElementById("btnReabrir").style.display="inline-block";
+    window.ExamesFS?.salvar(ex).catch(e=>alert("Falhou ao sincronizar no servidor: "+(e?.code||e?.message||e)));
+  },
+  reabrir(){
+    if(!this.editId) return;
+    const ex=this.data.exames.find(x=>x.id===this.editId);
+    ex.status="andamento"; this.renderDash(); this.renderLista();
+    document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome;
+    document.getElementById("btnReabrir").style.display="none";
+    document.getElementById("btnConcluir").style.display="inline-block";
     window.ExamesFS?.salvar(ex).catch(e=>alert("Falhou ao sincronizar no servidor: "+(e?.code||e?.message||e)));
   },
   excluir(){
