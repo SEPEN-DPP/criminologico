@@ -117,6 +117,7 @@
   .g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr));}
   .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:16px 18px;}
   .card h3{font-size:16px; color:var(--navy); margin-bottom:10px;}
+  .card.kpi{cursor:pointer;}
   .kpi b{font-size:30px; font-family:"Montserrat", "Helvetica Neue", Arial, sans-serif; display:block;}
   .kpi span{font-size:12.5px; color:var(--mut);}
   .kpi.ok b{color:var(--ok);} .kpi.warn b{color:var(--warn);} .kpi.crit b{color:var(--crit);} .kpi.navy b{color:var(--navy);}
@@ -300,7 +301,7 @@
 
 <nav class="tabs">
   <button class="on" data-v="dash" onclick="App.tab('dash')">Painel</button>
-  <button data-v="lista" onclick="App.tab('lista')">Exames</button>
+  <button data-v="lista" onclick="App.abrirListaTudo()">Exames</button>
   <button data-v="cal" onclick="App.tab('cal')">Calendário</button>
   <button data-v="novo" onclick="App.tab('novo')">Novo exame</button>
   <button data-v="config" onclick="App.tab('config')">Configurações</button>
@@ -1740,10 +1741,10 @@ const App = {
       return {c, and:and.length, crit:crit.length, warn:warn.length, conc:conc.length};
     });
     document.getElementById("kpis").innerHTML=`
-      <div class="card kpi navy"><b>${totals.and}</b><span>exames em andamento (estado)</span></div>
-      <div class="card kpi crit"><b>${totals.crit}</b><span>prazo crítico / vencido</span></div>
-      <div class="card kpi warn"><b>${totals.warn}</b><span>atenção (≤ 15 dias)</span></div>
-      <div class="card kpi ok"><b>${totals.conc}</b><span>concluídos</span></div>`;
+      <div class="card kpi navy" onclick="App.filtrarPainel('andamento','')"><b>${totals.and}</b><span>exames em andamento (estado)</span></div>
+      <div class="card kpi crit" onclick="App.filtrarPainel('andamento','b-crit')"><b>${totals.crit}</b><span>prazo crítico / vencido</span></div>
+      <div class="card kpi warn" onclick="App.filtrarPainel('andamento','b-warn')"><b>${totals.warn}</b><span>atenção (≤ 15 dias)</span></div>
+      <div class="card kpi ok" onclick="App.filtrarPainel('concluido','')"><b>${totals.conc}</b><span>concluídos</span></div>`;
     document.getElementById("orientBox").innerHTML = totals.crit
       ? `<div class="orient crit"><b>Priorize:</b> ${totals.crit} exame(s) com prazo crítico ou vencido no estado — veja abaixo em qual(is) regional(is).</div>`
       : `<div class="orient ok"><b>Nenhum exame com prazo crítico no estado.</b> ✓</div>`;
@@ -1760,7 +1761,7 @@ const App = {
       </table>`;
   },
   abrirRegional(cocId){
-    this.coc=cocId; this.dashUnidadeFiltro="";
+    this.coc=cocId; this.dashUnidadeFiltro=""; this.dashPrazoFiltro="";
     document.getElementById("selCoc").value=cocId;
     this.renderUnidadeSel(this.getUnidadeValor());
     this.renderDash();
@@ -1774,7 +1775,7 @@ const App = {
       : `Nenhum exame aberto no momento — os nomes abaixo são a <b>equipe padrão do centro</b> e serão usados ao criar um novo exame. Para editar a equipe de um exame específico, abra-o em <b>Exames</b> ou <b>Novo exame</b> primeiro.`;
   },
   setCoc(id){
-    this.coc=id; this.calFiltroUnidade=""; this.dashUnidadeFiltro="";
+    this.coc=id; this.calFiltroUnidade=""; this.dashUnidadeFiltro=""; this.dashPrazoFiltro="";
     this.renderDash(); this.renderLista(); this.renderUnidadeSel(this.getUnidadeValor());
     if(document.getElementById("v-cal").classList.contains("on")) this.renderCalendario();
   },
@@ -2304,10 +2305,10 @@ const App = {
     const crit=and.filter(e=>{const p=this.prazoInfo(e); return p.cls==="b-crit";});
     const warn=and.filter(e=>{const p=this.prazoInfo(e); return p.cls==="b-warn";});
     document.getElementById("kpis").innerHTML=`
-      <div class="card kpi navy"><b>${and.length}</b><span>exames em andamento</span></div>
-      <div class="card kpi crit"><b>${crit.length}</b><span>prazo crítico / vencido</span></div>
-      <div class="card kpi warn"><b>${warn.length}</b><span>atenção (≤ 15 dias)</span></div>
-      <div class="card kpi ok"><b>${exs.filter(e=>e.status==="concluido").length}</b><span>concluídos</span></div>`;
+      <div class="card kpi navy" onclick="App.filtrarPainel('andamento','')"><b>${and.length}</b><span>exames em andamento</span></div>
+      <div class="card kpi crit" onclick="App.filtrarPainel('andamento','b-crit')"><b>${crit.length}</b><span>prazo crítico / vencido</span></div>
+      <div class="card kpi warn" onclick="App.filtrarPainel('andamento','b-warn')"><b>${warn.length}</b><span>atenção (≤ 15 dias)</span></div>
+      <div class="card kpi ok" onclick="App.filtrarPainel('concluido','')"><b>${exs.filter(e=>e.status==="concluido").length}</b><span>concluídos</span></div>`;
     const urg=and.filter(e=>["b-crit","b-warn"].includes(this.prazoInfo(e).cls))
       .sort((a,b)=>(a.dataProg||"9999")>(b.dataProg||"9999")?1:-1);
     document.getElementById("prazosBox").innerHTML = urg.length ?
@@ -2359,6 +2360,27 @@ const App = {
       box.innerHTML=`<div class="orient ok"><b>Nenhum exame em andamento neste centro.</b> ✓</div>`;
     }
   },
+  /* ---------- clique nos números do painel ("quantos são" → "quais são") ----------
+     PRAZO_FILTRO_LABEL mapeia o filtro de prazo (cls de prazoInfo) pro texto do chip.
+     abrirListaTudo() é usado pelo botão de navegação "Exames" (limpa tudo); os
+     cartões do painel chamam filtrarPainel() com o status/prazo específicos. */
+  PRAZO_FILTRO_LABEL: {"b-crit":"prazo crítico/vencido", "b-warn":"atenção (≤ 15 dias)"},
+  dashPrazoFiltro: "",
+  filtrarPainel(status, prazoCls){
+    document.getElementById("fStatus").value = status||"";
+    this.dashPrazoFiltro = prazoCls||"";
+    this.tab("lista");
+  },
+  abrirListaTudo(){
+    document.getElementById("fStatus").value="";
+    document.getElementById("fBusca").value="";
+    this.dashPrazoFiltro="";
+    this.tab("lista");
+  },
+  limparFiltroPrazoLista(){
+    this.dashPrazoFiltro="";
+    this.renderLista();
+  },
   renderLista(){
     const geral = this.coc==="_cepen";
     const st=document.getElementById("fStatus").value;
@@ -2371,11 +2393,13 @@ const App = {
       exs=this.filtrarPorUnidade(exs, unidFiltro, unidadesDoCentro);
     }
     if(st) exs=exs.filter(e=> st==="concluido" ? e.status==="concluido" : e.status!=="concluido");
+    if(this.dashPrazoFiltro) exs=exs.filter(e=>this.prazoInfo(e).cls===this.dashPrazoFiltro);
     if(q) exs=exs.filter(e=>(e.nome+" "+(e.mat||"")+" "+(e.proc||"")).toLowerCase().includes(q));
     const nomeRegional = id => (this.data.cocs.find(c=>c.id===id)||{}).nome || "—";
-    document.getElementById("listaTituloUnidade").innerHTML = unidFiltro
-      ? `— Unidade: <b>${esc(unidLabel)}</b> <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ ver todas as unidades</button>`
-      : "";
+    const chips=[];
+    if(unidFiltro) chips.push(`Unidade: <b>${esc(unidLabel)}</b> <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ ver todas as unidades</button>`);
+    if(this.dashPrazoFiltro) chips.push(`Prazo: <b>${esc(this.PRAZO_FILTRO_LABEL[this.dashPrazoFiltro]||this.dashPrazoFiltro)}</b> <button class="btn sm ghost" type="button" onclick="App.limparFiltroPrazoLista()">✕ tirar filtro de prazo</button>`);
+    document.getElementById("listaTituloUnidade").innerHTML = chips.length ? "— "+chips.join(" &nbsp; ") : "";
     const showUnidCol = !geral && !unidFiltro;
     document.getElementById("listaBox").innerHTML = exs.length ?
       `<table><tr><th>Avaliado</th>${geral?"<th>Regional</th>":""}${showUnidCol?"<th>Unidade</th>":""}<th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th><th>Relatório</th></tr>`+
