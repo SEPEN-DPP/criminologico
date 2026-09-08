@@ -37,8 +37,14 @@ function souDPP() {
   return souAutenticado() && meuPerfil() == "DPP";
 }
 
+/* "SR" (administrativo) e os perfis de cobertura móvel regional (SR_PSICOLOGIA,
+   SR_SOCIAL — psicólogo(a)/assistente social que circula entre as unidades da
+   regional, sem unidade fixa) têm o mesmo alcance de leitura/escrita: qualquer
+   exame cuja unidade pertença à mesma SR */
 function souSRDoExame(exame) {
-  return souAutenticado() && meuPerfil() == "SR" && meuPerfilDoc().sr == exame.sr;
+  return souAutenticado()
+    && meuPerfil() in ["SR", "SR_PSICOLOGIA", "SR_SOCIAL"]
+    && meuPerfilDoc().sr == exame.sr;
 }
 
 function souDaUnidadeDoExame(exame) {

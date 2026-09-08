@@ -238,6 +238,8 @@
       <option value="CPEN">CPEN — Coordenação de Execução Penal</option>
       <option value="DIR">DIR — Diretor(a) da unidade</option>
       <option value="SR">SR — Superintendente Regional</option>
+      <option value="SR_PSICOLOGIA">SR — Psicólogo(a) de cobertura regional</option>
+      <option value="SR_SOCIAL">SR — Assistente Social de cobertura regional</option>
       <option value="DPP">DPP — acesso total (central)</option>
     </select>
     <div id="regCampoUnidade" style="margin-top:10px;">
@@ -765,6 +767,8 @@
             <option value="CPEN">CPEN</option>
             <option value="DIR">Diretor(a)</option>
             <option value="SR">Superintendente Regional</option>
+            <option value="SR_PSICOLOGIA">SR — Psicólogo(a) de cobertura regional</option>
+            <option value="SR_SOCIAL">SR — Assistente Social de cobertura regional</option>
             <option value="DPP">DPP</option>
           </select>
         </div>
@@ -1380,7 +1384,9 @@ const App = {
       return;
     }
 
-    if((window.PERFIS_NIVEL_USUARIO||["USUARIO"]).includes(perfil.perfil)){
+    if([...(window.PERFIS_NIVEL_USUARIO||["USUARIO"]), ...(window.PERFIS_SR_COBERTURA||[])].includes(perfil.perfil)){
+      /* perfis operacionais (unidade ou cobertura móvel de SR) não têm alçada administrativa —
+         só o "SR" (administrativo) e o DPP veem Configurações */
       const btnConfig=document.querySelector('nav.tabs button[data-v="config"]');
       if(btnConfig) btnConfig.style.display="none";
     }
@@ -2562,8 +2568,13 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
-const PERFIL_LABEL = { USUARIO:"Usuário", PSICOLOGIA:"Usuário Psicologia", SOCIAL:"Usuário Assistente Social", CPEN:"CPEN", DIR:"Diretor(a)", SR:"Superintendente Regional", DPP:"DPP" };
+const PERFIL_LABEL = { USUARIO:"Usuário", PSICOLOGIA:"Usuário Psicologia", SOCIAL:"Usuário Assistente Social", CPEN:"CPEN", DIR:"Diretor(a)", SR:"Superintendente Regional", SR_PSICOLOGIA:"SR — Psicólogo(a) de cobertura regional", SR_SOCIAL:"SR — Assistente Social de cobertura regional", DPP:"DPP" };
 const PERFIS_NIVEL_USUARIO = ["USUARIO","PSICOLOGIA","SOCIAL"];
+/* perfis com alcance de toda a SR (não de uma unidade só) mas sem alçada administrativa —
+   cobertura móvel de psicólogo(a)/assistente social que circula entre as unidades da regional;
+   ao contrário do perfil "SR" (administrativo), estes têm a aba "Novo exame" liberada */
+const PERFIS_SR_COBERTURA = ["SR_PSICOLOGIA","SR_SOCIAL"];
+window.PERFIS_SR_COBERTURA = PERFIS_SR_COBERTURA;
 window.PERFIS_NIVEL_USUARIO = PERFIS_NIVEL_USUARIO;
 
 let meuPerfilDoc = null;
@@ -2616,7 +2627,7 @@ const AuthUI = {
   atualizarCamposFuncao(){
     const f = document.getElementById("regFuncao").value;
     document.getElementById("regCampoUnidade").style.display = ([...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(f)) ? "block" : "none";
-    document.getElementById("regCampoSR").style.display = (f==="SR") ? "block" : "none";
+    document.getElementById("regCampoSR").style.display = (f==="SR"||PERFIS_SR_COBERTURA.includes(f)) ? "block" : "none";
     const notas = {
       USUARIO: "O cadastro fica pendente até análise/aprovação pelo responsável.",
       PSICOLOGIA: "O cadastro fica pendente até análise/aprovação pelo responsável.",
@@ -2624,6 +2635,8 @@ const AuthUI = {
       CPEN: "O cadastro fica pendente até ser aprovado pela Superintendência Regional ou pelo DPP.",
       DIR: "O cadastro fica pendente até ser aprovado pela Superintendência Regional ou pelo DPP.",
       SR: "Contas de Superintendência só são liberadas diretamente pelo DPP.",
+      SR_PSICOLOGIA: "Contas de cobertura regional só são liberadas diretamente pelo DPP.",
+      SR_SOCIAL: "Contas de cobertura regional só são liberadas diretamente pelo DPP.",
       DPP: "Contas de acesso total só são liberadas por quem já é DPP.",
     };
     document.getElementById("regAprovacaoNota").textContent = notas[f] || "";
@@ -2646,7 +2659,7 @@ const AuthUI = {
     const cpf = document.getElementById("regCpf").value.replace(/\D/g,"");
     const funcao = document.getElementById("regFuncao").value;
     const unidade = ([...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(funcao)) ? document.getElementById("regUnidade").value : null;
-    const sr = funcao==="SR" ? document.getElementById("regSR").value : (unidade ? srDaUnidade(unidade) : null);
+    const sr = (funcao==="SR"||PERFIS_SR_COBERTURA.includes(funcao)) ? document.getElementById("regSR").value : (unidade ? srDaUnidade(unidade) : null);
     const email = document.getElementById("regEmail").value.trim();
     const senha = document.getElementById("regSenha").value;
     if(!nome || !email || !senha || (funcao!=="DPP" && !unidade && !sr)){
