@@ -9,7 +9,14 @@ service cloud.firestore {
     function ehDPP() { return ativo() && perfilAtual().perfil == 'DPP'; }
     function ehSR() { return ativo() && perfilAtual().perfil == 'SR'; }
     function ehDirOuCpen() { return ativo() && (perfilAtual().perfil == 'DIR' || perfilAtual().perfil == 'CPEN'); }
-    function ehUsuario() { return ativo() && perfilAtual().perfil == 'USUARIO'; }
+    // USUARIO/PSICOLOGIA/SOCIAL: nivel de unidade, mesmo alcance entre si —
+    // so muda o rotulo da funcao (psicologo(a)/assistente social/outro
+    // servidor), ja e como o proprio index.html trata os tres em
+    // PERFIS_NIVEL_USUARIO. Antes desta correcao so 'USUARIO' entrava aqui,
+    // o que travava o autocadastro de Psicologia/Assistente Social (a conta
+    // de login chegava a ser criada mas o cadastro no Firestore era
+    // recusado, sem opcao de tentar de novo com o mesmo e-mail).
+    function ehNivelUnidade() { return ativo() && perfilAtual().perfil in ['USUARIO','PSICOLOGIA','SOCIAL']; }
     function minhaUnidade(unidade) { return ehDirOuCpen() && perfilAtual().unidade == unidade; }
     function minhaSR(sr) { return ehSR() && perfilAtual().sr == sr; }
     // SR_PSICOLOGIA/SR_SOCIAL: psicologo(a)/assistente social de cobertura
@@ -29,7 +36,7 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.resource.data.status == 'PENDENTE'
         && request.resource.data.perfil == null
-        && request.resource.data.perfilSolicitado in ['USUARIO','CPEN','DIR','SR','SR_PSICOLOGIA','SR_SOCIAL','DPP'];
+        && request.resource.data.perfilSolicitado in ['USUARIO','PSICOLOGIA','SOCIAL','CPEN','DIR','SR','SR_PSICOLOGIA','SR_SOCIAL','DPP'];
       allow read: if autenticado() && (
         request.auth.uid == uid
         || ehDPP()
@@ -40,30 +47,30 @@ service cloud.firestore {
       // "cria" cobre tanto o bootstrap de contas em lote quanto o caso de
       // "SR e SR_PSICOLOGIA/SR_SOCIAL so sao adicionados pelo DPP").
       allow create, update, delete: if ehDPP();
-      // SR aprova pendente de CPEN/DIR/USUARIO da propria regional, e tambem
-      // suspende/exclui qualquer conta "abaixo" (CPEN/DIR/USUARIO) da sua SR.
+      // SR aprova pendente de CPEN/DIR/USUARIO/PSICOLOGIA/SOCIAL da propria
+      // regional, e tambem suspende/exclui qualquer conta "abaixo" da sua SR.
       // SR_PSICOLOGIA/SR_SOCIAL so sao aprovados/excluidos pelo DPP acima —
       // de proposito nao entram nesta lista, ficam fora da alcada do SR.
       allow update: if ehSR()
         && resource.data.status == 'PENDENTE'
         && resource.data.sr == perfilAtual().sr
-        && resource.data.perfilSolicitado in ['USUARIO','CPEN','DIR']
+        && resource.data.perfilSolicitado in ['USUARIO','PSICOLOGIA','SOCIAL','CPEN','DIR']
         && request.resource.data.perfil == resource.data.perfilSolicitado
         && request.resource.data.status == 'ATIVO';
       allow delete: if ehSR()
-        && resource.data.perfil in ['USUARIO','CPEN','DIR']
+        && resource.data.perfil in ['USUARIO','PSICOLOGIA','SOCIAL','CPEN','DIR']
         && resource.data.sr == perfilAtual().sr;
-      // DIR/CPEN aprova pendente de USUARIO da propria unidade, e suspende/
-      // exclui USUARIO ja ativo da propria unidade.
+      // DIR/CPEN aprova pendente de USUARIO/PSICOLOGIA/SOCIAL da propria
+      // unidade, e suspende/exclui qualquer um dos tres ja ativo na unidade.
       allow update: if ehDirOuCpen()
         && resource.data.status == 'PENDENTE'
         && resource.data.unidade == perfilAtual().unidade
-        && resource.data.perfilSolicitado == 'USUARIO'
-        && request.resource.data.perfil == 'USUARIO'
+        && resource.data.perfilSolicitado in ['USUARIO','PSICOLOGIA','SOCIAL']
+        && request.resource.data.perfil == resource.data.perfilSolicitado
         && request.resource.data.status == 'ATIVO'
         && request.resource.data.unidade == perfilAtual().unidade;
       allow delete: if ehDirOuCpen()
-        && resource.data.perfil == 'USUARIO'
+        && resource.data.perfil in ['USUARIO','PSICOLOGIA','SOCIAL']
         && resource.data.unidade == perfilAtual().unidade;
     }
     // Exames: USUARIO/DIR/CPEN so veem/editam da propria unidade; SR so le
@@ -75,15 +82,15 @@ service cloud.firestore {
         || minhaSR(resource.data.sr)
         || minhaSRComoCobertura(resource.data.sr)
         || minhaUnidade(resource.data.unidade)
-        || (ehUsuario() && resource.data.unidade == perfilAtual().unidade);
+        || (ehNivelUnidade() && resource.data.unidade == perfilAtual().unidade);
       allow create: if ehDPP()
         || minhaSRComoCobertura(request.resource.data.sr)
         || minhaUnidade(request.resource.data.unidade)
-        || (ehUsuario() && request.resource.data.unidade == perfilAtual().unidade);
+        || (ehNivelUnidade() && request.resource.data.unidade == perfilAtual().unidade);
       allow update, delete: if ehDPP()
         || minhaSRComoCobertura(resource.data.sr)
         || minhaUnidade(resource.data.unidade)
-        || (ehUsuario() && resource.data.unidade == perfilAtual().unidade);
+        || (ehNivelUnidade() && resource.data.unidade == perfilAtual().unidade);
     }
   }
 }
