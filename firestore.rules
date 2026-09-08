@@ -1,123 +1,89 @@
 rules_version = '2';
-
-/*
- * MODELO DE REGRAS — inferido a partir do que o próprio index.html já pressupõe
- * (ver comentário em App.aplicarEscopoPerfil: "o Firestore já limita quais exames
- * chegam — isto aqui é só pra não mostrar um seletor que sugere um acesso que a
- * pessoa não tem"). Este arquivo não estava versionado no repositório antes —
- * as regras reais só existiam (ou não) no Console do Firebase, fora de qualquer
- * revisão. Ele existe pra dar um ponto de partida auditável, não para ser copiado
- * e colado sem testar.
- *
- * ANTES DE PUBLICAR:
- *  1. Rode isto no "Rules Playground" do Console do Firebase com casos reais
- *     (um usuário de cada perfil, tentando ler/escrever exames e contas de
- *     dentro e de fora do próprio escopo) — confirme que nada que devia
- *     funcionar hoje passa a ser bloqueado.
- *  2. Compare com as regras atualmente publicadas (Console → Firestore →
- *     Regras → aba "Histórico") antes de sobrescrever.
- *  3. Depois de validado, publique e traga este arquivo pro repositório via
- *     `firebase deploy --only firestore:rules` (ou cole manualmente no Console),
- *     pra ele passar a ser versionado de verdade.
- */
-
-function souAutenticado() {
-  return request.auth != null;
-}
-
-function meuPerfilDoc() {
-  return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
-}
-
-function meuPerfil() {
-  return souAutenticado() ? meuPerfilDoc().perfil : null;
-}
-
-function souDPP() {
-  return souAutenticado() && meuPerfil() == "DPP";
-}
-
-/* "SR" (administrativo) e os perfis de cobertura móvel regional (SR_PSICOLOGIA,
-   SR_SOCIAL — psicólogo(a)/assistente social que circula entre as unidades da
-   regional, sem unidade fixa) têm o mesmo alcance de leitura/escrita: qualquer
-   exame cuja unidade pertença à mesma SR */
-function souSRDoExame(exame) {
-  return souAutenticado()
-    && meuPerfil() in ["SR", "SR_PSICOLOGIA", "SR_SOCIAL"]
-    && meuPerfilDoc().sr == exame.sr;
-}
-
-function souDaUnidadeDoExame(exame) {
-  return souAutenticado()
-    && meuPerfil() in ["DIR", "CPEN", "USUARIO", "PSICOLOGIA", "SOCIAL"]
-    && meuPerfilDoc().unidade == exame.unidade;
-}
-
-function podeVerExame(exame) {
-  return souDPP() || souSRDoExame(exame) || souDaUnidadeDoExame(exame);
-}
-
-/* espelha function podeAprovar(u) do index.html */
-function podeAprovarAlvo(alvo) {
-  return souAutenticado() && (
-    (meuPerfil() == "SR"
-      && alvo.perfilSolicitado in ["USUARIO","PSICOLOGIA","SOCIAL","CPEN","DIR"]
-      && alvo.sr == meuPerfilDoc().sr)
-    || (meuPerfil() in ["DIR","CPEN"]
-      && alvo.perfilSolicitado in ["USUARIO","PSICOLOGIA","SOCIAL"]
-      && alvo.unidade == meuPerfilDoc().unidade)
-  );
-}
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /* ---------- exames ---------- */
-    match /exames/{exameId} {
-      allow read: if podeVerExame(resource.data);
-      allow create: if souAutenticado() && podeVerExame(request.resource.data);
-      allow update, delete: if podeVerExame(resource.data) && podeVerExame(request.resource.data);
+    function perfilAtual() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
-
-    /* ---------- usuarios ---------- */
+    function autenticado() { return request.auth != null; }
+    function ativo() { return autenticado() && perfilAtual().status == 'ATIVO'; }
+    function ehDPP() { return ativo() && perfilAtual().perfil == 'DPP'; }
+    function ehSR() { return ativo() && perfilAtual().perfil == 'SR'; }
+    function ehDirOuCpen() { return ativo() && (perfilAtual().perfil == 'DIR' || perfilAtual().perfil == 'CPEN'); }
+    function ehUsuario() { return ativo() && perfilAtual().perfil == 'USUARIO'; }
+    function minhaUnidade(unidade) { return ehDirOuCpen() && perfilAtual().unidade == unidade; }
+    function minhaSR(sr) { return ehSR() && perfilAtual().sr == sr; }
+    // SR_PSICOLOGIA/SR_SOCIAL: psicologo(a)/assistente social de cobertura
+    // movel da regional (sem unidade fixa, circula entre as unidades da SR).
+    // Ao contrario do "SR" (so-leitura/administrativo), estes CRIAM exame —
+    // por isso tem uma checagem propria em vez de entrar em minhaSR().
+    function ehSRCobertura() { return ativo() && perfilAtual().perfil in ['SR_PSICOLOGIA','SR_SOCIAL']; }
+    function minhaSRComoCobertura(sr) { return ehSRCobertura() && perfilAtual().sr == sr; }
+    // Contas. Perfis: USUARIO, CPEN, DIR (vinculados a uma unidade), SR
+    // (vinculado a uma regional), SR_PSICOLOGIA/SR_SOCIAL (vinculados a uma
+    // regional, cobertura movel entre unidades), DPP (acesso total). O
+    // autocadastro grava perfilSolicitado (o que a pessoa pediu) e so vira
+    // "perfil" de verdade quando alguem com alcada aprova (ve regras de
+    // update abaixo).
     match /usuarios/{uid} {
-      /* qualquer pessoa autenticada pode ler/editar o PRÓPRIO cadastro
-         (necessário pra tela "minha conta" e pro autocadastro) */
-      allow read, update: if souAutenticado() && request.auth.uid == uid;
-
-      /* autocadastro (Solicitar acesso): só pode criar o PRÓPRIO documento,
-         sempre como PENDENTE e sem se autoatribuir um perfil ativo — quem
-         aprova é sempre alguém com alçada (ver abaixo), nunca a própria pessoa */
-      allow create: if souAutenticado()
+      allow create: if autenticado()
         && request.auth.uid == uid
-        && request.resource.data.status == "PENDENTE"
-        && request.resource.data.perfil == null;
-
-      /* leitura em lista/aprovação: DPP vê todo mundo; SR vê a própria regional;
-         DIR/CPEN veem a própria unidade — espelha as queries de
-         UsuariosUI.carregar() */
-      allow read: if souDPP()
-        || (souAutenticado() && meuPerfil() == "SR" && resource.data.sr == meuPerfilDoc().sr)
-        || (souAutenticado() && meuPerfil() in ["DIR","CPEN"] && resource.data.unidade == meuPerfilDoc().unidade);
-
-      /* aprovar (update) e recusar (delete de PENDENTE): espelha exatamente
-         App.podeAprovar() — SR aprova USUARIO/PSICOLOGIA/SOCIAL/CPEN/DIR da
-         própria regional; DIR/CPEN aprovam só USUARIO/PSICOLOGIA/SOCIAL da
-         própria unidade. Ao aprovar, exige que o perfil concedido seja
-         exatamente o solicitado (impede escalar privilégio via chamada direta
-         à API) e que o status vá para ATIVO. */
-      allow update: if souDPP() || (
-        resource.data.status == "PENDENTE"
-        && podeAprovarAlvo(resource.data)
-        && request.resource.data.perfil == resource.data.perfilSolicitado
-        && request.resource.data.status == "ATIVO"
+        && request.resource.data.status == 'PENDENTE'
+        && request.resource.data.perfil == null
+        && request.resource.data.perfilSolicitado in ['USUARIO','CPEN','DIR','SR','SR_PSICOLOGIA','SR_SOCIAL','DPP'];
+      allow read: if autenticado() && (
+        request.auth.uid == uid
+        || ehDPP()
+        || minhaSR(resource.data.sr)
+        || minhaUnidade(resource.data.unidade)
       );
-
-      /* excluir conta já ativa: só DPP (só DPP vê o botão "Excluir" na UI).
-         Recusar solicitação pendente: mesma alçada de quem poderia aprovar. */
-      allow delete: if souDPP() || (resource.data.status == "PENDENTE" && podeAprovarAlvo(resource.data));
+      // DPP aprova/edita/exclui/cria qualquer conta, qualquer perfil (o
+      // "cria" cobre tanto o bootstrap de contas em lote quanto o caso de
+      // "SR e SR_PSICOLOGIA/SR_SOCIAL so sao adicionados pelo DPP").
+      allow create, update, delete: if ehDPP();
+      // SR aprova pendente de CPEN/DIR/USUARIO da propria regional, e tambem
+      // suspende/exclui qualquer conta "abaixo" (CPEN/DIR/USUARIO) da sua SR.
+      // SR_PSICOLOGIA/SR_SOCIAL so sao aprovados/excluidos pelo DPP acima —
+      // de proposito nao entram nesta lista, ficam fora da alcada do SR.
+      allow update: if ehSR()
+        && resource.data.status == 'PENDENTE'
+        && resource.data.sr == perfilAtual().sr
+        && resource.data.perfilSolicitado in ['USUARIO','CPEN','DIR']
+        && request.resource.data.perfil == resource.data.perfilSolicitado
+        && request.resource.data.status == 'ATIVO';
+      allow delete: if ehSR()
+        && resource.data.perfil in ['USUARIO','CPEN','DIR']
+        && resource.data.sr == perfilAtual().sr;
+      // DIR/CPEN aprova pendente de USUARIO da propria unidade, e suspende/
+      // exclui USUARIO ja ativo da propria unidade.
+      allow update: if ehDirOuCpen()
+        && resource.data.status == 'PENDENTE'
+        && resource.data.unidade == perfilAtual().unidade
+        && resource.data.perfilSolicitado == 'USUARIO'
+        && request.resource.data.perfil == 'USUARIO'
+        && request.resource.data.status == 'ATIVO'
+        && request.resource.data.unidade == perfilAtual().unidade;
+      allow delete: if ehDirOuCpen()
+        && resource.data.perfil == 'USUARIO'
+        && resource.data.unidade == perfilAtual().unidade;
     }
-
-    /* qualquer coleção não listada acima fica fechada por padrão */
+    // Exames: USUARIO/DIR/CPEN so veem/editam da propria unidade; SR so le
+    // (dashboard) as da propria regional; SR_PSICOLOGIA/SR_SOCIAL leem E
+    // criam/editam as da propria regional (cobertura movel entre unidades);
+    // DPP tem acesso total.
+    match /exames/{examId} {
+      allow read: if ehDPP()
+        || minhaSR(resource.data.sr)
+        || minhaSRComoCobertura(resource.data.sr)
+        || minhaUnidade(resource.data.unidade)
+        || (ehUsuario() && resource.data.unidade == perfilAtual().unidade);
+      allow create: if ehDPP()
+        || minhaSRComoCobertura(request.resource.data.sr)
+        || minhaUnidade(request.resource.data.unidade)
+        || (ehUsuario() && request.resource.data.unidade == perfilAtual().unidade);
+      allow update, delete: if ehDPP()
+        || minhaSRComoCobertura(resource.data.sr)
+        || minhaUnidade(resource.data.unidade)
+        || (ehUsuario() && resource.data.unidade == perfilAtual().unidade);
+    }
   }
 }
