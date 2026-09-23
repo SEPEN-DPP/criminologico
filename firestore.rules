@@ -73,10 +73,11 @@ service cloud.firestore {
         && resource.data.perfil in ['USUARIO','PSICOLOGIA','SOCIAL']
         && resource.data.unidade == perfilAtual().unidade;
     }
-    // Exames: USUARIO/DIR/CPEN so veem/editam da propria unidade; SR so le
-    // (dashboard) as da propria regional; SR_PSICOLOGIA/SR_SOCIAL leem E
-    // criam/editam as da propria regional (cobertura movel entre unidades);
-    // DPP tem acesso total.
+    // Exames: USUARIO/DIR/CPEN so veem/editam da propria unidade; SR le E
+    // cria/edita as da propria regional (dashboard + cadastro direto, ex.:
+    // quando precisa lancar/corrigir um exame sem depender de outro perfil);
+    // SR_PSICOLOGIA/SR_SOCIAL leem E criam/editam as da propria regional
+    // (cobertura movel entre unidades); DPP tem acesso total.
     match /exames/{examId} {
       allow read: if ehDPP()
         || minhaSR(resource.data.sr)
@@ -84,10 +85,12 @@ service cloud.firestore {
         || minhaUnidade(resource.data.unidade)
         || (ehNivelUnidade() && resource.data.unidade == perfilAtual().unidade);
       allow create: if ehDPP()
+        || minhaSR(request.resource.data.sr)
         || minhaSRComoCobertura(request.resource.data.sr)
         || minhaUnidade(request.resource.data.unidade)
         || (ehNivelUnidade() && request.resource.data.unidade == perfilAtual().unidade);
       allow update, delete: if ehDPP()
+        || minhaSR(resource.data.sr)
         || minhaSRComoCobertura(resource.data.sr)
         || minhaUnidade(resource.data.unidade)
         || (ehNivelUnidade() && resource.data.unidade == perfilAtual().unidade);

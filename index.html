@@ -1437,10 +1437,6 @@ const App = {
       const btnConfig=document.querySelector('nav.tabs button[data-v="config"]');
       if(btnConfig) btnConfig.style.display="none";
     }
-    if(perfil.perfil === "SR"){
-      const btnNovo=document.querySelector('nav.tabs button[data-v="novo"]');
-      if(btnNovo) btnNovo.style.display="none";
-    }
     if(perfil.perfil==="DIR" || perfil.perfil==="CPEN"){
       /* DIR/CPEN nao precisam ver os Centros de Observacao (equipe padrao,
          unidades vinculadas etc.) — em Configuracoes so faz sentido a aba
