@@ -3070,7 +3070,7 @@ const ExamesFS = {
     if(unsubscribeExames){ unsubscribeExames(); unsubscribeExames=null; }
     let q;
     if(perfil.perfil === "DPP") q = collection(db,"exames");
-    else if(perfil.perfil === "SR") q = query(collection(db,"exames"), where("sr","==", perfil.sr));
+    else if(perfil.perfil === "SR" || PERFIS_SR_COBERTURA.includes(perfil.perfil)) q = query(collection(db,"exames"), where("sr","==", perfil.sr));
     else q = query(collection(db,"exames"), where("unidade","==", perfil.unidade));
     unsubscribeExames = onSnapshot(q, (snap)=>{
       window.App.data.exames = snap.docs.map(d=>({ id:d.id, ...d.data() }));
