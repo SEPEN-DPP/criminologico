@@ -1714,12 +1714,16 @@ const App = {
       novo.prof=document.getElementById("calfProf").value.trim();
     }
     ex.etapas[tipo]=novo;
-    this.persist();
     if(this.editId===exId) this.renderEtapas(ex.etapas);
     const nomeEx=ex.nome;
     this.calFecharForm(true);
     this.renderCalendario();
-    alert("Entrevista agendada para "+nomeEx+".");
+    /* grava no Firestore — sem isso o agendamento ficava só na memória do navegador e
+       sumia na próxima sincronização (onSnapshot) ou ao recarregar a página */
+    if(!window.ExamesFS){ alert("Entrevista agendada para "+nomeEx+"."); return; }
+    window.ExamesFS.salvar(ex)
+      .then(()=>alert("Entrevista agendada para "+nomeEx+"."))
+      .catch(e=>alert("Falhou ao salvar o agendamento no servidor: "+(e?.code||e?.message||e)));
   },
   renderDashGeral(){
     document.getElementById("painelUnidadeAtualBox").innerHTML="";
@@ -2404,11 +2408,16 @@ const App = {
   resultadoHTML(flags, texto){
     if(!flags.length) return `<div class="allclear">✓ Nenhuma expressão vedada localizada. Revisão profissional continua indispensável — o verificador não substitui a leitura crítica.</div>`;
     return `<p style="font-weight:700; color:var(--crit); margin-bottom:10px;">${flags.length} apontamento(s) para revisão:</p>`+
-      flags.slice(0,60).map(f=>`<div class="flag"><b>"${f.termo}"</b> — vedação ${f.ved}<span class="ctx">${f.ctx}</span></div>`).join("")+
+      flags.slice(0,60).map(f=>`<div class="flag"><b>"${esc(f.termo)}"</b> — vedação ${f.ved}<span class="ctx">${esc(f.ctx)}</span></div>`).join("")+
       `<h3 style="margin:14px 0 8px; color:var(--navy);">Texto com destaques</h3><div class="preview">${this.highlight(texto)}</div>`;
   },
   verificarRelatorio(){
-    const t=[r_met.value,r_soc.value,r_psi.value,r_psq.value,r_sin.value].join("\n\n");
+    /* varre todo texto que vai para o relatório: as seções suprimidas ficam de fora
+       porque não são impressas; as respostas aos quesitos entram porque são impressas */
+    const sup=this.lerSuprimir();
+    const secoes=["met","direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","soc","sin","diverg","limit"]
+      .filter(k=>!sup[k]).map(k=>document.getElementById("r_"+k).value);
+    const t=[...secoes, ...this.lerQuesitos().map(q=>q.resposta)].filter(Boolean).join("\n\n");
     document.getElementById("verifInline").innerHTML=this.resultadoHTML(this.scan(t), t);
     return this.scan(t);
   },
