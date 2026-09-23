@@ -2127,10 +2127,12 @@ const App = {
   salvar(){
     const nome=document.getElementById("e_nome").value.trim();
     if(!nome){ alert("Informe o nome do avaliado."); return; }
+    const unid=this.getUnidadeValor();
+    if(!unid){ alert("Selecione a unidade prisional de custódia antes de salvar."); return; }
     const ex = this.editId ? this.data.exames.find(x=>x.id===this.editId) : {id:uid(), coc:this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
     Object.assign(ex,{
       nome, mat:document.getElementById("e_mat").value.trim(),
-      unid:this.getUnidadeValor(),
+      unid,
       proc:document.getElementById("e_proc").value.trim(),
       sgpe:document.getElementById("e_sgpe").value.trim(),
       tipo:document.getElementById("e_tipo").value,
