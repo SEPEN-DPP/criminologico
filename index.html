@@ -456,7 +456,18 @@
     <div class="row c3">
       <div><label class="f">Juízo da execução</label><input type="text" id="e_juizo" placeholder="ex.: Vara de Execuções Penais da Comarca de..."></div>
       <div><label class="f">Pena total</label><input type="text" id="e_penaTotal" placeholder="ex.: 10 anos, 4 meses e 0 dias"></div>
-      <div><label class="f">Benefício pretendido</label><input type="text" id="e_beneficio" placeholder="ex.: progressão ao regime semiaberto"></div>
+      <div><label class="f">Benefício pretendido</label>
+        <select id="e_beneficioSel" onchange="App.beneficioChange()">
+          <option value="">Selecione…</option>
+          <option value="Progressão ao Regime Semiaberto">Progressão ao Regime Semiaberto</option>
+          <option value="Progressão ao Regime Aberto">Progressão ao Regime Aberto</option>
+          <option value="Livramento Condicional">Livramento Condicional</option>
+          <option value="_outro">Outro (qual?)</option>
+        </select>
+        <div id="e_beneficioOutroWrap" style="display:none; margin-top:6px;">
+          <input type="text" id="e_beneficioOutro" placeholder="Qual benefício?">
+        </div>
+      </div>
     </div>
     <div class="row c2">
       <div><label class="f">Data de início da avaliação</label><input type="date" id="e_dataIni"></div>
@@ -1813,6 +1824,27 @@ const App = {
       ? `${info.endereco}${info.telefone?(" — Fone: "+info.telefone):""}${info.diretor?(" — Diretor(a): "+info.diretor):""}`
       : "";
   },
+  /* ---------- benefício pretendido (menu com opção "Outro" em texto livre) ---------- */
+  beneficioChange(){
+    document.getElementById("e_beneficioOutroWrap").style.display =
+      document.getElementById("e_beneficioSel").value==="_outro" ? "block" : "none";
+  },
+  getBeneficio(){
+    const v=document.getElementById("e_beneficioSel").value;
+    return v==="_outro" ? document.getElementById("e_beneficioOutro").value.trim() : v;
+  },
+  setBeneficio(txt){
+    const sel=document.getElementById("e_beneficioSel");
+    const outro=document.getElementById("e_beneficioOutro");
+    /* exames antigos têm texto livre (ex.: "progressão ao regime semi-aberto") — casa com a
+       opção do menu ignorando maiúsculas, acentos, hífens e espaços; senão vai para "Outro" */
+    const norm=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[\s\-]+/g,"").toLowerCase();
+    const opc=[...sel.options].map(o=>o.value).find(v=>v && v!=="_outro" && norm(v)===norm(txt));
+    if(!txt){ sel.value=""; outro.value=""; }
+    else if(opc){ sel.value=opc; outro.value=""; }
+    else { sel.value="_outro"; outro.value=txt; }
+    this.beneficioChange();
+  },
   modalChange(){
     document.getElementById("modalNote").style.display =
       document.getElementById("e_modal").value==="video" ? "block" : "none";
@@ -2015,7 +2047,7 @@ const App = {
   novo(){
     this.editId=null;
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
-    ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_beneficio","e_dataIni","e_dataConcl",
+    ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_dataIni","e_dataConcl",
      "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
      "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_semiab","r_soc","r_psi","r_psq","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
     r_met.value=TEXTO_MODELO.met;
@@ -2024,6 +2056,7 @@ const App = {
     r_psq.value=TEXTO_MODELO.psq; r_psi.value=TEXTO_MODELO.psi; r_soc.value=TEXTO_MODELO.soc;
     document.getElementById("e_tipo").value="progressao";
     document.getElementById("e_regime").value="";
+    this.setBeneficio("");
     document.getElementById("e_faltaNaoReab").value="";
     document.getElementById("e_exameAnterior").value="nao";
     document.getElementById("q_mpQuesitos").value="nao";
@@ -2145,7 +2178,7 @@ const App = {
       regime:document.getElementById("e_regime").value,
       juizo:document.getElementById("e_juizo").value.trim(),
       penaTotal:document.getElementById("e_penaTotal").value.trim(),
-      beneficio:document.getElementById("e_beneficio").value.trim(),
+      beneficio:this.getBeneficio(),
       dataIni:document.getElementById("e_dataIni").value,
       dataConcl:document.getElementById("e_dataConcl").value,
       conds:this.lerConds(),
@@ -2193,7 +2226,7 @@ const App = {
     document.getElementById("e_regime").value=ex.regime||"";
     document.getElementById("e_juizo").value=ex.juizo||"";
     document.getElementById("e_penaTotal").value=ex.penaTotal||"";
-    document.getElementById("e_beneficio").value=ex.beneficio||"";
+    this.setBeneficio(ex.beneficio||"");
     document.getElementById("e_dataIni").value=ex.dataIni||"";
     document.getElementById("e_dataConcl").value=ex.dataConcl||"";
     document.getElementById("e_modal").value=ex.modal||"presencial"; this.modalChange();
@@ -2517,7 +2550,7 @@ const App = {
       <b>Processo de execução:</b> ${esc(e_proc.value)||"—"}${document.getElementById("e_juizo").value.trim()?(" &nbsp; <b>Juízo da execução:</b> "+esc(document.getElementById("e_juizo").value.trim())):""}<br>
       ${document.getElementById("e_sgpe").value.trim()?`<b>SGPE:</b> ${esc(document.getElementById("e_sgpe").value.trim())}<br>`:""}
       ${document.getElementById("e_penaTotal").value.trim()?`<b>Pena total:</b> ${esc(document.getElementById("e_penaTotal").value.trim())}<br>`:""}
-      ${document.getElementById("e_beneficio").value.trim()?`<b>Benefício pretendido:</b> ${esc(document.getElementById("e_beneficio").value.trim())}<br>`:""}
+      ${this.getBeneficio()?`<b>Benefício pretendido:</b> ${esc(this.getBeneficio())}<br>`:""}
       ${document.getElementById("e_dataIni").value||document.getElementById("e_dataConcl").value?`<b>Avaliação:</b> início em ${fmt(document.getElementById("e_dataIni").value)} — conclusão em ${fmt(document.getElementById("e_dataConcl").value)}<br>`:""}
       <b>Finalidade:</b> exame criminológico para ${fin}.</p>
       ${conds.length?`<p><b>Condenações (data do fato):</b><br>${conds.map(c=>`— ${esc(c.crime)||"(crime)"} ${c.artigo?("("+esc(c.artigo)+")"):""} — fato em ${fmt(c.dataFato)}`).join("<br>")}</p>`:""}
