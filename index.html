@@ -2400,16 +2400,44 @@ const App = {
     });
     return flags;
   },
-  highlight(texto){
+  /* frases dos textos-modelo (TEXTO_MODELO) que citam termos vedados só para negá-los
+     (ex.: "...não constituindo ... juízo de periculosidade ou prognóstico de reincidência.").
+     O verificador as ignora enquanto estiverem intactas; se alguém editar a frase, ela
+     volta a ser verificada normalmente. */
+  frasesPadraoIsentas(){
+    if(this._frasesIsentas) return this._frasesIsentas;
+    const frases=[];
+    Object.values(TEXTO_MODELO).forEach(txt=>{
+      txt.split(/\n|(?<=[.!?])\s+/).forEach(f=>{
+        f=f.trim();
+        if(f && VEDADOS.some(v=>new RegExp(v.re.source,"i").test(f))) frases.push(f);
+      });
+    });
+    this._frasesIsentas=frases.map(f=>new RegExp(f.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s+"),"g"));
+    return this._frasesIsentas;
+  },
+  /* troca cada frase isenta por um caractere de uso privado (U+E000…), para o scan não
+     enxergá-la; "trechos" guarda o original para devolver ao texto exibido */
+  isentarFrasesPadrao(texto){
+    const trechos=[];
+    let mascarado=texto;
+    this.frasesPadraoIsentas().forEach(re=>{
+      mascarado=mascarado.replace(re, m=>{ trechos.push(m); return String.fromCharCode(0xE000+trechos.length-1); });
+    });
+    return {mascarado, trechos};
+  },
+  highlight(texto, trechos){
     let html=texto.replace(/&/g,"&amp;").replace(/</g,"&lt;");
     VEDADOS.forEach(v=>{ html=html.replace(new RegExp(v.re.source,"gi"), s=>"<mark>"+s+"</mark>"); });
+    if(trechos) html=html.replace(/[-]/g, c=>esc(trechos[c.charCodeAt(0)-0xE000]||""));
     return html;
   },
-  resultadoHTML(flags, texto){
-    if(!flags.length) return `<div class="allclear">✓ Nenhuma expressão vedada localizada. Revisão profissional continua indispensável — o verificador não substitui a leitura crítica.</div>`;
-    return `<p style="font-weight:700; color:var(--crit); margin-bottom:10px;">${flags.length} apontamento(s) para revisão:</p>`+
+  resultadoHTML(flags, texto, trechos){
+    const notaIsentas = trechos&&trechos.length ? `<p class="note">${trechos.length} frase(s) padrão dos textos-modelo que apenas <i>negam</i> prognóstico/periculosidade não foram apontadas. Se forem editadas, voltam a ser verificadas.</p>` : "";
+    if(!flags.length) return `<div class="allclear">✓ Nenhuma expressão vedada localizada. Revisão profissional continua indispensável — o verificador não substitui a leitura crítica.</div>`+notaIsentas;
+    return `<p style="font-weight:700; color:var(--crit); margin-bottom:10px;">${flags.length} apontamento(s) para revisão:</p>`+notaIsentas+
       flags.slice(0,60).map(f=>`<div class="flag"><b>"${esc(f.termo)}"</b> — vedação ${f.ved}<span class="ctx">${esc(f.ctx)}</span></div>`).join("")+
-      `<h3 style="margin:14px 0 8px; color:var(--navy);">Texto com destaques</h3><div class="preview">${this.highlight(texto)}</div>`;
+      `<h3 style="margin:14px 0 8px; color:var(--navy);">Texto com destaques</h3><div class="preview">${this.highlight(texto, trechos)}</div>`;
   },
   verificarRelatorio(){
     /* varre todo texto que vai para o relatório: as seções suprimidas ficam de fora
@@ -2418,8 +2446,11 @@ const App = {
     const secoes=["met","direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","soc","sin","diverg","limit"]
       .filter(k=>!sup[k]).map(k=>document.getElementById("r_"+k).value);
     const t=[...secoes, ...this.lerQuesitos().map(q=>q.resposta)].filter(Boolean).join("\n\n");
-    document.getElementById("verifInline").innerHTML=this.resultadoHTML(this.scan(t), t);
-    return this.scan(t);
+    const {mascarado, trechos}=this.isentarFrasesPadrao(t);
+    const flags=this.scan(mascarado);
+    flags.forEach(f=>{ f.ctx=f.ctx.replace(/[-]/g,"[frase padrão]"); });
+    document.getElementById("verifInline").innerHTML=this.resultadoHTML(flags, mascarado, trechos);
+    return flags;
   },
 
   /* ---------- impressão / download ---------- */
