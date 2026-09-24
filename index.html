@@ -1524,8 +1524,10 @@ const App = {
     if(!perfil || perfil.perfil === "DPP"){
       this._meuCocId = null;
       this.coc = "_cepen";
-      document.getElementById("selCoc").value = "_cepen";
-      this.renderDash(); this.renderLista();
+      const selDpp=document.getElementById("selCoc");
+      selDpp.value = "_cepen";
+      selDpp.disabled = false; // pode ter ficado travado por um login anterior de SR/unidade na mesma aba
+      this.renderConfig(); this.renderDash(); this.renderLista();
       return;
     }
 
