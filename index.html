@@ -1585,7 +1585,7 @@ const App = {
   CAL_HORAS: (()=>{ const h=[]; for(let i=7;i<=19;i++) h.push(i); return h; })(),
   calEventos(){
     const geral = this.coc==="_cepen";
-    let exs = geral ? this.data.exames.slice() : this.data.exames.filter(e=>e.coc===this.coc);
+    let exs = geral ? this.data.exames.slice() : this.data.exames.filter(e=>this.cocIdDoExame(e)===this.coc);
     if(!geral && this.calFiltroUnidade) exs = exs.filter(e=>e.unid===this.calFiltroUnidade);
     const out=[];
     exs.forEach(ex=>{
@@ -1598,7 +1598,7 @@ const App = {
           out.push({
             data: et.data, hora: et.hora||"", tipo: this.CAL_TIPOS[k], tipoK: k, exId: ex.id, nome: ex.nome, mat: ex.mat||"", done: !!et.ok,
             detalhe: k==="entConv" ? [et.nome,et.vinc].filter(Boolean).join(" — ") : (et.local||""),
-            regional: geral ? ((this.data.cocs.find(c=>c.id===ex.coc)||{}).nome||"") : "",
+            regional: geral ? ((this.data.cocs.find(c=>c.id===this.cocIdDoExame(ex))||{}).nome||"") : "",
             unid: ex.unid||"",
             area
           });
@@ -1743,7 +1743,7 @@ const App = {
     if(!this.calFormAberto){ box.innerHTML=""; return; }
     const {iso,hora}=this.calFormAberto;
     const geral=this.coc==="_cepen";
-    const exs=(geral?this.data.exames.slice():this.data.exames.filter(e=>e.coc===this.coc)).filter(e=>e.status!=="concluido");
+    const exs=(geral?this.data.exames.slice():this.data.exames.filter(e=>this.cocIdDoExame(e)===this.coc)).filter(e=>e.status!=="concluido");
     if(!exs.length){
       box.innerHTML=`<div class="card" style="margin-top:14px; background:#FAFBFE;">
         <p class="note">Nenhum exame em andamento neste centro para agendar — cadastre um em <b>Novo exame</b> primeiro.</p>
@@ -1754,7 +1754,7 @@ const App = {
     box.innerHTML=`<div class="card" style="margin-top:14px; background:#FAFBFE;">
       <h3 style="font-size:14px;">Agendar entrevista — ${fmt(iso)}${hora?(" às "+hora):""}</h3>
       <div class="row c2">
-        <div><label class="f">Exame</label><select id="calfExame">${exs.map(e=>`<option value="${e.id}">${esc(e.nome)}${geral?(" — "+esc((this.data.cocs.find(c=>c.id===e.coc)||{}).nome||"")):""}</option>`).join("")}</select></div>
+        <div><label class="f">Exame</label><select id="calfExame">${exs.map(e=>`<option value="${e.id}">${esc(e.nome)}${geral?(" — "+esc((this.data.cocs.find(c=>c.id===this.cocIdDoExame(e))||{}).nome||"")):""}</option>`).join("")}</select></div>
         <div><label class="f">Tipo de entrevista</label>
           <select id="calfTipo" onchange="App.calRenderExtra()">
             <option value="ent1">1ª entrevista com o avaliado</option>
@@ -1824,7 +1824,7 @@ const App = {
     document.getElementById("prazosTitle").innerHTML = `Painel geral por regional <span class="muted" style="font-weight:normal;font-size:12.5px;">— clique numa regional para abrir o painel operacional dela</span>`;
     const totals={and:0, crit:0, warn:0, conc:0};
     const linhas=this.data.cocs.map(c=>{
-      const exs=this.data.exames.filter(e=>e.coc===c.id);
+      const exs=this.data.exames.filter(e=>this.cocIdDoExame(e)===c.id);
       const and=exs.filter(e=>e.status!=="concluido");
       const crit=and.filter(e=>this.prazoInfo(e).cls==="b-crit");
       const warn=and.filter(e=>this.prazoInfo(e).cls==="b-warn");
@@ -1904,6 +1904,14 @@ const App = {
   /* Centro de Observação responsável pela unidade (SR0X -> cocX); sem unidade
      conhecida, cai no Centro selecionado no topo. A equipe padrão fica gravada
      no documento desse Centro, em equipesUnidade[nome da unidade]. */
+  /* Centro do exame deduzido pela unidade (ou pela regional gravada no exame).
+     O campo "coc" gravado não é confiável: exame criado pelo DPP na visão geral
+     ficava com coc "_cepen" e sumia dos painéis de Centro/unidade e da lista
+     de quem entra com perfil de SR ou de unidade. */
+  cocIdDoExame(ex){
+    const sr=(UNIDADES_INFO[ex.unid]||{}).sr || ex.sr;
+    return sr ? "coc"+Number(String(sr).replace(/\D/g,"")) : ex.coc;
+  },
   cocDaUnidade(unid){
     const sr=(UNIDADES_INFO[unid]||{}).sr;
     const id=sr ? "coc"+Number(sr.slice(2)) : this.coc;
@@ -2326,7 +2334,7 @@ const App = {
     const exServidor = this.editId ? this.data.exames.find(x=>x.id===this.editId) : null;
     if(this.editId && !exServidor){ alert("Este exame não está mais disponível (pode ter sido excluído por outra pessoa)."); return; }
     if(exServidor && exServidor.status==="concluido"){ alert("Este exame está concluído. Para alterar, a SR ou o DPP precisa reabri-lo."); return; }
-    const ex = exServidor ? {...exServidor} : {id:uid(), coc:this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
+    const ex = exServidor ? {...exServidor} : {id:uid(), coc:(this.cocDaUnidade(unid)||{}).id||this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
     Object.assign(ex, this.lerFormulario());
     const msg=document.getElementById("salvoMsg");
     msg.style.color="var(--mut)"; msg.textContent="Gravando…";
@@ -2341,7 +2349,8 @@ const App = {
   },
   abrir(id){
     const ex=this.data.exames.find(x=>x.id===id); if(!ex) return;
-    if(ex.coc && ex.coc!==this.coc){ this.coc=ex.coc; document.getElementById("selCoc").value=ex.coc; }
+    const cocEx=this.cocIdDoExame(ex);
+    if(cocEx && cocEx!==this.coc && this.data.cocs.some(c=>c.id===cocEx) && (!this._meuCocId || cocEx===this._meuCocId)){ this.coc=cocEx; document.getElementById("selCoc").value=cocEx; }
     this.editId=id; this._base=this.baseDoServidor(ex); this._avisoConflito=null; this.tab("novo");
     this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(ex.status==="concluido"?" (concluído)":"");
@@ -2664,7 +2673,7 @@ const App = {
       : "";
     document.getElementById("prazosTitle").innerHTML = `Prazos críticos${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 8º da Portaria; Res. CNPCP 36/2024)</span>`;
 
-    const exsCentro=this.data.exames.filter(e=>e.coc===this.coc);
+    const exsCentro=this.data.exames.filter(e=>this.cocIdDoExame(e)===this.coc);
     const exs=this.filtrarPorUnidade(exsCentro, unidFiltro, unidadesDoCentro);
     const and=exs.filter(e=>e.status!=="concluido");
     const crit=and.filter(e=>{const p=this.prazoInfo(e); return p.cls==="b-crit";});
@@ -2750,7 +2759,7 @@ const App = {
     const geral = this.coc==="_cepen";
     const st=document.getElementById("fStatus").value;
     const q=(document.getElementById("fBusca").value||"").toLowerCase();
-    let exs = geral ? this.data.exames.slice() : this.data.exames.filter(e=>e.coc===this.coc);
+    let exs = geral ? this.data.exames.slice() : this.data.exames.filter(e=>this.cocIdDoExame(e)===this.coc);
     const unidFiltro=!geral && this.dashUnidadeFiltro||"";
     const unidLabel = unidFiltro==="_semunidade" ? "sem unidade definida" : unidFiltro;
     if(unidFiltro){
@@ -2770,7 +2779,7 @@ const App = {
       `<table><tr><th>Avaliado</th>${geral?"<th>Regional</th>":""}${showUnidCol?"<th>Unidade</th>":""}<th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th><th>Relatório</th></tr>`+
       exs.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{}); const ro=this.progressoRelOk(e.relOk);
         const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
-        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td>${geral?`<td>${esc(nomeRegional(e.coc))}</td>`:""}${showUnidCol?`<td>${esc(e.unid)||"—"}</td>`:""}<td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;}).join("")+`</table>`
+        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td>${geral?`<td>${esc(nomeRegional(this.cocIdDoExame(e)))}</td>`:""}${showUnidCol?`<td>${esc(e.unid)||"—"}</td>`:""}<td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;}).join("")+`</table>`
       : `<div class="empty">Nenhum exame cadastrado${geral?"":" neste centro"}. ${geral?"":'Use a aba <b>Novo exame</b>.'}</div>`;
   },
 
