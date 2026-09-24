@@ -2019,12 +2019,20 @@ const App = {
       }
       const cargoTxt = k==="psi" ? "psicólogo(a)" : "assistente social";
       if(!unid){ sel.innerHTML=`<option value="">Selecione a unidade prisional na aba Identificação para ver os profissionais</option>`; return; }
-      /* só os profissionais lotados na unidade do exame */
-      const daUnidade=this.quadro.filter(p=>p.cargo===this.CARGO_QUADRO[k] && !p.sede && p.unidade===unid);
-      if(!daUnidade.length){ sel.innerHTML=`<option value="">Nenhum(a) ${cargoTxt} desta unidade no quadro — digite nome e matrícula abaixo</option>`; return; }
+      /* profissionais lotados na unidade do exame + os da sede da Superintendência
+         a que a unidade pertence (cobertura regional) */
+      const coc=this.cocDaUnidade(unid);
+      const sr=(UNIDADES_INFO[unid]||{}).sr || (coc ? "SR0"+coc.id.replace(/\D/g,"") : "");
+      const daCargo=this.quadro.filter(p=>p.cargo===this.CARGO_QUADRO[k]);
+      const daUnidade=daCargo.filter(p=>!p.sede && p.unidade===unid);
+      const daSede=daCargo.filter(p=>p.sede && p.sr===sr);
+      if(!daUnidade.length && !daSede.length){ sel.innerHTML=`<option value="">Nenhum(a) ${cargoTxt} desta unidade nem da sede da Superintendência no quadro — digite nome e matrícula abaixo</option>`; return; }
       const rotulo=p=>p.nome+" · "+(p.matricula||"sem matrícula");
-      sel.innerHTML=`<option value="">Selecionar ${cargoTxt} de ${esc(unid)} (${daUnidade.length})…</option>`
-        + daUnidade.map(p=>`<option value="${this.quadro.indexOf(p)}">${esc(rotulo(p))}</option>`).join("");
+      const opcoes=ps=>ps.map(p=>`<option value="${this.quadro.indexOf(p)}">${esc(rotulo(p))}</option>`).join("");
+      const nomeSede="Sede da "+((window.SR_INFO||{})[sr]?.nome || "Superintendência Regional");
+      sel.innerHTML=`<option value="">Selecionar ${cargoTxt} (${daUnidade.length+daSede.length})…</option>`
+        + `<optgroup label="${esc(unid)}">${daUnidade.length ? opcoes(daUnidade) : `<option value="" disabled>nenhum(a) ${cargoTxt} lotado(a) nesta unidade</option>`}</optgroup>`
+        + (daSede.length ? `<optgroup label="${esc(nomeSede)}">${opcoes(daSede)}</optgroup>` : "");
     });
   },
   escolherDoQuadro(k, sel){
