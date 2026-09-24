@@ -899,6 +899,10 @@
             <label class="f">Unidade prisional de custódia</label>
             <select id="editUsuarioUnid"></select>
           </div>
+          <div id="editUsuarioSRWrap" style="margin-top:10px; display:none;">
+            <label class="f">Superintendência Regional (define o Centro de Observação em que a conta entra)</label>
+            <select id="editUsuarioSR"></select>
+          </div>
           <p class="note" id="editUsuarioPerfilInfo" style="margin-top:10px;"></p>
           <div class="btnrow" style="margin-top:14px;">
             <button class="btn" onclick="UsuariosUI.salvarEdicao()">Salvar alterações</button>
@@ -3196,6 +3200,10 @@ const PERFIS_NIVEL_USUARIO = ["USUARIO","PSICOLOGIA","SOCIAL"];
 const PERFIS_SR_COBERTURA = ["SR_PSICOLOGIA","SR_SOCIAL"];
 window.PERFIS_SR_COBERTURA = PERFIS_SR_COBERTURA;
 window.PERFIS_NIVEL_USUARIO = PERFIS_NIVEL_USUARIO;
+/* o que define o Centro de Observação da conta: a regional (sr) para perfis de
+   Superintendência; a unidade (e dela a regional) para perfis de unidade */
+const PERFIS_REGIONAIS = ["SR", ...PERFIS_SR_COBERTURA];
+const PERFIS_DE_UNIDADE = [...PERFIS_NIVEL_USUARIO, "CPEN", "DIR"];
 
 let meuPerfilDoc = null;
 let meuUid = null;
@@ -3426,7 +3434,11 @@ const UsuariosUI = {
 
     box.innerHTML = `<table><tr><th>Nome completo</th><th>CPF</th><th>E-mail</th><th>Unidade / Regional</th><th>Nível de acesso</th>${editavel?"<th>Ações</th>":""}</tr>` +
       visiveis.map(u=>{
-        const unidadeCell = esc(u.unidade || nomeSR(u.sr)) || "—";
+        const regional = PERFIS_REGIONAIS.includes(u.perfil), deUnidade = PERFIS_DE_UNIDADE.includes(u.perfil);
+        const unidadeCell = regional
+          ? (u.sr && window.SR_INFO[u.sr] ? esc(nomeSR(u.sr)) : `<span style="color:#B4232B; font-weight:700;">⚠ sem regional — clique em Editar</span>`)
+          : deUnidade && !u.unidade ? `<span style="color:#B4232B; font-weight:700;">⚠ sem unidade — clique em Editar</span>`
+          : (esc(u.unidade || nomeSR(u.sr)) || "—");
         const perfilCell = editavel
           ? `<select onchange="UsuariosUI.alterarPerfil('${u.id}', this)">${Object.entries(PERFIL_LABEL).map(([k,l])=>`<option value="${k}" ${k===u.perfil?"selected":""}>${l}</option>`).join("")}</select>`
           : `<span class="badge b-navy">${esc(PERFIL_LABEL[u.perfil]||(u.status==="PENDENTE"?"pendente":"—"))}</span>`;
@@ -3458,21 +3470,37 @@ const UsuariosUI = {
     try{ await deleteDoc(doc(db,"usuarios",id)); this._cache=[]; await this.render(); }
     catch(e){ alert("Não foi possível excluir: " + (e?.message||e)); }
   },
-  abrirEdicao(id){
+  /* novoPerfil: quando a edição vem da troca de nível de acesso na tabela — aí a
+     tela exige a regional (perfis de Superintendência) ou a unidade (perfis de
+     unidade) antes de gravar, pra conta não ficar sem Centro de Observação */
+  abrirEdicao(id, novoPerfil){
     const u = this._cache.find(x=>x.id===id); if(!u) return;
     this._editandoId = id;
+    this._novoPerfil = novoPerfil || null;
+    const perfilAlvo = novoPerfil || u.perfil;
     document.getElementById("editUsuarioEmail").textContent = u.email;
     document.getElementById("editUsuarioNome").value = u.nome||"";
     document.getElementById("editUsuarioCpf").value = u.cpf||"";
-    const temUnidade = [...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(u.perfil);
+    const temUnidade = PERFIS_DE_UNIDADE.includes(perfilAlvo);
+    const temSR = PERFIS_REGIONAIS.includes(perfilAlvo);
     document.getElementById("editUsuarioUnidWrap").style.display = temUnidade ? "block" : "none";
     if(temUnidade) document.getElementById("editUsuarioUnid").innerHTML = optsUnidadesAgrupadas(u.unidade);
-    document.getElementById("editUsuarioPerfilInfo").textContent = "Nível de acesso: " + (PERFIL_LABEL[u.perfil]||u.perfil) + " (altere na coluna da tabela)";
+    document.getElementById("editUsuarioSRWrap").style.display = temSR ? "block" : "none";
+    if(temSR){
+      const srAtual = u.sr || srDaUnidade(u.unidade) || "";
+      document.getElementById("editUsuarioSR").innerHTML = `<option value="">Selecione a Superintendência…</option>`
+        + Object.entries(window.SR_INFO).map(([k,i])=>`<option value="${k}" ${k===srAtual?"selected":""}>${esc(i.nome)}</option>`).join("");
+    }
+    document.getElementById("editUsuarioPerfilInfo").innerHTML = novoPerfil
+      ? `<b>Mudando o nível de acesso</b> de "${esc(PERFIL_LABEL[u.perfil]||u.perfil||"—")}" para "<b>${esc(PERFIL_LABEL[novoPerfil]||novoPerfil)}</b>". Confira ${temSR?"a Superintendência":temUnidade?"a unidade":"os dados"} acima e clique em Salvar — a mudança vale imediatamente.`
+      : "Nível de acesso: " + esc(PERFIL_LABEL[u.perfil]||u.perfil) + " (altere na coluna da tabela)";
     document.getElementById("editUsuarioModal").style.display = "flex";
   },
   fecharEdicao(){
     document.getElementById("editUsuarioModal").style.display = "none";
-    this._editandoId = null;
+    const cancelouTroca = !!this._novoPerfil;
+    this._editandoId = null; this._novoPerfil = null;
+    if(cancelouTroca) this.render(); // devolve o seletor da tabela ao nível anterior
   },
   async salvarEdicao(){
     const id = this._editandoId; if(!id) return;
@@ -3480,15 +3508,27 @@ const UsuariosUI = {
     const nome = document.getElementById("editUsuarioNome").value.trim();
     const cpf = document.getElementById("editUsuarioCpf").value.replace(/\D/g,"");
     const temUnidade = document.getElementById("editUsuarioUnidWrap").style.display !== "none";
+    const temSR = document.getElementById("editUsuarioSRWrap").style.display !== "none";
     const dados = { nome, cpf };
     if(temUnidade){
       const unidade = document.getElementById("editUsuarioUnid").value;
+      if(!unidade){ alert("Selecione a unidade prisional."); return; }
       if(unidade !== (u?.unidade||"")){
-        if(!confirm(`Mudar a unidade de ${u?.nome||"esta conta"} de "${u?.unidade||"—"}" para "${unidade}"?\n\nIsso também muda a regional (SR) vinculada a essa conta.`)) return;
-        dados.unidade = unidade; dados.sr = srDaUnidade(unidade);
+        if(!this._novoPerfil && !confirm(`Mudar a unidade de ${u?.nome||"esta conta"} de "${u?.unidade||"—"}" para "${unidade}"?\n\nIsso também muda a regional (SR) vinculada a essa conta.`)) return;
       }
+      dados.unidade = unidade; dados.sr = srDaUnidade(unidade);
     }
-    try{ await updateDoc(doc(db,"usuarios",id), dados); this._cache=[]; this.fecharEdicao(); await this.render(); }
+    if(temSR){
+      const sr = document.getElementById("editUsuarioSR").value;
+      if(!sr){ alert("Selecione a Superintendência Regional — sem ela a conta não entra em nenhum Centro de Observação."); return; }
+      /* perfil regional não fica preso a uma unidade: circula pela regional inteira */
+      dados.sr = sr; dados.unidade = null;
+    }
+    if(this._novoPerfil){
+      if(!confirm(`Confirmar: ${u?.nome||"esta conta"} passa a ser "${PERFIL_LABEL[this._novoPerfil]||this._novoPerfil}"${temSR?" da "+nomeSR(dados.sr):temUnidade?" em "+dados.unidade:""}?\n\nIsso muda imediatamente o que essa pessoa pode ver e fazer no sistema.`)) return;
+      dados.perfil = this._novoPerfil;
+    }
+    try{ await updateDoc(doc(db,"usuarios",id), dados); this._cache=[]; this._novoPerfil=null; this.fecharEdicao(); await this.render(); }
     catch(e){ alert("Não foi possível salvar: " + (e?.message||e)); }
   },
   async alterarPerfil(id, selectEl){
@@ -3496,6 +3536,10 @@ const UsuariosUI = {
     const perfil = selectEl.value;
     const anterior = u?.perfil || "—";
     if(perfil===anterior) return;
+    if(PERFIS_REGIONAIS.includes(perfil) || PERFIS_DE_UNIDADE.includes(perfil)){
+      this.abrirEdicao(id, perfil);
+      return;
+    }
     if(!confirm(`Mudar o nível de acesso de ${u?.nome||"esta conta"} de "${PERFIL_LABEL[anterior]||anterior}" para "${PERFIL_LABEL[perfil]||perfil}"?\n\nIsso muda imediatamente o que essa pessoa pode ver e fazer no sistema.`)){
       selectEl.value = anterior; return;
     }
