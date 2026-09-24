@@ -442,6 +442,7 @@
     <nav class="subtabs" id="novoTabs">
       <button class="on" data-n="ident" onclick="App.novoTab('ident')">Identificação e condenações</button>
       <button data-n="equipe" onclick="App.novoTab('equipe')">Equipe examinadora</button>
+      <button data-n="comunicacao" onclick="App.novoTab('comunicacao')">Comunicação ao Juízo</button>
       <button data-n="quesitos" onclick="App.novoTab('quesitos')">Quesitos e Relatório</button>
     </nav>
 
@@ -594,6 +595,28 @@
       </label>
       <div class="eq-linha" style="margin-top:10px;"><label class="f">Responsável/coordenação do centro</label>
         <div class="eq-campos"><input type="text" id="q_coord" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_coord_mat" placeholder="Matrícula"></div></div>
+    </div>
+
+    <div class="novopanel" id="np-comunicacao">
+      <h3>Comunicação de agendamento ao Juízo</h3>
+      <div class="lawbox">Ofício ao Juízo da Execução comunicando as datas das entrevistas, para ciência do Ministério Público e da defesa técnica e eventual apresentação de quesitos (Res. CNPCP nº 36/2024). Nome, IPEN, processo, unidade e datas vêm do próprio exame — para mudá-los, ajuste nas outras abas. É um documento <b>separado</b>: não entra no relatório.</div>
+      <div class="row c3">
+        <div><label class="f">Ofício nº</label><input type="text" id="c_oficio" placeholder="ex.: 123/2026" oninput="App.renderComunicacao()"></div>
+        <div><label class="f">Cidade</label><input type="text" id="c_cidade" oninput="App.renderComunicacao()"></div>
+        <div><label class="f">Local das entrevistas</label><input type="text" id="c_local" oninput="App.renderComunicacao()"></div>
+      </div>
+      <div class="row c2">
+        <div><label class="f">Responsável que assina</label><input type="text" id="c_respNome" oninput="App.renderComunicacao()"></div>
+        <div><label class="f">Cargo / função</label><input type="text" id="c_respCargo" oninput="App.renderComunicacao()"></div>
+      </div>
+      <p class="note">Campos em branco usam o valor sugerido em cinza (cidade da unidade, local da 1ª entrevista ou a própria unidade, responsável da aba Equipe).</p>
+      <div id="comAvisos"></div>
+      <div class="btnrow">
+        <button class="btn" type="button" onclick="App.imprimirComunicacao()">Gerar ofício / imprimir</button>
+        <button class="btn ghost" type="button" onclick="App.irParaEtapas()">Editar datas das entrevistas</button>
+      </div>
+      <label class="f" style="margin-top:12px;">Prévia do ofício</label>
+      <div id="comPreview" class="reportPreview" style="border:1px solid var(--line); border-radius:6px; padding:18px; background:#fff; color:#000; font-family:Arial,Helvetica,sans-serif; font-size:13px;"></div>
     </div>
 
     <div class="novopanel" id="np-quesitos">
@@ -1601,6 +1624,7 @@ const App = {
     /* só os painéis do exame (np-*): os de Configurações usam a mesma classe e
        ficavam escondidos, deixando Configurações → Centros em branco */
     document.querySelectorAll('.novopanel[id^="np-"]').forEach(p=>p.classList.toggle("on", p.id==="np-"+n));
+    if(n==="comunicacao") this.renderComunicacao();
     if(n==="equipe"){
       this.renderEqBanner();
       /* aba aberta antes da importação do quadro: tenta carregar de novo */
@@ -2307,6 +2331,7 @@ const App = {
     document.getElementById("e_modal").value="presencial"; this.modalChange();
     this.renderUnidadeSel("");
     this.renderSelectsQuadro();
+    this.setComunicacao({});
     document.getElementById("condBox").innerHTML="";
     this.addCond();
     document.getElementById("quesitosBox").innerHTML="";
@@ -2426,6 +2451,7 @@ const App = {
       dataConcl:document.getElementById("e_dataConcl").value,
       conds:this.lerConds(),
       equipe:{...this.lerEquipeCampos(), chefesExtra:this.lerChefesExtra(), semPsq:document.getElementById("q_semPsq").checked},
+      comunicacao:this.lerComunicacao(),
       quesitos:{
         detOrigem:document.getElementById("q_detOrigem").value.trim(),
         impedimento:document.getElementById("q_impedimento").value.trim(),
@@ -2486,6 +2512,7 @@ const App = {
     document.getElementById("e_dataConcl").value=ex.dataConcl||"";
     document.getElementById("e_modal").value=ex.modal||"presencial"; this.modalChange();
     this.EQ_KEYS.forEach(k=>this.setEquipeCampo(k, ex.equipe?.[k], ex.equipe?.[k+"Mat"]));
+    this.setComunicacao(ex.comunicacao);
     this.renderSelectsQuadro();
     document.getElementById("chefesExtraBox").innerHTML="";
     (ex.equipe?.chefesExtra||[]).forEach(c=>this.addChefeExtra(c));
@@ -2541,9 +2568,10 @@ const App = {
     soc:"Serviço Social", as:"Assistente social", sin:"Parecer", diverg:"Divergências técnicas", limit:"Limitações",
     chefesExtra:"Outros chefes de serviço", semPsq:"Sem psiquiatra", detOrigem:"Determinação de origem", impedimento:"Impedimento/suspeição",
     defesaNome:"Defesa — nome", defesaOAB:"Defesa — OAB", mpQuesitos:"Quesitos do MP", defQuesitos:"Quesitos da defesa", lista:"Quesitos",
-    ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista com convivente"
+    ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista com convivente",
+    oficio:"Ofício nº", cidade:"Cidade", local:"Local das entrevistas", respNome:"Responsável que assina", respCargo:"Cargo/função de quem assina"
   },
-  GRUPO_SUB: { equipe:"Equipe examinadora", quesitos:"Quesitos", rel:"Relatório", relOk:"Seção concluída", sup:"Seção suprimida", etapas:"Etapas" },
+  GRUPO_SUB: { comunicacao:"Comunicação ao Juízo", equipe:"Equipe examinadora", quesitos:"Quesitos", rel:"Relatório", relOk:"Seção concluída", sup:"Seção suprimida", etapas:"Etapas" },
   rotuloCampo(campo){
     const [g,sub]=campo.split(".");
     if(!sub) return this.ROTULO_CAMPO[g]||g;
@@ -2968,6 +2996,112 @@ const App = {
     return flags;
   },
 
+  /* ---------- comunicação de agendamento ao Juízo (ofício) ----------
+     documento próprio, separado do relatório: puxa os dados já cadastrados no
+     exame (avaliado, IPEN, processo, unidade, datas das entrevistas) e só pede
+     o que não existe no exame (nº do ofício, cidade, local, quem assina) */
+  COM_CAMPOS: ["oficio","cidade","local","respNome","respCargo"],
+  lerComunicacao(){
+    const out={}; this.COM_CAMPOS.forEach(k=>{ out[k]=document.getElementById("c_"+k).value.trim(); }); return out;
+  },
+  setComunicacao(c){
+    c=c||{}; this.COM_CAMPOS.forEach(k=>{ document.getElementById("c_"+k).value=c[k]||""; });
+  },
+  /* valores efetivos: o que foi digitado ou, em branco, a sugestão tirada do exame */
+  dadosComunicacao(){
+    const c=this.lerComunicacao();
+    const unid=this.getUnidadeValor();
+    const et=this.lerEtapas();
+    const coord=document.getElementById("q_coord").value.trim();
+    const sug={
+      cidade:(UNIDADES_INFO[unid]||{}).cidade || "Florianópolis",
+      local:(et.ent1&&et.ent1.local) || unid || "",
+      respNome:coord,
+      respCargo:"Responsável pela Coordenação do Centro de Observação",
+    };
+    ["cidade","local","respNome","respCargo"].forEach(k=>{ const el=document.getElementById("c_"+k); if(el) el.placeholder=sug[k]||""; });
+    const coc=this.cocDaUnidade(unid);
+    const num=coc ? coc.id.replace(/\D/g,"").padStart(2,"0") : "00";
+    const quando=v=>v&&v.data ? fmt(v.data)+(v.hora?" às "+v.hora:"") : "";
+    return {
+      oficio:c.oficio, cidade:c.cidade||sug.cidade, local:c.local||sug.local,
+      respNome:c.respNome||sug.respNome, respCargo:c.respCargo||sug.respCargo,
+      nome:e_nome.value.trim(), ipen:e_mat.value.trim(), proc:e_proc.value.trim(), unid,
+      juizo:document.getElementById("e_juizo").value.trim(),
+      beneficio:this.getBeneficio(),
+      ent1:quando(et.ent1), ent2:quando(et.ent2), entConv:quando(et.entConv),
+      coNum:num,
+    };
+  },
+  montarComunicacaoHTML(){
+    const d=this.dadosComunicacao();
+    const logoSrc=document.querySelector(".dpp-logo").src;
+    const falta=t=>`<span style="background:#FFF4CC;">[${t}]</span>`;
+    const v=(x,t)=>x?esc(x):falta(t);
+    const hoje=new Date().toLocaleDateString("pt-BR",{day:"numeric",month:"long",year:"numeric"});
+    const pedido=d.beneficio ? "do pedido de "+esc(d.beneficio.toLowerCase()) : "do pedido de progressão de regime";
+    const linha=(r,val)=>`<tr><td style="border:1px solid #000; padding:4px 8px; width:38%; font-weight:bold;">${r}</td><td style="border:1px solid #000; padding:4px 8px;">${val}</td></tr>`;
+    const cab=`
+      <table style="width:100%; border-collapse:collapse; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid #999;" cellpadding="0" cellspacing="0"><tr>
+        <td style="width:88px; vertical-align:middle; padding-right:16px;"><img src="${logoSrc}" alt="Brasão da Polícia Penal de Santa Catarina" style="height:72px; width:auto;"></td>
+        <td style="vertical-align:middle; text-align:left; line-height:1.35; font-weight:bold; font-size:12pt;">
+          <div>ESTADO DE SANTA CATARINA</div><div>SECRETARIA DE ESTADO DE JUSTIÇA E REINTEGRAÇÃO SOCIAL</div>
+          <div>DEPARTAMENTO DE POLÍCIA PENAL</div><div>CENTRO DE OBSERVAÇÃO ${d.coNum}</div>
+        </td></tr></table>`;
+    const rod=`<div style="margin-top:26px; padding-top:8px; border-top:1px solid #999; text-align:center; font-size:9pt; color:#444; line-height:1.4;">
+        POLÍCIA PENAL DE SANTA CATARINA<br>Departamento de Polícia Penal - DPP<br>Rua Fúlvio Aducci, n.º 1214 - Bairro Estreito - CEP 88075-000 - Florianópolis/SC.</div>`;
+    const corpo=`
+      <p style="text-align:left;">Ofício nº ${v(d.oficio,"número")}<br>${esc(d.cidade)}, ${hoje}.</p>
+      <h2 style="text-align:center; font-size:13pt; margin:18px 0;">COMUNICAÇÃO DE AGENDAMENTO DE EXAME CRIMINOLÓGICO</h2>
+      <p style="text-align:left;">Ao Juízo da Execução Penal${d.juizo?"<br>"+esc(d.juizo):""}</p>
+      <p style="text-indent:1.5cm;">Comunica-se o agendamento das entrevistas destinadas à realização do exame criminológico, em cumprimento à determinação judicial, para subsidiar a apreciação ${pedido} da pessoa privada de liberdade abaixo identificada, em observância à Lei nº 7.210/1984 - Lei de Execução Penal e à Resolução CNPCP nº 36/2024.</p>
+      <table style="width:100%; border-collapse:collapse; margin:10px 0 16px; font-size:11pt;">
+        ${linha("Nome",v(d.nome,"nome completo"))}
+        ${linha("IPEN",v(d.ipen,"número"))}
+        ${linha("Processo de Execução Penal",v(d.proc,"número"))}
+        ${linha("Unidade prisional",v(d.unid,"unidade"))}
+        ${linha("Data da entrevista 1",v(d.ent1,"data e horário"))}
+        ${linha("Data da entrevista 2",v(d.ent2,"data e horário"))}
+        ${linha("Entrevista com pessoa do convívio",d.entConv?esc(d.entConv):"a definir")}
+        ${linha("Local",v(d.local,"unidade/local"))}
+      </table>
+      <p style="text-indent:1.5cm;">Solicita-se a ciência do Ministério Público e da defesa técnica acerca das datas agendadas, facultando-se a apresentação de quesitos e demais manifestações cabíveis, nos termos da Resolução CNPCP nº 36/2024.</p>
+      <p style="text-indent:1.5cm;">A defesa técnica poderá acompanhar a realização do exame, observados, nos atos técnico-profissionais, o sigilo, a autonomia técnica e as normas ético-profissionais próprias de cada área.</p>
+      <p style="text-indent:1.5cm;">Eventuais quesitos ou manifestações poderão ser apresentados nos próprios autos, preferencialmente antes do início das entrevistas, de modo a possibilitar sua prévia disponibilização à equipe multiprofissional responsável pelo exame.</p>
+      <p style="text-indent:1.5cm;">Após a conclusão dos trabalhos, o exame criminológico será encaminhado a esse Juízo para juntada aos autos e apreciação no âmbito da execução penal.</p>
+      <p style="text-align:left; margin-top:22px;">${esc(d.cidade)}, data da assinatura digital.</p>
+      <div style="text-align:center; margin-top:40px;">${v(d.respNome,"NOME DO RESPONSÁVEL")}<br>${v(d.respCargo,"cargo/função")}<br>Centro de Observação ${d.coNum} / Departamento de Polícia Penal - DPP</div>`;
+    return `<div class="pageBox"><div class="pgHead">${cab}</div><div class="pgBody">${corpo}</div><div class="pgFoot">${rod}</div></div>`;
+  },
+  avisosComunicacao(){
+    const d=this.dadosComunicacao(), f=[];
+    if(!d.oficio) f.push("número do ofício");
+    if(!d.nome) f.push("nome do avaliado (aba Identificação)");
+    if(!d.ipen) f.push("IPEN (aba Identificação)");
+    if(!d.proc) f.push("processo de execução (aba Identificação)");
+    if(!d.unid) f.push("unidade prisional (aba Identificação)");
+    if(!d.ent1) f.push("data da 1ª entrevista");
+    if(!d.ent2) f.push("data da 2ª entrevista");
+    if(!d.respNome) f.push("responsável que assina");
+    return f;
+  },
+  renderComunicacao(){
+    const box=document.getElementById("comPreview"); if(!box) return;
+    box.innerHTML=this.montarComunicacaoHTML();
+    const f=this.avisosComunicacao();
+    document.getElementById("comAvisos").innerHTML = f.length
+      ? `<div class="orient warn"><b>Falta preencher:</b> ${f.map(esc).join("; ")}. Os campos faltantes aparecem destacados no ofício.</div>` : "";
+  },
+  imprimirComunicacao(){
+    const f=this.avisosComunicacao();
+    if(f.length && !confirm("Ainda falta: "+f.join("; ")+".\n\nGerar o ofício mesmo assim? Os campos faltantes saem entre colchetes.")) return;
+    document.getElementById("printArea").innerHTML=this.montarComunicacaoHTML().replace(/background:#FFF4CC;/g,"");
+    window.print();
+  },
+  irParaEtapas(){
+    this.novoTab("quesitos");
+    const box=document.getElementById("etapasBox"); if(box) box.scrollIntoView({behavior:"smooth", block:"start"});
+  },
   /* ---------- impressão / download ---------- */
   montarRelatorioHTML(){
     const escNl = t => esc(t).replace(/\n/g,"<br>");
