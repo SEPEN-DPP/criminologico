@@ -593,24 +593,18 @@
         <input type="checkbox" id="q_semPsq" style="width:18px; height:18px; margin-top:2px; flex-shrink:0;" onchange="App.syncRespNomes()">
         <span>Sem psiquiatra disponível na equipe (art. 5º, §5º, da Portaria) — o exame é realizado por psicólogo(a) e assistente social, sem prejuízo da validade (STJ, HC 690.941 e AgRg no HC 451.804), devendo a ausência ser registrada expressamente no laudo.</span>
       </label>
-      <div class="eq-linha" style="margin-top:10px;"><label class="f">Responsável/coordenação do centro</label>
+      <div class="eq-linha" style="margin-top:10px;"><label class="f">Técnico(a) responsável do Centro de Observação</label>
         <div class="eq-campos"><input type="text" id="q_coord" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_coord_mat" placeholder="Matrícula"></div></div>
     </div>
 
     <div class="novopanel" id="np-comunicacao">
       <h3>Comunicação de agendamento ao Juízo</h3>
-      <div class="lawbox">Ofício ao Juízo da Execução comunicando as datas das entrevistas, para ciência do Ministério Público e da defesa técnica e eventual apresentação de quesitos (Res. CNPCP nº 36/2024). Nome, IPEN, processo, unidade e datas vêm do próprio exame — para mudá-los, ajuste nas outras abas. É um documento <b>separado</b>: não entra no relatório.</div>
       <div class="row c3">
         <div><label class="f">Ofício nº</label><input type="text" id="c_oficio" placeholder="ex.: 123/2026" oninput="App.renderComunicacao()"></div>
         <div><label class="f">Cidade</label><input type="text" id="c_cidade" oninput="App.renderComunicacao()"></div>
         <div><label class="f">Local das entrevistas</label><input type="text" id="c_local" oninput="App.renderComunicacao()"></div>
       </div>
-      <div class="row c2">
-        <div><label class="f">Responsável que assina</label><input type="text" id="c_respNome" oninput="App.renderComunicacao()"></div>
-        <div><label class="f">Cargo / função</label><input type="text" id="c_respCargo" oninput="App.renderComunicacao()"></div>
-      </div>
-      <p class="note">Campos em branco usam o valor sugerido em cinza (cidade da unidade, local da 1ª entrevista ou a própria unidade, responsável da aba Equipe).</p>
-      <div id="comAvisos"></div>
+      <p class="note">Assina o ofício o(a) técnico(a) responsável do Centro cadastrado(a) na aba Equipe examinadora.</p>
       <div class="btnrow">
         <button class="btn" type="button" onclick="App.imprimirComunicacao()">Gerar ofício / imprimir</button>
         <button class="btn ghost" type="button" onclick="App.irParaEtapas()">Editar datas das entrevistas</button>
@@ -3000,7 +2994,7 @@ const App = {
      documento próprio, separado do relatório: puxa os dados já cadastrados no
      exame (avaliado, IPEN, processo, unidade, datas das entrevistas) e só pede
      o que não existe no exame (nº do ofício, cidade, local, quem assina) */
-  COM_CAMPOS: ["oficio","cidade","local","respNome","respCargo"],
+  COM_CAMPOS: ["oficio","cidade","local"],
   lerComunicacao(){
     const out={}; this.COM_CAMPOS.forEach(k=>{ out[k]=document.getElementById("c_"+k).value.trim(); }); return out;
   },
@@ -3016,16 +3010,14 @@ const App = {
     const sug={
       cidade:(UNIDADES_INFO[unid]||{}).cidade || "Florianópolis",
       local:(et.ent1&&et.ent1.local) || unid || "",
-      respNome:coord,
-      respCargo:"Responsável pela Coordenação do Centro de Observação",
     };
-    ["cidade","local","respNome","respCargo"].forEach(k=>{ const el=document.getElementById("c_"+k); if(el) el.placeholder=sug[k]||""; });
+    ["cidade","local"].forEach(k=>{ const el=document.getElementById("c_"+k); if(el) el.placeholder=sug[k]||""; });
     const coc=this.cocDaUnidade(unid);
     const num=coc ? coc.id.replace(/\D/g,"").padStart(2,"0") : "00";
     const quando=v=>v&&v.data ? fmt(v.data)+(v.hora?" às "+v.hora:"") : "";
     return {
       oficio:c.oficio, cidade:c.cidade||sug.cidade, local:c.local||sug.local,
-      respNome:c.respNome||sug.respNome, respCargo:c.respCargo||sug.respCargo,
+      respNome:coord, respMat:(document.getElementById("q_coord_mat")||{value:""}).value.trim(),
       nome:e_nome.value.trim(), ipen:e_mat.value.trim(), proc:e_proc.value.trim(), unid,
       juizo:document.getElementById("e_juizo").value.trim(),
       beneficio:this.getBeneficio(),
@@ -3070,7 +3062,7 @@ const App = {
       <p style="text-indent:1.5cm;">Eventuais quesitos ou manifestações poderão ser apresentados nos próprios autos, preferencialmente antes do início das entrevistas, de modo a possibilitar sua prévia disponibilização à equipe multiprofissional responsável pelo exame.</p>
       <p style="text-indent:1.5cm;">Após a conclusão dos trabalhos, o exame criminológico será encaminhado a esse Juízo para juntada aos autos e apreciação no âmbito da execução penal.</p>
       <p style="text-align:left; margin-top:22px;">${esc(d.cidade)}, data da assinatura digital.</p>
-      <div style="text-align:center; margin-top:40px;">${v(d.respNome,"NOME DO RESPONSÁVEL")}<br>${v(d.respCargo,"cargo/função")}<br>Centro de Observação ${d.coNum} / Departamento de Polícia Penal - DPP</div>`;
+      <div style="text-align:center; margin-top:40px;">${v(d.respNome,"técnico(a) responsável do Centro — aba Equipe")}${d.respMat?"<br>Matrícula "+esc(d.respMat):""}<br>Técnico(a) responsável do Centro de Observação ${d.coNum}<br>Departamento de Polícia Penal - DPP</div>`;
     return `<div class="pageBox"><div class="pgHead">${cab}</div><div class="pgBody">${corpo}</div><div class="pgFoot">${rod}</div></div>`;
   },
   avisosComunicacao(){
@@ -3082,15 +3074,12 @@ const App = {
     if(!d.unid) f.push("unidade prisional (aba Identificação)");
     if(!d.ent1) f.push("data da 1ª entrevista");
     if(!d.ent2) f.push("data da 2ª entrevista");
-    if(!d.respNome) f.push("responsável que assina");
+    if(!d.respNome) f.push("técnico(a) responsável do Centro (aba Equipe)");
     return f;
   },
   renderComunicacao(){
     const box=document.getElementById("comPreview"); if(!box) return;
     box.innerHTML=this.montarComunicacaoHTML();
-    const f=this.avisosComunicacao();
-    document.getElementById("comAvisos").innerHTML = f.length
-      ? `<div class="orient warn"><b>Falta preencher:</b> ${f.map(esc).join("; ")}. Os campos faltantes aparecem destacados no ofício.</div>` : "";
   },
   imprimirComunicacao(){
     const f=this.avisosComunicacao();
@@ -3123,7 +3112,7 @@ const App = {
     const funcaoRotulo=(base,funcao)=> funcao?(base+" — "+esc(funcao)):base;
     const eqv=k=>[document.getElementById("q_"+k).value.trim(), (document.getElementById("q_"+k+"_mat")||{value:""}).value.trim()];
     const eq=[["Diretor(a) da Unidade",...eqv("direcao")],["Chefe de Segurança",...eqv("chefiaSeg")],["Coordenador(a) de Execução Penal",...eqv("execPenal")],["Coordenador(a) de Atividades Laborais",...eqv("ativLab")],["Coordenador(a) de Ensino e Promoção Social",...eqv("ensino")],["Coordenador(a) da Ala de Semiaberto",...eqv("semiab")],...this.lerChefesExtra().map(c=>[funcaoRotulo("Chefe de serviço",c.funcao),c.nome,c.mat]),["Psiquiatra",...eqv("psq")],["Psicólogo(a)",...eqv("psi")],["Assistente social",...eqv("as")]].filter(x=>x[1]);
-    if(coordNome) eq.push(["Responsável/Coordenação do Centro", coordNome, (document.getElementById("q_coord_mat")||{value:""}).value.trim()]);
+    if(coordNome) eq.push(["Técnico(a) responsável do Centro de Observação", coordNome, (document.getElementById("q_coord_mat")||{value:""}).value.trim()]);
     const assinExtra=[];
     if(defesaNome) assinExtra.push(["Defesa técnica — ciência", defesaNome+(defesaOAB?" ("+defesaOAB+")":"")]);
     /* a pessoa examinada não assina o relatório em si (não está presente no momento da emissão) —
