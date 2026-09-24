@@ -1980,20 +1980,29 @@ const App = {
   },
   equipeDaUnidade(unid){
     if(!unid) return {};
-    return ((this.cocDaUnidade(unid)||{}).equipesUnidade||{})[unid] || {};
+    const c=this.cocDaUnidade(unid)||{};
+    const daUnidade=(c.equipesUnidade||{})[unid];
+    if(daUnidade) return daUnidade;
+    /* equipe gravada no formato antigo (uma só por Centro, em equipePadrao):
+       vale para a unidade cujo diretor cadastrado é o diretor gravado nela */
+    const antiga=c.equipePadrao||{};
+    const norm=t=>String(t||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/\s+/g," ").trim();
+    const diretorUnid=norm((UNIDADES_INFO[unid]||{}).diretor);
+    if(diretorUnid && antiga.direcao && norm(this.separarMatricula(antiga.direcao, antiga.direcaoMat).nome)===diretorUnid) return antiga;
+    return {};
   },
-  /* puxa a equipe padrão da unidade para os campos da equipe que
-     estão vazios. Em exame já salvo só puxa se a equipe inteira estiver vazia,
-     pra não repor um nome que a pessoa apagou de propósito. */
+  /* puxa a equipe padrão da unidade para cada campo da equipe que estiver vazio
+     (nome e matrícula), inclusive em exame já salvo */
   preencherEquipePadrao(){
     const els=this.EQ_KEYS.map(k=>document.getElementById("q_"+k));
-    if(this.editId && els.some(el=>el && el.value.trim())) return;
     const eqp=this.equipeDaUnidade(this.getUnidadeValor());
     this.EQ_KEYS.forEach((k,i)=>{
       const el=els[i], mat=document.getElementById("q_"+k+"_mat");
-      if(!el || el.value.trim() || !eqp[k]) return;
+      if(!el || !eqp[k]) return;
       const sep=this.separarMatricula(eqp[k], eqp[k+"Mat"]);
-      el.value=sep.nome; if(mat && !mat.value.trim()) mat.value=sep.mat;
+      if(!el.value.trim()) el.value=sep.nome;
+      /* matrícula vazia de um nome que é o da equipe padrão também é completada */
+      if(mat && !mat.value.trim() && el.value.trim().toLowerCase()===sep.nome.toLowerCase()) mat.value=sep.mat;
     });
     this.syncRespNomes();
   },
