@@ -83,6 +83,15 @@ service cloud.firestore {
     // navegador e se perdia em outro computador/login. Qualquer conta ATIVA
     // le (a equipe padrao pre-preenche o novo exame); so o DPP grava qualquer
     // Centro e o SR grava apenas o da propria regional (SR01 -> coc1 ... SR08 -> coc8).
+    // Quadro de profissionais (psicologos(as), assistentes sociais e
+    // medicos(as) lotados nas unidades, por regional) usado para preencher a
+    // equipe examinadora. Tem nome e matricula de servidores, por isso fica no
+    // banco (so contas ATIVAS leem) e nao no index.html, que e publico. So o
+    // DPP importa/atualiza.
+    match /profissionais/{docId} {
+      allow read: if ativo();
+      allow create, update, delete: if ehDPP();
+    }
     match /centros/{cocId} {
       allow read: if ativo();
       allow create, update: if ehDPP()

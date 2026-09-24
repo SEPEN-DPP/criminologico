@@ -129,6 +129,11 @@
   input:focus,select:focus,textarea:focus{outline:2px solid var(--steel); outline-offset:1px;}
   .row{display:grid; gap:12px;} .row.c2{grid-template-columns:1fr 1fr;} .row.c3{grid-template-columns:1fr 1fr 1fr;}
   @media(max-width:720px){.row.c2,.row.c3{grid-template-columns:1fr;}}
+  /* equipe examinadora: uma função por linha, nome (largo) + matrícula (estreito) */
+  .eq-linha{margin-bottom:12px;}
+  .eq-campos{display:grid; grid-template-columns:minmax(0,3fr) minmax(0,1fr); gap:10px;}
+  .eq-quadro{margin-bottom:6px; font-size:13px;}
+  @media(max-width:720px){.eq-campos{grid-template-columns:1fr;}}
   button.btn{background:var(--navy); color:#fff; border:none; border-radius:7px; padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer;}
   button.btn:hover{background:var(--navy2);}
   button.btn.ghost{background:#fff; color:var(--navy); border:1.5px solid var(--navy);}
@@ -556,17 +561,27 @@
     <div class="novopanel" id="np-equipe">
       <div id="eqBanner" class="lawbox"></div>
       <h3>Equipe examinadora</h3>
-      <div class="row c2">
-        <div><label class="f">Diretor(a) da Unidade</label><input type="text" id="q_direcao" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
-        <div><label class="f">Chefe de Segurança</label><input type="text" id="q_chefiaSeg" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
-        <div><label class="f">Coordenador(a) de Execução Penal</label><input type="text" id="q_execPenal" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
-        <div><label class="f">Coordenador(a) de Atividades Laborais</label><input type="text" id="q_ativLab" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
-        <div><label class="f">Coordenador(a) de Ensino e Promoção Social</label><input type="text" id="q_ensino" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
-        <div><label class="f">Coordenador(a) da Ala de Semiaberto</label><input type="text" id="q_semiab" placeholder="Nome / matrícula" oninput="App.syncRespNomes()"></div>
-        <div><label class="f">Psiquiatra</label><input type="text" id="q_psq" placeholder="Nome / CRM" oninput="App.syncRespNomes()"></div>
-        <div><label class="f">Psicólogo(a)</label><input type="text" id="q_psi" placeholder="Nome / CRP" oninput="App.syncRespNomes()"></div>
-        <div><label class="f">Assistente social</label><input type="text" id="q_as" placeholder="Nome / CRESS" oninput="App.syncRespNomes()"></div>
-      </div>
+      <!-- cada função numa linha: nome e matrícula em campos separados (q_X e q_X_mat) -->
+      <div class="eq-linha"><label class="f">Diretor(a) da Unidade</label>
+        <div class="eq-campos"><input type="text" id="q_direcao" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_direcao_mat" placeholder="Matrícula"></div></div>
+      <div class="eq-linha"><label class="f">Chefe de Segurança</label>
+        <div class="eq-campos"><input type="text" id="q_chefiaSeg" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_chefiaSeg_mat" placeholder="Matrícula"></div></div>
+      <div class="eq-linha"><label class="f">Coordenador(a) de Execução Penal</label>
+        <div class="eq-campos"><input type="text" id="q_execPenal" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_execPenal_mat" placeholder="Matrícula"></div></div>
+      <div class="eq-linha"><label class="f">Coordenador(a) de Atividades Laborais</label>
+        <div class="eq-campos"><input type="text" id="q_ativLab" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_ativLab_mat" placeholder="Matrícula"></div></div>
+      <div class="eq-linha"><label class="f">Coordenador(a) de Ensino e Promoção Social</label>
+        <div class="eq-campos"><input type="text" id="q_ensino" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_ensino_mat" placeholder="Matrícula"></div></div>
+      <div class="eq-linha"><label class="f">Coordenador(a) da Ala de Semiaberto</label>
+        <div class="eq-campos"><input type="text" id="q_semiab" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_semiab_mat" placeholder="Matrícula"></div></div>
+      <div class="eq-linha"><label class="f">Psiquiatra</label>
+        <div class="eq-campos"><input type="text" id="q_psq" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_psq_mat" placeholder="Matrícula"></div></div>
+      <div class="eq-linha"><label class="f">Psicólogo(a)</label>
+        <select id="q_psi_quadro" class="eq-quadro" onchange="App.escolherDoQuadro('psi', this)"></select>
+        <div class="eq-campos"><input type="text" id="q_psi" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_psi_mat" placeholder="Matrícula"></div></div>
+      <div class="eq-linha"><label class="f">Assistente social</label>
+        <select id="q_as_quadro" class="eq-quadro" onchange="App.escolherDoQuadro('as', this)"></select>
+        <div class="eq-campos"><input type="text" id="q_as" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_as_mat" placeholder="Matrícula"></div></div>
       <label class="f" style="margin-top:10px;">Outros chefes de serviço <button class="btn sm ghost" style="float:right;" type="button" onclick="App.addChefeExtra()">+ adicionar chefe de serviço</button></label>
       <div id="chefesExtraBox" style="margin-top:8px;"></div>
       <p class="note">Os nomes acima vêm pré-preenchidos com a equipe padrão da unidade prisional escolhida na aba Identificação — ajuste se este exame tiver outra equipe.</p>
@@ -577,9 +592,8 @@
         <input type="checkbox" id="q_semPsq" style="width:18px; height:18px; margin-top:2px; flex-shrink:0;" onchange="App.syncRespNomes()">
         <span>Sem psiquiatra disponível na equipe (art. 5º, §5º, da Portaria) — o exame é realizado por psicólogo(a) e assistente social, sem prejuízo da validade (STJ, HC 690.941 e AgRg no HC 451.804), devendo a ausência ser registrada expressamente no laudo.</span>
       </label>
-      <div class="row c2" style="margin-top:10px;">
-        <div><label class="f">Responsável/coordenação do centro</label><input type="text" id="q_coord" placeholder="Nome / matrícula"></div>
-      </div>
+      <div class="eq-linha" style="margin-top:10px;"><label class="f">Responsável/coordenação do centro</label>
+        <div class="eq-campos"><input type="text" id="q_coord" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_coord_mat" placeholder="Matrícula"></div></div>
     </div>
 
     <div class="novopanel" id="np-quesitos">
@@ -854,6 +868,14 @@
     </nav>
 
     <div class="novopanel on" id="cfg-cos">
+      <div class="card" id="quadroCfgBox" style="display:none; margin-bottom:14px;">
+        <h3 style="margin-top:0;">Quadro de profissionais</h3>
+        <p class="note">Psicólogos(as), assistentes sociais e médicos(as) lotados nas unidades de cada regional. Aparecem para seleção na aba "Equipe examinadora" do exame. Por conter nomes e matrículas de servidores, a lista fica guardada no banco de dados (só usuários logados veem), não no código do site.</p>
+        <div id="quadroCfgStatus" class="note" style="font-weight:700;"></div>
+        <div class="btnrow" style="margin-top:6px;">
+          <label class="btn sm ghost" style="cursor:pointer;">Importar quadro (arquivo .json)<input type="file" accept=".json,application/json" style="display:none;" onchange="QuadroFS.importarArquivo(this)"></label>
+        </div>
+      </div>
       <p class="note">As 8 regionais abaixo seguem a divisão administrativa vigente do Departamento de Polícia Penal. A vinculação de cada Centro de Observação às unidades listadas será formalizada por ato do Diretor-Geral (art. 3º, §2º, da Portaria) — edite nomes e unidades aqui se necessário.</p>
       <div id="cocBox" style="margin-top:10px;"></div>
     </div>
@@ -1504,7 +1526,7 @@ const App = {
   aplicarPermEquipe(){
     const perfil=this._meuPerfil;
     const podeDesignarEquipe = !perfil || perfil.perfil==="DPP" || perfil.perfil==="SR";
-    ["q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_semPsq"].forEach(id=>{
+    [...this.EQ_KEYS.flatMap(k=>["q_"+k,"q_"+k+"_mat"]),"q_psi_quadro","q_as_quadro","q_semPsq"].forEach(id=>{
       const el=document.getElementById(id); if(el) el.disabled = !podeDesignarEquipe;
     });
     return podeDesignarEquipe;
@@ -1913,6 +1935,7 @@ const App = {
       document.getElementById("e_unid").value==="_outra" ? "block" : "none";
     this.renderUnidInfo();
     this.preencherEquipePadrao();
+    this.renderSelectsQuadro();
   },
   /* Centro de Observação responsável pela unidade (SR0X -> cocX); sem unidade
      conhecida, cai no Centro selecionado no topo. A equipe padrão fica gravada
@@ -1938,11 +1961,73 @@ const App = {
      estão vazios. Em exame já salvo só puxa se a equipe inteira estiver vazia,
      pra não repor um nome que a pessoa apagou de propósito. */
   preencherEquipePadrao(){
-    const campos=["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"];
-    const els=campos.map(k=>document.getElementById(k==="coord"?"q_coord":"q_"+k));
+    const els=this.EQ_KEYS.map(k=>document.getElementById("q_"+k));
     if(this.editId && els.some(el=>el && el.value.trim())) return;
     const eqp=this.equipeDaUnidade(this.getUnidadeValor());
-    campos.forEach((k,i)=>{ const el=els[i]; if(el && !el.value.trim() && eqp[k]) el.value=eqp[k]; });
+    this.EQ_KEYS.forEach((k,i)=>{
+      const el=els[i], mat=document.getElementById("q_"+k+"_mat");
+      if(!el || el.value.trim() || !eqp[k]) return;
+      const sep=this.separarMatricula(eqp[k], eqp[k+"Mat"]);
+      el.value=sep.nome; if(mat && !mat.value.trim()) mat.value=sep.mat;
+    });
+    this.syncRespNomes();
+  },
+  /* ---------- equipe examinadora: nome + matrícula ---------- */
+  EQ_KEYS: ["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"],
+  /* dados antigos tinham nome e matrícula no mesmo campo ("FULANO - Matrícula 123") */
+  separarMatricula(nome, mat){
+    nome=String(nome||"").trim(); mat=String(mat||"").trim();
+    if(!mat){
+      const m=nome.match(/^(.*?)[\s,;–—-]*\bmatr(?:[íi]cula|\.)?\s*(?:n[º°o.]*\s*)?[:\s]*(\d[\d.\-\/ ]*\d)\s*$/i);
+      if(m) return { nome:m[1].replace(/[\s,;–—-]+$/,"").trim(), mat:m[2].trim() };
+    }
+    return { nome, mat };
+  },
+  setEquipeCampo(k, nome, mat){
+    const sep=this.separarMatricula(nome, mat);
+    document.getElementById("q_"+k).value=sep.nome;
+    const m=document.getElementById("q_"+k+"_mat"); if(m) m.value=sep.mat;
+  },
+  lerEquipeCampos(){
+    const out={};
+    this.EQ_KEYS.forEach(k=>{
+      out[k]=document.getElementById("q_"+k).value.trim();
+      out[k+"Mat"]=(document.getElementById("q_"+k+"_mat")||{value:""}).value.trim();
+    });
+    return out;
+  },
+  /* ---------- quadro de profissionais (psicólogos/assistentes sociais) ----------
+     carregado do Firestore (profissionais/quadro) depois do login — ver QuadroFS */
+  quadro: null,
+  CARGO_QUADRO: { psi:"psi", as:"as" },
+  renderSelectsQuadro(){
+    const unid=this.getUnidadeValor();
+    const cocUnid=this.cocDaUnidade(unid);
+    const srUnid=(UNIDADES_INFO[unid]||{}).sr || (cocUnid ? "SR0"+cocUnid.id.replace(/\D/g,"") : "");
+    Object.keys(this.CARGO_QUADRO).forEach(k=>{
+      const sel=document.getElementById("q_"+k+"_quadro"); if(!sel) return;
+      if(!this.quadro){ sel.innerHTML='<option value="">Quadro de profissionais não carregado — digite nome e matrícula abaixo</option>'; return; }
+      const lista=this.quadro.filter(p=>p.cargo===this.CARGO_QUADRO[k]);
+      const rotulo=p=>[p.nome, p.matricula||"sem matrícula", p.sede?"sede da "+p.sr:p.unidade]
+        .concat(/ACT/i.test(p.vinculo||"")?["ACT — temporário"]:[]).concat(p.obs?[p.obs]:[]).join(" · ");
+      const grupos=[
+        ["Lotados nesta unidade", lista.filter(p=>unid && !p.sede && p.unidade===unid)],
+        ["Sede da Superintendência", lista.filter(p=>p.sede && p.sr===srUnid)],
+        ["Outras unidades da regional", lista.filter(p=>!p.sede && p.sr===srUnid && p.unidade!==unid)],
+        ["Outras regionais", lista.filter(p=>p.sr!==srUnid)],
+      ].filter(g=>g[1].length);
+      sel.innerHTML=`<option value="">Selecionar do quadro de profissionais (${lista.length})…</option>`
+        + grupos.map(([t,ps])=>`<optgroup label="${esc(t)}">${ps.map(p=>`<option value="${this.quadro.indexOf(p)}">${esc(rotulo(p))}</option>`).join("")}</optgroup>`).join("");
+    });
+  },
+  escolherDoQuadro(k, sel){
+    const p=(this.quadro||[])[Number(sel.value)]; sel.value="";
+    if(!p) return;
+    const avisos=[];
+    if(/ACT/i.test(p.vinculo||"")) avisos.push("vínculo temporário (ACT) — confira a vedação a profissionais temporários contratados só para exames (art. 5º, §2º, da Portaria)");
+    if(p.obs) avisos.push(p.obs);
+    if(avisos.length && !confirm(p.nome+":\n\n• "+avisos.join("\n• ")+"\n\nUsar mesmo assim?")) return;
+    this.setEquipeCampo(k, p.nome, p.matricula);
     this.syncRespNomes();
   },
   renderUnidInfo(){
@@ -2151,21 +2236,22 @@ const App = {
 
   /* ---------- chefes de serviço extras (equipe examinadora) ---------- */
   addChefeExtra(c){
-    c = c || {nome:"", funcao:""};
+    c = c || {nome:"", mat:"", funcao:""};
+    const sepCe=this.separarMatricula(c.nome, c.mat);
     const box=document.getElementById("chefesExtraBox");
     const div=document.createElement("div");
     div.className="quesito";
     div.innerHTML=`
       <button class="btn sm danger del" type="button" onclick="this.parentElement.remove(); App.syncRespNomes();">remover</button>
-      <div class="row c2">
-        <div><label class="f">Chefe de serviço</label><input type="text" class="ce_nome" placeholder="Nome / matrícula" value="${esc(c.nome)}" oninput="App.syncRespNomes()"></div>
-        <div><label class="f">Função na unidade</label><input type="text" class="ce_funcao" placeholder="ex.: Chefe de Plantão, Coord. de Segurança…" value="${esc(c.funcao)}"></div>
-      </div>`;
+      <label class="f">Chefe de serviço</label>
+      <div class="eq-campos"><input type="text" class="ce_nome" placeholder="Nome completo" value="${esc(sepCe.nome)}" oninput="App.syncRespNomes()"><input type="text" class="ce_mat" placeholder="Matrícula" value="${esc(sepCe.mat)}"></div>
+      <label class="f" style="margin-top:6px;">Função na unidade</label><input type="text" class="ce_funcao" placeholder="ex.: Chefe de Plantão, Coord. de Segurança…" value="${esc(c.funcao)}">`;
     box.appendChild(div);
   },
   lerChefesExtra(){
     return [...document.querySelectorAll("#chefesExtraBox .quesito")].map(d=>({
       nome:d.querySelector(".ce_nome").value.trim(),
+      mat:(d.querySelector(".ce_mat")||{value:""}).value.trim(),
       funcao:d.querySelector(".ce_funcao").value.trim()
     })).filter(c=>c.nome);
   },
@@ -2187,7 +2273,8 @@ const App = {
     this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
     ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_dataBase","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_dataIni","e_dataConcl",
-     "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
+     "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord",
+     "q_direcao_mat","q_chefiaSeg_mat","q_execPenal_mat","q_ativLab_mat","q_ensino_mat","q_semiab_mat","q_psq_mat","q_psi_mat","q_as_mat","q_coord_mat","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
      "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_semiab","r_soc","r_psi","r_psq","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
     r_met.value=TEXTO_MODELO.met;
     r_direcao.value=TEXTO_MODELO.direcao; r_chefiaSeg.value=TEXTO_MODELO.chefiaSeg; r_execPenal.value=TEXTO_MODELO.execPenal;
@@ -2203,6 +2290,7 @@ const App = {
     document.getElementById("q_semPsq").checked=false;
     document.getElementById("e_modal").value="presencial"; this.modalChange();
     this.renderUnidadeSel("");
+    this.renderSelectsQuadro();
     document.getElementById("condBox").innerHTML="";
     this.addCond();
     document.getElementById("quesitosBox").innerHTML="";
@@ -2321,7 +2409,7 @@ const App = {
       dataIni:document.getElementById("e_dataIni").value,
       dataConcl:document.getElementById("e_dataConcl").value,
       conds:this.lerConds(),
-      equipe:{direcao:q_direcao.value.trim(),chefiaSeg:q_chefiaSeg.value.trim(),execPenal:q_execPenal.value.trim(),ativLab:q_ativLab.value.trim(),ensino:q_ensino.value.trim(),semiab:q_semiab.value.trim(),chefesExtra:this.lerChefesExtra(),psq:q_psq.value.trim(),psi:q_psi.value.trim(),as:q_as.value.trim(),semPsq:document.getElementById("q_semPsq").checked,coord:document.getElementById("q_coord").value.trim()},
+      equipe:{...this.lerEquipeCampos(), chefesExtra:this.lerChefesExtra(), semPsq:document.getElementById("q_semPsq").checked},
       quesitos:{
         detOrigem:document.getElementById("q_detOrigem").value.trim(),
         impedimento:document.getElementById("q_impedimento").value.trim(),
@@ -2381,8 +2469,8 @@ const App = {
     document.getElementById("e_dataIni").value=ex.dataIni||"";
     document.getElementById("e_dataConcl").value=ex.dataConcl||"";
     document.getElementById("e_modal").value=ex.modal||"presencial"; this.modalChange();
-    q_direcao.value=ex.equipe?.direcao||""; q_chefiaSeg.value=ex.equipe?.chefiaSeg||""; q_execPenal.value=ex.equipe?.execPenal||""; q_ativLab.value=ex.equipe?.ativLab||""; q_ensino.value=ex.equipe?.ensino||""; q_semiab.value=ex.equipe?.semiab||""; q_psq.value=ex.equipe?.psq||""; q_psi.value=ex.equipe?.psi||""; q_as.value=ex.equipe?.as||"";
-    document.getElementById("q_coord").value=ex.equipe?.coord||"";
+    this.EQ_KEYS.forEach(k=>this.setEquipeCampo(k, ex.equipe?.[k], ex.equipe?.[k+"Mat"]));
+    this.renderSelectsQuadro();
     document.getElementById("chefesExtraBox").innerHTML="";
     (ex.equipe?.chefesExtra||[]).forEach(c=>this.addChefeExtra(c));
     document.getElementById("q_semPsq").checked=!!ex.equipe?.semPsq;
@@ -2443,6 +2531,7 @@ const App = {
   rotuloCampo(campo){
     const [g,sub]=campo.split(".");
     if(!sub) return this.ROTULO_CAMPO[g]||g;
+    if(g==="equipe" && /Mat$/.test(sub)) return this.GRUPO_SUB[g]+" — "+(this.ROTULO_SUB[sub.slice(0,-3)]||sub.slice(0,-3))+" (matrícula)";
     return (this.GRUPO_SUB[g]||g)+" — "+(this.ROTULO_SUB[sub]||sub);
   },
   /* compara dois conteúdos; objetos agrupados (equipe, relatório...) são comparados campo a campo */
@@ -2882,8 +2971,9 @@ const App = {
     const defesaOAB=document.getElementById("q_defesaOAB").value.trim();
     const coordNome=document.getElementById("q_coord").value.trim();
     const funcaoRotulo=(base,funcao)=> funcao?(base+" — "+esc(funcao)):base;
-    const eq=[["Diretor(a) da Unidade",q_direcao.value],["Chefe de Segurança",q_chefiaSeg.value],["Coordenador(a) de Execução Penal",q_execPenal.value],["Coordenador(a) de Atividades Laborais",q_ativLab.value],["Coordenador(a) de Ensino e Promoção Social",q_ensino.value],["Coordenador(a) da Ala de Semiaberto",q_semiab.value],...this.lerChefesExtra().map(c=>[funcaoRotulo("Chefe de serviço",c.funcao),c.nome]),["Psiquiatra",q_psq.value],["Psicólogo(a)",q_psi.value],["Assistente social",q_as.value]].filter(x=>x[1]);
-    if(coordNome) eq.push(["Responsável/Coordenação do Centro", coordNome]);
+    const eqv=k=>[document.getElementById("q_"+k).value.trim(), (document.getElementById("q_"+k+"_mat")||{value:""}).value.trim()];
+    const eq=[["Diretor(a) da Unidade",...eqv("direcao")],["Chefe de Segurança",...eqv("chefiaSeg")],["Coordenador(a) de Execução Penal",...eqv("execPenal")],["Coordenador(a) de Atividades Laborais",...eqv("ativLab")],["Coordenador(a) de Ensino e Promoção Social",...eqv("ensino")],["Coordenador(a) da Ala de Semiaberto",...eqv("semiab")],...this.lerChefesExtra().map(c=>[funcaoRotulo("Chefe de serviço",c.funcao),c.nome,c.mat]),["Psiquiatra",...eqv("psq")],["Psicólogo(a)",...eqv("psi")],["Assistente social",...eqv("as")]].filter(x=>x[1]);
+    if(coordNome) eq.push(["Responsável/Coordenação do Centro", coordNome, (document.getElementById("q_coord_mat")||{value:""}).value.trim()]);
     const assinExtra=[];
     if(defesaNome) assinExtra.push(["Defesa técnica — ciência", defesaNome+(defesaOAB?" ("+defesaOAB+")":"")]);
     /* a pessoa examinada não assina o relatório em si (não está presente no momento da emissão) —
@@ -2991,7 +3081,7 @@ const App = {
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${escNl(r_limit.value)}</p>`:""}
       <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução. Declara-se, nos termos do art. 10, VI, da Portaria, que não foi utilizada inteligência artificial generativa ou tecnologia preditiva em sua elaboração.</p>
       <p style="margin-top:16px;">${esc(cocNome)}, ${new Date().toLocaleDateString("pt-BR")}.</p>
-      <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}<br><i>${x[0]}</i></p>`).join("")}</div>`;
+      <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}${x[2]?"<br>Matrícula "+esc(x[2]):""}<br><i>${x[0]}</i></p>`).join("")}</div>`;
 
     const paginas=[pgCapa,pgIdent,pgMetodologia,pgDirecao,pgChefiaSeg,pgExecPenal,pgAtivLab,pgEnsino,pgSemiab,pgPsq,pgPsi,pgSoc,pgSintese].filter(Boolean);
     return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};"><div class="pgHead">${headerHtml}</div><div class="pgBody">${corpo}</div><div class="pgFoot">${footerHtml}</div></div>`).join("");
@@ -3036,7 +3126,7 @@ const App = {
         <label class="f">Equipes padrão por unidade <span class="muted" style="font-weight:normal; text-transform:none;">— gravadas pelo botão na aba "Equipe examinadora" do exame; pré-preenchem os exames da unidade</span></label>
         ${Object.keys(c.equipesUnidade||{}).length ? Object.entries(c.equipesUnidade).map(([u,eq])=>`
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:6px 0; font-size:12.5px;">
-            <div><b>${esc(u)}</b><br>${[["Diretor(a)","direcao"],["Chefe de Segurança","chefiaSeg"],["Execução Penal","execPenal"],["Ativ. Laborais","ativLab"],["Ensino","ensino"],["Semiaberto","semiab"],["Psiquiatra","psq"],["Psicólogo(a)","psi"],["Assistente social","as"],["Coordenação","coord"]].filter(([,k])=>eq[k]).map(([t,k])=>`${t}: ${esc(eq[k])}`).join(" · ") || "—"}</div>
+            <div><b>${esc(u)}</b><br>${[["Diretor(a)","direcao"],["Chefe de Segurança","chefiaSeg"],["Execução Penal","execPenal"],["Ativ. Laborais","ativLab"],["Ensino","ensino"],["Semiaberto","semiab"],["Psiquiatra","psq"],["Psicólogo(a)","psi"],["Assistente social","as"],["Coordenação","coord"]].filter(([,k])=>eq[k]).map(([t,k])=>`${t}: ${esc(eq[k])}${eq[k+"Mat"]?" ("+esc(eq[k+"Mat"])+")":""}`).join(" · ") || "—"}</div>
             ${this.podeEditarCoc(c.id)?`<button class="btn sm ghost" type="button" data-unid="${esc(u)}" onclick="App.removerEquipeUnidade('${c.id}',this.dataset.unid)">remover</button>`:""}
           </div>`).join("") : `<p class="muted" style="font-size:12.5px;">nenhuma equipe gravada ainda</p>`}
         </div>
@@ -3091,9 +3181,8 @@ const App = {
     const c=this.cocDaUnidade(unid);
     if(!c){ alert("Não foi possível identificar o Centro de Observação desta unidade."); return; }
     if(!this.podeEditarCoc(c.id)){ alert("Somente o DPP ou a Superintendência Regional desta unidade pode alterar a equipe padrão."); return; }
-    const campos=["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"];
-    const nova={}; campos.forEach(k=>{ const el=document.getElementById(k==="coord"?"q_coord":"q_"+k); nova[k]=el?el.value.trim():""; });
-    if(!campos.some(k=>nova[k])){ alert("Preencha ao menos um nome da equipe antes de gravar."); return; }
+    const nova=this.lerEquipeCampos();
+    if(!this.EQ_KEYS.some(k=>nova[k])){ alert("Preencha ao menos um nome da equipe antes de gravar."); return; }
     if(!confirm("Gravar estes nomes como equipe padrão de "+unid+"?\n\nEles passarão a vir preenchidos nos exames desta unidade, para todos os usuários.")) return;
     c.equipesUnidade={...(c.equipesUnidade||{}), [unid]:nova};
     this.persistCoc(c).then(ok=>{ if(ok){ alert("Equipe padrão gravada para "+unid+"."); this.renderConfig(); } });
@@ -3768,11 +3857,69 @@ const CentrosFS = {
 };
 window.CentrosFS = CentrosFS;
 
+/* ---------- Quadro de profissionais (profissionais/quadro) ----------
+   Lista de psicólogos(as), assistentes sociais e médicos(as) por unidade/regional,
+   usada para selecionar a equipe do exame. Tem nome e matrícula de servidores:
+   fica no Firestore (só contas ativas leem), nunca no index.html, que é público.
+   O DPP importa um .json gerado a partir do PDF do quadro
+   (scripts/converter-quadro-pdf.mjs). */
+const QuadroFS = {
+  meta: null,
+  async carregar(){
+    try{
+      const snap = await getDoc(doc(db, "profissionais", "quadro"));
+      const d = snap.exists() ? snap.data() : null;
+      window.App.quadro = d && Array.isArray(d.itens) ? d.itens : null;
+      this.meta = d ? { total: d.total, fonte: d.fonte, por: d.importadoPorNome, em: d.importadoEm } : null;
+    }catch(e){
+      console.error("Falha ao carregar o quadro de profissionais:", e);
+      window.App.quadro = null; this.meta = null;
+    }
+    window.App.renderSelectsQuadro();
+    this.renderCfg();
+  },
+  renderCfg(){
+    const box = document.getElementById("quadroCfgBox"); if(!box) return;
+    box.style.display = meuPerfilDoc?.perfil === "DPP" ? "" : "none";
+    const q = window.App.quadro;
+    document.getElementById("quadroCfgStatus").textContent = q
+      ? `${q.length} profissionais (${q.filter(p=>p.cargo==="psi").length} psicólogos(as), ${q.filter(p=>p.cargo==="as").length} assistentes sociais, ${q.filter(p=>p.cargo==="med").length} médicos(as))`
+        + (this.meta ? ` — importado por ${this.meta.por||"?"} em ${window.fmtTs ? window.fmtTs(this.meta.em) : ""}${this.meta.fonte?" (arquivo "+this.meta.fonte+")":""}` : "")
+      : "Nenhum quadro importado ainda — a seleção na aba Equipe fica indisponível até a importação.";
+  },
+  async importarArquivo(input){
+    const arq = input.files && input.files[0]; input.value = "";
+    if(!arq) return;
+    if(meuPerfilDoc?.perfil !== "DPP"){ alert("Só uma conta DPP pode importar o quadro."); return; }
+    let itens;
+    try{ itens = JSON.parse(await arq.text()); }catch(e){ alert("O arquivo não é um JSON válido."); return; }
+    const valido = p => p && typeof p.nome==="string" && p.nome.trim() && ["psi","as","med"].includes(p.cargo) && /^SR0\d$/.test(p.sr||"");
+    if(!Array.isArray(itens) || !itens.length || !itens.every(valido)){
+      alert("O arquivo não tem o formato esperado (lista de profissionais com nome, cargo psi/as/med e regional SR0X). Use o .json gerado a partir do PDF do quadro.");
+      return;
+    }
+    itens = itens.map(p=>({ nome:p.nome.trim(), matricula:String(p.matricula||"").trim(), cargo:p.cargo, vinculo:String(p.vinculo||""),
+      sr:p.sr, unidade:String(p.unidade||""), sede:!!p.sede, ...(p.obs?{obs:String(p.obs)}:{}) }));
+    const n = c => itens.filter(p=>p.cargo===c).length;
+    if(!confirm(`Importar ${itens.length} profissionais (${n("psi")} psicólogos(as), ${n("as")} assistentes sociais, ${n("med")} médicos(as))?\n\nIsso SUBSTITUI o quadro atual para todos os usuários.`)) return;
+    try{
+      await setDoc(doc(db, "profissionais", "quadro"), {
+        itens, total: itens.length, fonte: arq.name,
+        importadoPor: meuUid, importadoPorNome: meuPerfilDoc?.nome || "", importadoEm: serverTimestamp(),
+      });
+      await this.carregar();
+      alert("Quadro importado: "+itens.length+" profissionais.");
+    }catch(e){ alert("Não foi possível importar: "+(e?.code||e?.message||e)); }
+  },
+};
+window.QuadroFS = QuadroFS;
+
 /* ---------- Boot / roteamento por estado de autenticação ---------- */
 onAuthStateChanged(auth, async (usuarioFirebase) => {
   if(!usuarioFirebase){
     meuPerfilDoc = null; meuUid = null;
     ExamesFS.parar();
+    window.App.quadro = null; // lista de servidores não fica na memória depois do logout
     document.getElementById("appShell").style.display = "none";
     document.getElementById("authShell").style.display = "block";
     AuthUI.mostrar("login");
@@ -3816,6 +3963,7 @@ onAuthStateChanged(auth, async (usuarioFirebase) => {
   window.App.aplicarEscopoPerfil(meuPerfilDoc);
   ExamesFS.subscribe(meuPerfilDoc);
   CentrosFS.carregar();
+  QuadroFS.carregar();
   AuthUI.atualizarBotaoUsuario(meuPerfilDoc);
   UsuariosUI._cache = [];
   NotifUI.render();
