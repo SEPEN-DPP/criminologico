@@ -78,6 +78,17 @@ service cloud.firestore {
     // quando precisa lancar/corrigir um exame sem depender de outro perfil);
     // SR_PSICOLOGIA/SR_SOCIAL leem E criam/editam as da propria regional
     // (cobertura movel entre unidades); DPP tem acesso total.
+    // Centros de Observacao: configuracao compartilhada (equipe padrao,
+    // unidades vinculadas, nome). Antes ficava so no localStorage de cada
+    // navegador e se perdia em outro computador/login. Qualquer conta ATIVA
+    // le (a equipe padrao pre-preenche o novo exame); so o DPP grava qualquer
+    // Centro e o SR grava apenas o da propria regional (SR01 -> coc1 ... SR08 -> coc8).
+    match /centros/{cocId} {
+      allow read: if ativo();
+      allow create, update: if ehDPP()
+        || (ehSR() && perfilAtual().sr.replace('SR0', 'coc') == cocId);
+      allow delete: if ehDPP();
+    }
     match /exames/{examId} {
       allow read: if ehDPP()
         || minhaSR(resource.data.sr)

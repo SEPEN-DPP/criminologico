@@ -525,6 +525,7 @@
       <label class="f" style="margin-top:10px;">Outros chefes de serviço <button class="btn sm ghost" style="float:right;" type="button" onclick="App.addChefeExtra()">+ adicionar chefe de serviço</button></label>
       <div id="chefesExtraBox" style="margin-top:8px;"></div>
       <p class="note">Os nomes acima já vêm pré-preenchidos com a equipe padrão do centro (defina em Configurações) — ajuste se este exame tiver outra equipe.</p>
+      <div class="btnrow" id="eqGravarPadraoRow" style="margin-top:6px;"><button class="btn sm ghost" type="button" onclick="App.gravarEquipeComoPadrao()">Gravar estes nomes como equipe padrão do Centro</button></div>
       <p class="note" id="eqSomenteLeituraNota" style="display:none; color:var(--mut);">Os nomes da equipe examinadora são designados pela Superintendência Regional (ou pelo DPP) — esta tela é somente para consulta.</p>
       <p class="note">Vedações: profissionais temporários contratados só para exames; integrantes de eAPP; referência técnica do próprio avaliado (art. 5º, §§ 2º a 4º, da Portaria). Aplicam-se também as regras de impedimento e suspeição do CPP aos integrantes da equipe (art. 5º, §6º, da Portaria; art. 4º da Res. CNPCP 36/2024).</p>
       <label style="display:flex; align-items:flex-start; gap:8px; margin-top:10px; font-size:13.5px;">
@@ -1433,6 +1434,8 @@ const App = {
     });
     const notaEquipe=document.getElementById("eqSomenteLeituraNota");
     if(notaEquipe) notaEquipe.style.display = podeDesignarEquipe ? "none" : "block";
+    const rowPadrao=document.getElementById("eqGravarPadraoRow");
+    if(rowPadrao) rowPadrao.style.display = podeDesignarEquipe ? "" : "none";
 
     if(!perfil || perfil.perfil === "DPP"){
       this._meuCocId = null;
@@ -2653,7 +2656,7 @@ const App = {
   },
   renomearCoc(id,nome){
     const c=this.data.cocs.find(x=>x.id===id); if(!c||!nome.trim()) return;
-    c.nome=nome.trim(); this.persist(); this.renderCocSel();
+    c.nome=nome.trim(); this.persistCoc(c); this.renderCocSel();
     /* atualiza só o texto do resumo (sem re-renderizar tudo, pra não recolher o painel que a pessoa está editando) */
     const i=this.data.cocs.indexOf(c);
     const resumo=document.querySelector(`#cocBox details[data-coc-id="${id}"] summary`);
@@ -2662,21 +2665,65 @@ const App = {
   atualizarEquipePadrao(id,campo,valor){
     const c=this.data.cocs.find(x=>x.id===id); if(!c) return;
     c.equipePadrao=c.equipePadrao||{}; c.equipePadrao[campo]=valor.trim();
+    this.persistCoc(c);
+  },
+  /* A configuração dos Centros (equipe padrão, unidades, nome) antes ficava só no
+     localStorage deste navegador — sumia em outro computador, outro login ou ao
+     limpar o cache. Agora cada alteração também é gravada no Firestore
+     (coleção "centros"), que é a fonte compartilhada entre todos os usuários. */
+  podeEditarCoc(id){
+    const p=this._meuPerfil;
+    if(!p) return false;
+    if(p.perfil==="DPP") return true;
+    return p.perfil==="SR" && this._meuCocId===id;
+  },
+  persistCoc(c){
     this.persist();
+    if(!window.CentrosFS || !this.podeEditarCoc(c.id)) return Promise.resolve(false);
+    return window.CentrosFS.salvar(c).then(()=>true).catch(e=>{
+      console.error("Falha ao gravar Centro no servidor:", e);
+      alert("Não foi possível gravar a configuração do Centro no servidor ("+(e.code||e.message)+"). A alteração ficou só neste navegador — verifique a conexão e tente de novo.");
+      return false;
+    });
+  },
+  /* chamado depois que a configuração dos Centros chega do servidor: preenche
+     no formulário de novo exame só os campos da equipe que ainda estão vazios */
+  aoSincronizarCentros(){
+    this.renderCocSel(); this.renderConfig(); this.renderUnidadeSel(this.getUnidadeValor());
+    if(this.editId) return;
+    const eqp=(this.data.cocs.find(c=>c.id===this.coc)||{}).equipePadrao||{};
+    ["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"].forEach(k=>{
+      const el=document.getElementById(k==="coord"?"q_coord":"q_"+k);
+      if(el && !el.value.trim() && eqp[k]) el.value=eqp[k];
+    });
+    if(this.syncRespNomes) this.syncRespNomes();
+  },
+  /* botão na aba "Equipe examinadora" do exame: grava os nomes digitados como
+     equipe padrão do Centro, para vir preenchida nos próximos exames */
+  gravarEquipeComoPadrao(){
+    const c=this.data.cocs.find(x=>x.id===this.coc);
+    if(!c){ alert("Selecione um Centro de Observação antes."); return; }
+    if(!this.podeEditarCoc(c.id)){ alert("Somente o DPP ou a Superintendência Regional deste Centro pode alterar a equipe padrão."); return; }
+    const campos=["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"];
+    const nova={}; campos.forEach(k=>{ const el=document.getElementById(k==="coord"?"q_coord":"q_"+k); nova[k]=el?el.value.trim():""; });
+    if(!campos.some(k=>nova[k])){ alert("Preencha ao menos um nome da equipe antes de gravar."); return; }
+    if(!confirm("Gravar estes nomes como equipe padrão de "+c.nome+"?\n\nEles passarão a vir preenchidos em todos os novos exames deste Centro, para todos os usuários.")) return;
+    c.equipePadrao={...(c.equipePadrao||{}), ...nova};
+    this.persistCoc(c).then(ok=>{ if(ok){ alert("Equipe padrão gravada para "+c.nome+"."); this.renderConfig(); } });
   },
   addUnidade(id){
     const inp=document.getElementById("novaUnid_"+id);
     const v=inp.value.trim(); if(!v) return;
     const c=this.data.cocs.find(x=>x.id===id); if(!c) return;
     c.unidades=c.unidades||[]; c.unidades.push(v);
-    this.persist(); this.renderConfig();
+    this.persistCoc(c); this.renderConfig();
     if(id===this.coc) this.renderUnidadeSel(this.getUnidadeValor());
   },
   removerUnidade(id,idx){
     if(!confirm("Remover esta unidade da lista?")) return;
     const c=this.data.cocs.find(x=>x.id===id); if(!c) return;
     c.unidades.splice(idx,1);
-    this.persist(); this.renderConfig();
+    this.persistCoc(c); this.renderConfig();
     if(id===this.coc) this.renderUnidadeSel(this.getUnidadeValor());
   },
   exportar(){
@@ -2697,7 +2744,7 @@ const App = {
         if(!d.cocs) throw new Error("estrutura inválida");
         d.cocs.forEach(c=>{ if(!c.unidades) c.unidades = (DEFAULT_COCS.find(x=>x.id===c.id)||{unidades:[]}).unidades; });
         this.data.cocs=d.cocs;
-        this.persist(); this.coc=this.data.cocs[0].id;
+        this.persist(); this.data.cocs.forEach(c=>this.persistCoc(c)); this.coc=this.data.cocs[0].id;
         this.renderCocSel(); this.renderConfig(); this.renderDash(); this.renderLista(); this.renderUnidadeSel("");
         alert("Backup dos Centros de Observação importado. Exames não são afetados: eles ficam no servidor (Firestore), não neste arquivo.");
       }catch(e){ alert("Arquivo inválido: "+e.message); } };
@@ -3159,6 +3206,38 @@ const ExamesFS = {
 };
 window.ExamesFS = ExamesFS;
 
+/* ---------- Centros de Observação: configuração compartilhada no Firestore ---------- */
+const CAMPOS_CENTRO = ["nome","unidades","equipePadrao"];
+const CentrosFS = {
+  async salvar(c){
+    const payload = { atualizadoEm: serverTimestamp(), atualizadoPor: meuUid || null };
+    CAMPOS_CENTRO.forEach(k=>{ if(c[k]!==undefined) payload[k]=c[k]; });
+    await setDoc(doc(db,"centros", c.id), payload, { merge: true });
+  },
+  async carregar(){
+    let snap;
+    try{ snap = await getDocs(collection(db,"centros")); }
+    catch(e){ console.error("Falha ao carregar Centros do servidor:", e); return; }
+    const remotos = {}; snap.docs.forEach(d=>{ remotos[d.id]=d.data(); });
+    const cocs = window.App.data.cocs;
+    for(const c of cocs){
+      const r = remotos[c.id];
+      if(r){
+        /* servidor manda: é a versão compartilhada por todos os usuários */
+        CAMPOS_CENTRO.forEach(k=>{ if(r[k]!==undefined) c[k]=r[k]; });
+      }else if(window.App.podeEditarCoc(c.id)){
+        /* ainda não existe no servidor: sobe o que estiver neste navegador
+           (migração da equipe padrão que antes ficava só no localStorage) */
+        const temEquipe = Object.values(c.equipePadrao||{}).some(v=>String(v||"").trim());
+        if(temEquipe){ try{ await CentrosFS.salvar(c); }catch(e){ console.error("Falha ao migrar Centro "+c.id+":", e); } }
+      }
+    }
+    window.App.persist();
+    window.App.aoSincronizarCentros();
+  },
+};
+window.CentrosFS = CentrosFS;
+
 /* ---------- Boot / roteamento por estado de autenticação ---------- */
 onAuthStateChanged(auth, async (usuarioFirebase) => {
   if(!usuarioFirebase){
@@ -3196,6 +3275,7 @@ onAuthStateChanged(auth, async (usuarioFirebase) => {
   window.App.init();
   window.App.aplicarEscopoPerfil(meuPerfilDoc);
   ExamesFS.subscribe(meuPerfilDoc);
+  CentrosFS.carregar();
   AuthUI.atualizarBotaoUsuario(meuPerfilDoc);
   UsuariosUI._cache = [];
   NotifUI.render();
