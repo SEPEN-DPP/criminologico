@@ -1520,6 +1520,14 @@ const App = {
       clearTimeout(previewTimer);
       previewTimer=setTimeout(()=>this.atualizarPreview(), 400);
     });
+    /* nome digitado/colado com a matrícula junto ("FULANO / 123"): ao sair do campo,
+       a matrícula vai para o campo dela */
+    document.getElementById("np-equipe").addEventListener("change", e=>{
+      const m=(e.target.id||"").match(/^q_(\w+)$/);
+      if(!m || !this.EQ_KEYS.includes(m[1])) return;
+      const mat=document.getElementById(e.target.id+"_mat");
+      if(mat && !mat.value.trim()){ this.setEquipeCampo(m[1], e.target.value, ""); this.syncRespNomes(); }
+    });
   },
   persist(){ Store.save({ cocs: this.data.cocs }); },
   aoSincronizarExames(){
@@ -2025,6 +2033,9 @@ const App = {
     if(!mat){
       const m=nome.match(/^(.*?)[\s,;–—-]*\bmatr(?:[íi]cula|\.)?\s*(?:n[º°o.]*\s*)?[:\s]*(\d[\d.\-\/ ]*\d)\s*$/i);
       if(m) return { nome:m[1].replace(/[\s,;–—-]+$/,"").trim(), mat:m[2].trim() };
+      /* "NOME / 9724303", "NOME - 0383797-1-01", "NOME, 123": número no fim, depois de separador */
+      const m2=nome.match(/^(\D*?\S)\s*[\/|,;–—-]\s*(\d[\d.\-]*\d)\s*$/);
+      if(m2) return { nome:m2[1].trim(), mat:m2[2].trim() };
     }
     return { nome, mat };
   },
