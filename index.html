@@ -300,6 +300,13 @@
   </div>
 </div>
 
+<div id="avisoNovaVersao" role="alert" style="display:none; position:fixed; top:0; left:0; right:0; z-index:300; background:#FFF4CC; color:#3D2E00; border-bottom:2px solid #D9A400; padding:10px 16px; font-size:14px; box-shadow:0 2px 8px rgba(0,0,0,.2);">
+  <div style="max-width:1100px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <span><b>Há uma nova versão do sistema.</b> Salve o que estiver editando e clique em Atualizar — sem isso, algumas gravações podem ser recusadas.</span>
+    <button class="btn sm" type="button" onclick="location.reload()">Atualizar agora</button>
+  </div>
+</div>
+
 <div id="appShell" style="display:none;">
 <div class="topbar-fixa">
 <header class="app">
@@ -2486,7 +2493,8 @@ const App = {
         if(revSrv!==null && revSrv!==base.rev)
           throw new Error("outra pessoa alterou este exame depois que você o abriu. Copie o que você digitou, reabra o exame pela lista e aplique de novo.");
       }
-      throw new Error(e?.code==="permission-denied" ? "o servidor recusou a gravação (sem permissão para esta ação)." : (e?.code||e?.message||String(e)));
+      const dica=this._novaVersao ? " Há uma nova versão do sistema — salve seu texto em outro lugar e clique em \"Atualizar agora\" no topo da página." : "";
+      throw new Error((e?.code==="permission-denied" ? "o servidor recusou a gravação (sem permissão para esta ação)." : (e?.code||e?.message||String(e)))+dica);
     });
   },
   podeReabrir(ex){
@@ -3127,6 +3135,29 @@ const App = {
 /* expostos p/ o script type="module" do Firebase (modulos nao compartilham o
    escopo lexico de let/const dos scripts classicos, so o objeto window) */
 window.App = App;
+
+/* ---------- aviso de nova versão ----------
+   Trocar de conta não recarrega a página, e uma aba aberta antes de um deploy
+   continua rodando o código antigo — que as regras novas do Firestore podem
+   recusar. A cada 5 min (e ao voltar para a aba) compara a versão publicada
+   (ETag do index.html no Firebase Hosting) com a que foi carregada. */
+(function vigiarNovaVersao(){
+  let versaoCarregada=null;
+  const lerVersao=()=>fetch(location.pathname, {method:"HEAD", cache:"no-store"})
+    .then(r=>r.ok ? (r.headers.get("ETag")||r.headers.get("Last-Modified")) : null)
+    .catch(()=>null);
+  const conferir=()=>lerVersao().then(v=>{
+    if(!v) return;
+    if(!versaoCarregada){ versaoCarregada=v; return; }
+    if(v!==versaoCarregada){
+      App._novaVersao=true;
+      document.getElementById("avisoNovaVersao").style.display="block";
+    }
+  });
+  conferir();
+  setInterval(conferir, 5*60*1000);
+  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") conferir(); });
+})();
 window.UNIDADES_INFO = UNIDADES_INFO;
 window.SR_INFO = SR_INFO;
 window.fmt = fmt;
