@@ -1857,6 +1857,25 @@ const App = {
     document.getElementById("e_unidOutraWrap").style.display =
       document.getElementById("e_unid").value==="_outra" ? "block" : "none";
     this.renderUnidInfo();
+    this.preencherEquipePadrao();
+  },
+  /* Centro de Observação responsável pela unidade (SR0X -> cocX); sem unidade
+     conhecida, cai no Centro selecionado no topo */
+  cocDaUnidade(unid){
+    const sr=(UNIDADES_INFO[unid]||{}).sr;
+    const id=sr ? "coc"+Number(sr.slice(2)) : this.coc;
+    return this.data.cocs.find(c=>c.id===id) || null;
+  },
+  /* puxa a equipe padrão do Centro da unidade para os campos da equipe que
+     estão vazios. Em exame já salvo só puxa se a equipe inteira estiver vazia,
+     pra não repor um nome que a pessoa apagou de propósito. */
+  preencherEquipePadrao(){
+    const campos=["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"];
+    const els=campos.map(k=>document.getElementById(k==="coord"?"q_coord":"q_"+k));
+    if(this.editId && els.some(el=>el && el.value.trim())) return;
+    const eqp=(this.cocDaUnidade(this.getUnidadeValor())||{}).equipePadrao||{};
+    campos.forEach((k,i)=>{ const el=els[i]; if(el && !el.value.trim() && eqp[k]) el.value=eqp[k]; });
+    this.syncRespNomes();
   },
   renderUnidInfo(){
     const info=UNIDADES_INFO[this.getUnidadeValor()];
@@ -2298,6 +2317,7 @@ const App = {
     this.aplicarSuprimir(ex.sup);
     this.aplicarRelOk(ex.relOk);
     this.relTab("coord"); this.novoTab("ident"); this.syncRespNomes();
+    this.preencherEquipePadrao();
     r_met.value=ex.rel?.met||TEXTO_MODELO.met; r_direcao.value=ex.rel?.direcao||TEXTO_MODELO.direcao; r_chefiaSeg.value=ex.rel?.chefiaSeg||TEXTO_MODELO.chefiaSeg;
     r_execPenal.value=ex.rel?.execPenal||TEXTO_MODELO.execPenal; r_ativLab.value=ex.rel?.ativLab||TEXTO_MODELO.ativLab; r_ensino.value=ex.rel?.ensino||TEXTO_MODELO.ensino; r_semiab.value=ex.rel?.semiab||TEXTO_MODELO.semiab;
     r_soc.value=ex.rel?.soc||TEXTO_MODELO.soc; r_psi.value=ex.rel?.psi||TEXTO_MODELO.psi; r_psq.value=ex.rel?.psq||TEXTO_MODELO.psq;
@@ -2782,19 +2802,13 @@ const App = {
      no formulário de novo exame só os campos da equipe que ainda estão vazios */
   aoSincronizarCentros(){
     this.renderCocSel(); this.renderConfig(); this.renderUnidadeSel(this.getUnidadeValor());
-    if(this.editId) return;
-    const eqp=(this.data.cocs.find(c=>c.id===this.coc)||{}).equipePadrao||{};
-    ["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"].forEach(k=>{
-      const el=document.getElementById(k==="coord"?"q_coord":"q_"+k);
-      if(el && !el.value.trim() && eqp[k]) el.value=eqp[k];
-    });
-    if(this.syncRespNomes) this.syncRespNomes();
+    this.preencherEquipePadrao();
   },
   /* botão na aba "Equipe examinadora" do exame: grava os nomes digitados como
      equipe padrão do Centro, para vir preenchida nos próximos exames */
   gravarEquipeComoPadrao(){
-    const c=this.data.cocs.find(x=>x.id===this.coc);
-    if(!c){ alert("Selecione um Centro de Observação antes."); return; }
+    const c=this.cocDaUnidade(this.getUnidadeValor());
+    if(!c){ alert("Selecione a unidade prisional do exame (ou um Centro de Observação) antes."); return; }
     if(!this.podeEditarCoc(c.id)){ alert("Somente o DPP ou a Superintendência Regional deste Centro pode alterar a equipe padrão."); return; }
     const campos=["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"];
     const nova={}; campos.forEach(k=>{ const el=document.getElementById(k==="coord"?"q_coord":"q_"+k); nova[k]=el?el.value.trim():""; });
