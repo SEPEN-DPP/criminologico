@@ -234,7 +234,7 @@
     <label class="f">Nome completo</label><input type="text" id="regNome">
     <label class="f" style="margin-top:10px;">CPF</label><input type="text" id="regCpf" placeholder="Somente números">
     <label class="f" style="margin-top:10px;">Função</label>
-    <select id="regFuncao" onchange="AuthUI.atualizarCamposFuncao()">
+    <select id="regFuncao" onchange="AuthUI.atualizarCamposFuncao('reg')">
       <option value="USUARIO">Usuário (servidor da unidade)</option>
       <option value="PSICOLOGIA">Usuário Psicologia</option>
       <option value="SOCIAL">Usuário Assistente Social</option>
@@ -265,6 +265,38 @@
     <h3>Cadastro em análise</h3>
     <p class="note">Olá, <b><span id="agNome"></span></b>. Sua solicitação de acesso para <b><span id="agUnidade"></span></b> foi enviada e está aguardando aprovação da Direção/Coordenação de Execução Penal da unidade.</p>
     <button class="btn ghost" type="button" onclick="AuthUI.sair()">Sair</button>
+  </div>
+
+  <div class="card" id="authCompletar" style="display:none;">
+    <h3>Completar cadastro</h3>
+    <p class="note">Sua conta de acesso (<b><span id="compEmailInfo"></span></b>) já existe, mas os dados da sua solicitação não chegaram a ser salvos. Preencha novamente para enviar o pedido de aprovação.</p>
+    <div id="authCompletarErro" class="note" style="color:var(--crit); display:none;"></div>
+    <label class="f">Nome completo</label><input type="text" id="compNome">
+    <label class="f" style="margin-top:10px;">CPF</label><input type="text" id="compCpf" placeholder="Somente números">
+    <label class="f" style="margin-top:10px;">Função</label>
+    <select id="compFuncao" onchange="AuthUI.atualizarCamposFuncao('comp')">
+      <option value="USUARIO">Usuário (servidor da unidade)</option>
+      <option value="PSICOLOGIA">Usuário Psicologia</option>
+      <option value="SOCIAL">Usuário Assistente Social</option>
+      <option value="CPEN">CPEN — Coordenação de Execução Penal</option>
+      <option value="DIR">DIR — Diretor(a) da unidade</option>
+      <option value="SR">SR — Superintendente Regional</option>
+      <option value="SR_PSICOLOGIA">SR — Psicólogo(a) de cobertura regional</option>
+      <option value="SR_SOCIAL">SR — Assistente Social de cobertura regional</option>
+      <option value="DPP">DPP — acesso total (central)</option>
+    </select>
+    <div id="compCampoUnidade" style="margin-top:10px;">
+      <label class="f">Unidade prisional</label>
+      <select id="compUnidade"></select>
+    </div>
+    <div id="compCampoSR" style="margin-top:10px; display:none;">
+      <label class="f">Superintendência Regional</label>
+      <select id="compSR"></select>
+    </div>
+    <div class="btnrow" style="margin-top:14px;">
+      <button class="btn" type="button" onclick="AuthUI.completarCadastro()">Enviar solicitação</button>
+      <button class="btn ghost" type="button" onclick="AuthUI.sair()">Sair</button>
+    </div>
   </div>
 </div>
 
@@ -303,7 +335,7 @@
   <button class="on" data-v="dash" onclick="App.tab('dash')">Painel</button>
   <button data-v="lista" onclick="App.abrirListaTudo()">Exames</button>
   <button data-v="cal" onclick="App.tab('cal')">Calendário</button>
-  <button data-v="novo" onclick="App.tab('novo')">Novo exame</button>
+  <button data-v="novo" onclick="App.novoExame()">Novo exame</button>
   <button data-v="config" onclick="App.tab('config')">Configurações</button>
 </nav>
 </div>
@@ -457,7 +489,18 @@
     <div class="row c3">
       <div><label class="f">Juízo da execução</label><input type="text" id="e_juizo" placeholder="ex.: Vara de Execuções Penais da Comarca de..."></div>
       <div><label class="f">Pena total</label><input type="text" id="e_penaTotal" placeholder="ex.: 10 anos, 4 meses e 0 dias"></div>
-      <div><label class="f">Benefício pretendido</label><input type="text" id="e_beneficio" placeholder="ex.: progressão ao regime semiaberto"></div>
+      <div><label class="f">Benefício pretendido</label>
+        <select id="e_beneficioSel" onchange="App.beneficioChange()">
+          <option value="">Selecione…</option>
+          <option value="Progressão ao Regime Semiaberto">Progressão ao Regime Semiaberto</option>
+          <option value="Progressão ao Regime Aberto">Progressão ao Regime Aberto</option>
+          <option value="Livramento Condicional">Livramento Condicional</option>
+          <option value="_outro">Outro (qual?)</option>
+        </select>
+        <div id="e_beneficioOutroWrap" style="display:none; margin-top:6px;">
+          <input type="text" id="e_beneficioOutro" placeholder="Qual benefício?">
+        </div>
+      </div>
     </div>
     <div class="row c2">
       <div><label class="f">Data de início da avaliação</label><input type="date" id="e_dataIni"></div>
@@ -469,9 +512,10 @@
     <p class="note">A data do fato de cada condenação define a triagem legal. Preencha uma entrada por guia — as condenações também são preenchidas automaticamente ao importar o documento do SGPE, no início desta aba.</p>
     <div id="condBox" style="margin-top:10px;"></div>
 
-    <div class="row c2" style="margin-top:6px;">
+    <div class="row c3" style="margin-top:6px;">
       <div><label class="f">Data prevista da progressão (requisito objetivo)</label><input type="date" id="e_dataProg" onchange="App.triagem()"></div>
       <div><label class="f">Prazo-limite para conclusão do exame (automático: 30 dias antes)</label><input type="text" id="e_prazo" readonly style="background:#F1F4F9; font-weight:700;"></div>
+      <div><label class="f">Data-base informada</label><input type="date" id="e_dataBase"></div>
     </div>
 
     <hr class="sep">
@@ -496,6 +540,10 @@
     </div>
 
     <div id="triagemBox" style="margin-top:14px;"></div>
+
+    <div class="btnrow" style="margin-top:14px;">
+      <button class="btn" onclick="App.salvar()">Salvar exame</button>
+    </div>
     </div>
 
     <div class="novopanel" id="np-equipe">
@@ -515,6 +563,7 @@
       <label class="f" style="margin-top:10px;">Outros chefes de serviço <button class="btn sm ghost" style="float:right;" type="button" onclick="App.addChefeExtra()">+ adicionar chefe de serviço</button></label>
       <div id="chefesExtraBox" style="margin-top:8px;"></div>
       <p class="note">Os nomes acima já vêm pré-preenchidos com a equipe padrão do centro (defina em Configurações) — ajuste se este exame tiver outra equipe.</p>
+      <div class="btnrow" id="eqGravarPadraoRow" style="margin-top:6px;"><button class="btn sm ghost" type="button" onclick="App.gravarEquipeComoPadrao()">Gravar estes nomes como equipe padrão do Centro</button></div>
       <p class="note" id="eqSomenteLeituraNota" style="display:none; color:var(--mut);">Os nomes da equipe examinadora são designados pela Superintendência Regional (ou pelo DPP) — esta tela é somente para consulta.</p>
       <p class="note">Vedações: profissionais temporários contratados só para exames; integrantes de eAPP; referência técnica do próprio avaliado (art. 5º, §§ 2º a 4º, da Portaria). Aplicam-se também as regras de impedimento e suspeição do CPP aos integrantes da equipe (art. 5º, §6º, da Portaria; art. 4º da Res. CNPCP 36/2024).</p>
       <label style="display:flex; align-items:flex-start; gap:8px; margin-top:10px; font-size:13.5px;">
@@ -578,7 +627,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_coordNomes">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_coord" style="width:15px; height:15px;" onchange="App.toggleRelOk('coord')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label class="f">III — Metodologia (declaração expressa dos métodos, instrumentos, datas das entrevistas e remissão fundamentada ao exame de ingresso)</label>
       <textarea id="r_met"></textarea>
@@ -588,7 +637,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_direcaoNome">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_direcao" style="width:15px; height:15px;" onchange="App.toggleRelOk('direcao')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_direcao" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('direcao')">
@@ -602,7 +651,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_chefiaSegNome">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_chefiaSeg" style="width:15px; height:15px;" onchange="App.toggleRelOk('chefiaSeg')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_chefiaSeg" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('chefiaSeg')">
@@ -616,7 +665,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_execPenalNome">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_execPenal" style="width:15px; height:15px;" onchange="App.toggleRelOk('execPenal')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_execPenal" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('execPenal')">
@@ -630,7 +679,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_ativLabNome">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_ativLab" style="width:15px; height:15px;" onchange="App.toggleRelOk('ativLab')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_ativLab" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('ativLab')">
@@ -644,7 +693,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_ensinoNome">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_ensino" style="width:15px; height:15px;" onchange="App.toggleRelOk('ensino')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_ensino" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('ensino')">
@@ -658,7 +707,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_semiabNome">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_semiab" style="width:15px; height:15px;" onchange="App.toggleRelOk('semiab')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_semiab" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('semiab')">
@@ -672,7 +721,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_psqNome">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_psq" style="width:15px; height:15px;" onchange="App.toggleRelOk('psq')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
         <input type="checkbox" id="sup_psq" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('psq')">
@@ -687,7 +736,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_psiNome">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_psi" style="width:15px; height:15px;" onchange="App.toggleRelOk('psi')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label class="f">8 — Psicologia</label>
       <textarea id="r_psi"></textarea>
@@ -728,7 +777,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_socNome">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_soc" style="width:15px; height:15px;" onchange="App.toggleRelOk('soc')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label class="f">9 — Serviço Social</label>
       <textarea id="r_soc"></textarea>
@@ -738,7 +787,7 @@
       <p class="note">Responsável: <span class="resp-tag" id="rp_sinNomes">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_sin" style="width:15px; height:15px;" onchange="App.toggleRelOk('sin')">
-        <span>Seção concluída — marcar quando o(a) responsável terminar de preencher</span>
+        <span>Seção concluída</span>
       </label>
       <label class="f">10 — Parecer</label>
       <textarea id="r_sin"></textarea>
@@ -755,7 +804,6 @@
 
     <div class="btnrow">
       <button class="btn" onclick="App.salvar()">Salvar exame</button>
-      <button class="btn ghost" onclick="App.verificarRelatorio()">Verificar vedações no relatório</button>
       <button class="btn ghost" onclick="App.imprimir()">Gerar PDF / imprimir</button>
       <button class="btn ghost" id="btnConcluir" onclick="App.concluir()" style="display:none;">Marcar como concluído</button>
       <button class="btn ghost" id="btnReabrir" onclick="App.reabrir()" style="display:none;">Reabrir exame</button>
@@ -1423,6 +1471,8 @@ const App = {
     });
     const notaEquipe=document.getElementById("eqSomenteLeituraNota");
     if(notaEquipe) notaEquipe.style.display = podeDesignarEquipe ? "none" : "block";
+    const rowPadrao=document.getElementById("eqGravarPadraoRow");
+    if(rowPadrao) rowPadrao.style.display = podeDesignarEquipe ? "" : "none";
 
     if(!perfil || perfil.perfil === "DPP"){
       this._meuCocId = null;
@@ -1437,10 +1487,6 @@ const App = {
          só o "SR" (administrativo) e o DPP veem Configurações */
       const btnConfig=document.querySelector('nav.tabs button[data-v="config"]');
       if(btnConfig) btnConfig.style.display="none";
-    }
-    if(perfil.perfil === "SR"){
-      const btnNovo=document.querySelector('nav.tabs button[data-v="novo"]');
-      if(btnNovo) btnNovo.style.display="none";
     }
     if(perfil.perfil==="DIR" || perfil.perfil==="CPEN"){
       /* DIR/CPEN nao precisam ver os Centros de Observacao (equipe padrao,
@@ -1719,12 +1765,16 @@ const App = {
       novo.prof=document.getElementById("calfProf").value.trim();
     }
     ex.etapas[tipo]=novo;
-    this.persist();
     if(this.editId===exId) this.renderEtapas(ex.etapas);
     const nomeEx=ex.nome;
     this.calFecharForm(true);
     this.renderCalendario();
-    alert("Entrevista agendada para "+nomeEx+".");
+    /* grava no Firestore — sem isso o agendamento ficava só na memória do navegador e
+       sumia na próxima sincronização (onSnapshot) ou ao recarregar a página */
+    if(!window.ExamesFS){ alert("Entrevista agendada para "+nomeEx+"."); return; }
+    window.ExamesFS.salvar(ex)
+      .then(()=>alert("Entrevista agendada para "+nomeEx+"."))
+      .catch(e=>alert("Falhou ao salvar o agendamento no servidor: "+(e?.code||e?.message||e)));
   },
   renderDashGeral(){
     document.getElementById("painelUnidadeAtualBox").innerHTML="";
@@ -1813,6 +1863,27 @@ const App = {
     document.getElementById("e_unidInfo").innerHTML = info
       ? `${info.endereco}${info.telefone?(" — Fone: "+info.telefone):""}${info.diretor?(" — Diretor(a): "+info.diretor):""}`
       : "";
+  },
+  /* ---------- benefício pretendido (menu com opção "Outro" em texto livre) ---------- */
+  beneficioChange(){
+    document.getElementById("e_beneficioOutroWrap").style.display =
+      document.getElementById("e_beneficioSel").value==="_outro" ? "block" : "none";
+  },
+  getBeneficio(){
+    const v=document.getElementById("e_beneficioSel").value;
+    return v==="_outro" ? document.getElementById("e_beneficioOutro").value.trim() : v;
+  },
+  setBeneficio(txt){
+    const sel=document.getElementById("e_beneficioSel");
+    const outro=document.getElementById("e_beneficioOutro");
+    /* exames antigos têm texto livre (ex.: "progressão ao regime semi-aberto") — casa com a
+       opção do menu ignorando maiúsculas, acentos, hífens e espaços; senão vai para "Outro" */
+    const norm=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[\s\-]+/g,"").toLowerCase();
+    const opc=[...sel.options].map(o=>o.value).find(v=>v && v!=="_outro" && norm(v)===norm(txt));
+    if(!txt){ sel.value=""; outro.value=""; }
+    else if(opc){ sel.value=opc; outro.value=""; }
+    else { sel.value="_outro"; outro.value=txt; }
+    this.beneficioChange();
   },
   modalChange(){
     document.getElementById("modalNote").style.display =
@@ -2013,10 +2084,21 @@ const App = {
   },
 
   /* ---------- CRUD ---------- */
+  novoExame(){
+    const nomeAtual = (document.getElementById("e_nome")||{}).value?.trim();
+    if(nomeAtual){
+      const msg = this.editId
+        ? `Você está editando o exame de "${nomeAtual}". Iniciar um novo exame vai limpar este formulário — salve antes se ainda não salvou. Continuar?`
+        : `Há dados preenchidos no formulário (ex.: "${nomeAtual}") que ainda não foram salvos. Iniciar um novo exame vai apagá-los. Continuar?`;
+      if(!confirm(msg)) return;
+    }
+    this.novo();
+    this.tab("novo");
+  },
   novo(){
     this.editId=null;
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
-    ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_beneficio","e_dataIni","e_dataConcl",
+    ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_dataBase","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_dataIni","e_dataConcl",
      "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
      "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_semiab","r_soc","r_psi","r_psq","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
     r_met.value=TEXTO_MODELO.met;
@@ -2025,6 +2107,7 @@ const App = {
     r_psq.value=TEXTO_MODELO.psq; r_psi.value=TEXTO_MODELO.psi; r_soc.value=TEXTO_MODELO.soc;
     document.getElementById("e_tipo").value="progressao";
     document.getElementById("e_regime").value="";
+    this.setBeneficio("");
     document.getElementById("e_faltaNaoReab").value="";
     document.getElementById("e_exameAnterior").value="nao";
     document.getElementById("q_mpQuesitos").value="nao";
@@ -2128,14 +2211,17 @@ const App = {
   salvar(){
     const nome=document.getElementById("e_nome").value.trim();
     if(!nome){ alert("Informe o nome do avaliado."); return; }
+    const unid=this.getUnidadeValor();
+    if(!unid){ alert("Selecione a unidade prisional de custódia antes de salvar."); return; }
     const ex = this.editId ? this.data.exames.find(x=>x.id===this.editId) : {id:uid(), coc:this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
     Object.assign(ex,{
       nome, mat:document.getElementById("e_mat").value.trim(),
-      unid:this.getUnidadeValor(),
+      unid,
       proc:document.getElementById("e_proc").value.trim(),
       sgpe:document.getElementById("e_sgpe").value.trim(),
       tipo:document.getElementById("e_tipo").value,
       dataProg:document.getElementById("e_dataProg").value,
+      dataBase:document.getElementById("e_dataBase").value,
       faltaNaoReab:document.getElementById("e_faltaNaoReab").value,
       exameAnterior:document.getElementById("e_exameAnterior").value,
       modal:document.getElementById("e_modal").value,
@@ -2144,7 +2230,7 @@ const App = {
       regime:document.getElementById("e_regime").value,
       juizo:document.getElementById("e_juizo").value.trim(),
       penaTotal:document.getElementById("e_penaTotal").value.trim(),
-      beneficio:document.getElementById("e_beneficio").value.trim(),
+      beneficio:this.getBeneficio(),
       dataIni:document.getElementById("e_dataIni").value,
       dataConcl:document.getElementById("e_dataConcl").value,
       conds:this.lerConds(),
@@ -2184,7 +2270,7 @@ const App = {
     document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(ex.status==="concluido"?" (concluído)":"");
     e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_proc.value=ex.proc||""; document.getElementById("e_sgpe").value=ex.sgpe||"";
     this.renderUnidadeSel(ex.unid||"");
-    e_tipo.value=ex.tipo||"progressao"; e_dataProg.value=ex.dataProg||""; e_obs.value=ex.obs||"";
+    e_tipo.value=ex.tipo||"progressao"; e_dataProg.value=ex.dataProg||""; document.getElementById("e_dataBase").value=ex.dataBase||""; e_obs.value=ex.obs||"";
     document.getElementById("e_faltaNaoReab").value=ex.faltaNaoReab||"";
     document.getElementById("e_exameAnterior").value=ex.exameAnterior||"nao";
     document.getElementById("e_filiacao").value=ex.filiacao||"";
@@ -2192,7 +2278,7 @@ const App = {
     document.getElementById("e_regime").value=ex.regime||"";
     document.getElementById("e_juizo").value=ex.juizo||"";
     document.getElementById("e_penaTotal").value=ex.penaTotal||"";
-    document.getElementById("e_beneficio").value=ex.beneficio||"";
+    this.setBeneficio(ex.beneficio||"");
     document.getElementById("e_dataIni").value=ex.dataIni||"";
     document.getElementById("e_dataConcl").value=ex.dataConcl||"";
     document.getElementById("e_modal").value=ex.modal||"presencial"; this.modalChange();
@@ -2422,21 +2508,57 @@ const App = {
     });
     return flags;
   },
-  highlight(texto){
+  /* frases dos textos-modelo (TEXTO_MODELO) que citam termos vedados só para negá-los
+     (ex.: "...não constituindo ... juízo de periculosidade ou prognóstico de reincidência.").
+     O verificador as ignora enquanto estiverem intactas; se alguém editar a frase, ela
+     volta a ser verificada normalmente. */
+  frasesPadraoIsentas(){
+    if(this._frasesIsentas) return this._frasesIsentas;
+    const frases=[];
+    Object.values(TEXTO_MODELO).forEach(txt=>{
+      txt.split(/\n|(?<=[.!?])\s+/).forEach(f=>{
+        f=f.trim();
+        if(f && VEDADOS.some(v=>new RegExp(v.re.source,"i").test(f))) frases.push(f);
+      });
+    });
+    this._frasesIsentas=frases.map(f=>new RegExp(f.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s+"),"g"));
+    return this._frasesIsentas;
+  },
+  /* troca cada frase isenta por um caractere de uso privado (U+E000…), para o scan não
+     enxergá-la; "trechos" guarda o original para devolver ao texto exibido */
+  isentarFrasesPadrao(texto){
+    const trechos=[];
+    let mascarado=texto;
+    this.frasesPadraoIsentas().forEach(re=>{
+      mascarado=mascarado.replace(re, m=>{ trechos.push(m); return String.fromCharCode(0xE000+trechos.length-1); });
+    });
+    return {mascarado, trechos};
+  },
+  highlight(texto, trechos){
     let html=texto.replace(/&/g,"&amp;").replace(/</g,"&lt;");
     VEDADOS.forEach(v=>{ html=html.replace(new RegExp(v.re.source,"gi"), s=>"<mark>"+s+"</mark>"); });
+    if(trechos) html=html.replace(/[-]/g, c=>esc(trechos[c.charCodeAt(0)-0xE000]||""));
     return html;
   },
-  resultadoHTML(flags, texto){
-    if(!flags.length) return `<div class="allclear">✓ Nenhuma expressão vedada localizada. Revisão profissional continua indispensável — o verificador não substitui a leitura crítica.</div>`;
-    return `<p style="font-weight:700; color:var(--crit); margin-bottom:10px;">${flags.length} apontamento(s) para revisão:</p>`+
-      flags.slice(0,60).map(f=>`<div class="flag"><b>"${f.termo}"</b> — vedação ${f.ved}<span class="ctx">${f.ctx}</span></div>`).join("")+
-      `<h3 style="margin:14px 0 8px; color:var(--navy);">Texto com destaques</h3><div class="preview">${this.highlight(texto)}</div>`;
+  resultadoHTML(flags, texto, trechos){
+    const notaIsentas = trechos&&trechos.length ? `<p class="note">${trechos.length} frase(s) padrão dos textos-modelo que apenas <i>negam</i> prognóstico/periculosidade não foram apontadas. Se forem editadas, voltam a ser verificadas.</p>` : "";
+    if(!flags.length) return `<div class="allclear">✓ Nenhuma expressão vedada localizada. Revisão profissional continua indispensável — o verificador não substitui a leitura crítica.</div>`+notaIsentas;
+    return `<p style="font-weight:700; color:var(--crit); margin-bottom:10px;">${flags.length} apontamento(s) para revisão:</p>`+notaIsentas+
+      flags.slice(0,60).map(f=>`<div class="flag"><b>"${esc(f.termo)}"</b> — vedação ${f.ved}<span class="ctx">${esc(f.ctx)}</span></div>`).join("")+
+      `<h3 style="margin:14px 0 8px; color:var(--navy);">Texto com destaques</h3><div class="preview">${this.highlight(texto, trechos)}</div>`;
   },
   verificarRelatorio(){
-    const t=[r_met.value,r_soc.value,r_psi.value,r_psq.value,r_sin.value].join("\n\n");
-    document.getElementById("verifInline").innerHTML=this.resultadoHTML(this.scan(t), t);
-    return this.scan(t);
+    /* varre todo texto que vai para o relatório: as seções suprimidas ficam de fora
+       porque não são impressas; as respostas aos quesitos entram porque são impressas */
+    const sup=this.lerSuprimir();
+    const secoes=["met","direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","soc","sin","diverg","limit"]
+      .filter(k=>!sup[k]).map(k=>document.getElementById("r_"+k).value);
+    const t=[...secoes, ...this.lerQuesitos().map(q=>q.resposta)].filter(Boolean).join("\n\n");
+    const {mascarado, trechos}=this.isentarFrasesPadrao(t);
+    const flags=this.scan(mascarado);
+    flags.forEach(f=>{ f.ctx=f.ctx.replace(/[-]/g,"[frase padrão]"); });
+    document.getElementById("verifInline").innerHTML=this.resultadoHTML(flags, mascarado, trechos);
+    return flags;
   },
 
   /* ---------- impressão / download ---------- */
@@ -2496,16 +2618,36 @@ const App = {
       ${unidInfo?`<p style="text-align:center; font-size:10pt; margin-top:-6px; color:#333;">${unidInfo.diretor?("Diretor(a): "+esc(unidInfo.diretor)+" — "):""}${esc(unidInfo.endereco)}${unidInfo.telefone?(" — Fone: "+esc(unidInfo.telefone)):""}${unidInfo.email?(" — E-mail: "+esc(unidInfo.email)):""}</p>`:""}
       <h2 style="margin-top:14px;">RELATÓRIO DE EXAME CRIMINOLÓGICO</h2>
       <h3>I — Identificação e dados da demanda</h3>
-      <p><b>Avaliado:</b> ${esc(e_nome.value)} &nbsp; <b>Matrícula/IPEN/Prontuário:</b> ${esc(e_mat.value)||"—"}<br>
-      ${document.getElementById("e_filiacao").value.trim()?`<b>Filiação:</b> ${esc(document.getElementById("e_filiacao").value.trim())}<br>`:""}
-      ${document.getElementById("e_nasc").value?`<b>Data de nascimento:</b> ${fmt(document.getElementById("e_nasc").value)}<br>`:""}
-      <b>Unidade de custódia:</b> ${esc(this.getUnidadeValor())||"—"} &nbsp; <b>Regime atual:</b> ${regimeLabel}<br>
-      <b>Processo de execução:</b> ${esc(e_proc.value)||"—"}${document.getElementById("e_juizo").value.trim()?(" &nbsp; <b>Juízo da execução:</b> "+esc(document.getElementById("e_juizo").value.trim())):""}<br>
-      ${document.getElementById("e_sgpe").value.trim()?`<b>SGPE:</b> ${esc(document.getElementById("e_sgpe").value.trim())}<br>`:""}
-      ${document.getElementById("e_penaTotal").value.trim()?`<b>Pena total:</b> ${esc(document.getElementById("e_penaTotal").value.trim())}<br>`:""}
-      ${document.getElementById("e_beneficio").value.trim()?`<b>Benefício pretendido:</b> ${esc(document.getElementById("e_beneficio").value.trim())}<br>`:""}
-      ${document.getElementById("e_dataIni").value||document.getElementById("e_dataConcl").value?`<b>Avaliação:</b> início em ${fmt(document.getElementById("e_dataIni").value)} — conclusão em ${fmt(document.getElementById("e_dataConcl").value)}<br>`:""}
-      <b>Finalidade:</b> exame criminológico para ${fin}.</p>
+      ${(()=>{
+        const dataBaseVal=document.getElementById("e_dataBase").value;
+        const juizoVal=document.getElementById("e_juizo").value.trim();
+        const sgpeVal=document.getElementById("e_sgpe").value.trim();
+        const filiacaoVal=document.getElementById("e_filiacao").value.trim();
+        const penaTotalVal=document.getElementById("e_penaTotal").value.trim();
+        const dataIniVal=document.getElementById("e_dataIni").value, dataConclVal=document.getElementById("e_dataConcl").value;
+        const linhas=[
+          ["Nome completo", esc(e_nome.value)||"—"],
+          ["IPEN / Matrícula / Prontuário", esc(e_mat.value)||"—"],
+          filiacaoVal?["Filiação", esc(filiacaoVal)]:null,
+          ["Processo de Execução Penal", esc(e_proc.value)||"—"],
+          juizoVal?["Juízo da execução", esc(juizoVal)]:null,
+          sgpeVal?["SGPE", esc(sgpeVal)]:null,
+          ["Data de nascimento", document.getElementById("e_nasc").value?fmt(document.getElementById("e_nasc").value):"—"],
+          ["Unidade prisional", esc(this.getUnidadeValor())||"—"],
+          ["Regime atual", regimeLabel],
+          ["Data-base informada", dataBaseVal?fmt(dataBaseVal):"—"],
+          penaTotalVal?["Pena total", esc(penaTotalVal)]:null,
+          ["Benefício pretendido", esc(this.getBeneficio())||"—"],
+          ["Origem da demanda", fin],
+          ["Período de avaliação", (dataIniVal||dataConclVal)?`${fmt(dataIniVal)} a ${fmt(dataConclVal)}`:"—"],
+          ["Data da entrevista 1", et.ent1?.data?fmt(et.ent1.data):"—"],
+          ["Data da entrevista 2", et.ent2?.data?fmt(et.ent2.data):"—"],
+          ["Data da entrevista com alguém do convívio", et.entConv?.data?fmt(et.entConv.data):"—"],
+        ].filter(Boolean);
+        return `<table style="width:100%; border-collapse:collapse; margin:8px 0 12px; font-size:10.5pt;">
+          ${linhas.map(([label,val])=>`<tr><td style="border:1px solid #999; padding:4px 8px; font-weight:bold; width:38%; vertical-align:top;">${label}:</td><td style="border:1px solid #999; padding:4px 8px;">${val}</td></tr>`).join("")}
+        </table>`;
+      })()}
       ${conds.length?`<p><b>Condenações (data do fato):</b><br>${conds.map(c=>`— ${esc(c.crime)||"(crime)"} ${c.artigo?("("+esc(c.artigo)+")"):""} — fato em ${fmt(c.dataFato)}`).join("<br>")}</p>`:""}
 
       <h3>II — Delimitação da demanda, garantias e quesitos</h3>
@@ -2606,7 +2748,7 @@ const App = {
   },
   renomearCoc(id,nome){
     const c=this.data.cocs.find(x=>x.id===id); if(!c||!nome.trim()) return;
-    c.nome=nome.trim(); this.persist(); this.renderCocSel();
+    c.nome=nome.trim(); this.persistCoc(c); this.renderCocSel();
     /* atualiza só o texto do resumo (sem re-renderizar tudo, pra não recolher o painel que a pessoa está editando) */
     const i=this.data.cocs.indexOf(c);
     const resumo=document.querySelector(`#cocBox details[data-coc-id="${id}"] summary`);
@@ -2615,21 +2757,65 @@ const App = {
   atualizarEquipePadrao(id,campo,valor){
     const c=this.data.cocs.find(x=>x.id===id); if(!c) return;
     c.equipePadrao=c.equipePadrao||{}; c.equipePadrao[campo]=valor.trim();
+    this.persistCoc(c);
+  },
+  /* A configuração dos Centros (equipe padrão, unidades, nome) antes ficava só no
+     localStorage deste navegador — sumia em outro computador, outro login ou ao
+     limpar o cache. Agora cada alteração também é gravada no Firestore
+     (coleção "centros"), que é a fonte compartilhada entre todos os usuários. */
+  podeEditarCoc(id){
+    const p=this._meuPerfil;
+    if(!p) return false;
+    if(p.perfil==="DPP") return true;
+    return p.perfil==="SR" && this._meuCocId===id;
+  },
+  persistCoc(c){
     this.persist();
+    if(!window.CentrosFS || !this.podeEditarCoc(c.id)) return Promise.resolve(false);
+    return window.CentrosFS.salvar(c).then(()=>true).catch(e=>{
+      console.error("Falha ao gravar Centro no servidor:", e);
+      alert("Não foi possível gravar a configuração do Centro no servidor ("+(e.code||e.message)+"). A alteração ficou só neste navegador — verifique a conexão e tente de novo.");
+      return false;
+    });
+  },
+  /* chamado depois que a configuração dos Centros chega do servidor: preenche
+     no formulário de novo exame só os campos da equipe que ainda estão vazios */
+  aoSincronizarCentros(){
+    this.renderCocSel(); this.renderConfig(); this.renderUnidadeSel(this.getUnidadeValor());
+    if(this.editId) return;
+    const eqp=(this.data.cocs.find(c=>c.id===this.coc)||{}).equipePadrao||{};
+    ["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"].forEach(k=>{
+      const el=document.getElementById(k==="coord"?"q_coord":"q_"+k);
+      if(el && !el.value.trim() && eqp[k]) el.value=eqp[k];
+    });
+    if(this.syncRespNomes) this.syncRespNomes();
+  },
+  /* botão na aba "Equipe examinadora" do exame: grava os nomes digitados como
+     equipe padrão do Centro, para vir preenchida nos próximos exames */
+  gravarEquipeComoPadrao(){
+    const c=this.data.cocs.find(x=>x.id===this.coc);
+    if(!c){ alert("Selecione um Centro de Observação antes."); return; }
+    if(!this.podeEditarCoc(c.id)){ alert("Somente o DPP ou a Superintendência Regional deste Centro pode alterar a equipe padrão."); return; }
+    const campos=["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"];
+    const nova={}; campos.forEach(k=>{ const el=document.getElementById(k==="coord"?"q_coord":"q_"+k); nova[k]=el?el.value.trim():""; });
+    if(!campos.some(k=>nova[k])){ alert("Preencha ao menos um nome da equipe antes de gravar."); return; }
+    if(!confirm("Gravar estes nomes como equipe padrão de "+c.nome+"?\n\nEles passarão a vir preenchidos em todos os novos exames deste Centro, para todos os usuários.")) return;
+    c.equipePadrao={...(c.equipePadrao||{}), ...nova};
+    this.persistCoc(c).then(ok=>{ if(ok){ alert("Equipe padrão gravada para "+c.nome+"."); this.renderConfig(); } });
   },
   addUnidade(id){
     const inp=document.getElementById("novaUnid_"+id);
     const v=inp.value.trim(); if(!v) return;
     const c=this.data.cocs.find(x=>x.id===id); if(!c) return;
     c.unidades=c.unidades||[]; c.unidades.push(v);
-    this.persist(); this.renderConfig();
+    this.persistCoc(c); this.renderConfig();
     if(id===this.coc) this.renderUnidadeSel(this.getUnidadeValor());
   },
   removerUnidade(id,idx){
     if(!confirm("Remover esta unidade da lista?")) return;
     const c=this.data.cocs.find(x=>x.id===id); if(!c) return;
     c.unidades.splice(idx,1);
-    this.persist(); this.renderConfig();
+    this.persistCoc(c); this.renderConfig();
     if(id===this.coc) this.renderUnidadeSel(this.getUnidadeValor());
   },
   exportar(){
@@ -2650,7 +2836,7 @@ const App = {
         if(!d.cocs) throw new Error("estrutura inválida");
         d.cocs.forEach(c=>{ if(!c.unidades) c.unidades = (DEFAULT_COCS.find(x=>x.id===c.id)||{unidades:[]}).unidades; });
         this.data.cocs=d.cocs;
-        this.persist(); this.coc=this.data.cocs[0].id;
+        this.persist(); this.data.cocs.forEach(c=>this.persistCoc(c)); this.coc=this.data.cocs[0].id;
         this.renderCocSel(); this.renderConfig(); this.renderDash(); this.renderLista(); this.renderUnidadeSel("");
         alert("Backup dos Centros de Observação importado. Exames não são afetados: eles ficam no servidor (Firestore), não neste arquivo.");
       }catch(e){ alert("Arquivo inválido: "+e.message); } };
@@ -2733,33 +2919,39 @@ function podeAprovar(u){
 const AuthUI = {
   mostrar(tela){
     document.getElementById("authCarregando").style.display="none";
-    ["login","registro","aguardando"].forEach(t=>{
+    ["login","registro","aguardando","completar"].forEach(t=>{
       document.getElementById("auth"+t.charAt(0).toUpperCase()+t.slice(1)).style.display = (t===tela) ? "block" : "none";
     });
-    if(tela==="registro"){ this.popularSelects(); this.atualizarCamposFuncao(); }
+    if(tela==="registro"){ this.popularSelects("reg"); this.atualizarCamposFuncao("reg"); }
+    if(tela==="completar"){
+      this.popularSelects("comp"); this.atualizarCamposFuncao("comp");
+      document.getElementById("compEmailInfo").textContent = auth.currentUser?.email || "";
+    }
   },
-  popularSelects(){
-    const selU = document.getElementById("regUnidade");
-    const selSR = document.getElementById("regSR");
+  popularSelects(prefix){
+    const selU = document.getElementById(prefix+"Unidade");
+    const selSR = document.getElementById(prefix+"SR");
     if(!selU.options.length) selU.innerHTML = optsUnidadesAgrupadas(null);
     if(!selSR.options.length) selSR.innerHTML = Object.keys(window.SR_INFO||{}).sort().map(sr=>`<option value="${sr}">${nomeSR(sr)}</option>`).join("");
   },
-  atualizarCamposFuncao(){
-    const f = document.getElementById("regFuncao").value;
-    document.getElementById("regCampoUnidade").style.display = ([...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(f)) ? "block" : "none";
-    document.getElementById("regCampoSR").style.display = (f==="SR"||PERFIS_SR_COBERTURA.includes(f)) ? "block" : "none";
-    const notas = {
-      USUARIO: "O cadastro fica pendente até análise/aprovação pelo responsável.",
-      PSICOLOGIA: "O cadastro fica pendente até análise/aprovação pelo responsável.",
-      SOCIAL: "O cadastro fica pendente até análise/aprovação pelo responsável.",
-      CPEN: "O cadastro fica pendente até ser aprovado pela Superintendência Regional ou pelo DPP.",
-      DIR: "O cadastro fica pendente até ser aprovado pela Superintendência Regional ou pelo DPP.",
-      SR: "Contas de Superintendência só são liberadas diretamente pelo DPP.",
-      SR_PSICOLOGIA: "Contas de cobertura regional só são liberadas diretamente pelo DPP.",
-      SR_SOCIAL: "Contas de cobertura regional só são liberadas diretamente pelo DPP.",
-      DPP: "Contas de acesso total só são liberadas por quem já é DPP.",
-    };
-    document.getElementById("regAprovacaoNota").textContent = notas[f] || "";
+  atualizarCamposFuncao(prefix){
+    const f = document.getElementById(prefix+"Funcao").value;
+    document.getElementById(prefix+"CampoUnidade").style.display = ([...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(f)) ? "block" : "none";
+    document.getElementById(prefix+"CampoSR").style.display = (f==="SR"||PERFIS_SR_COBERTURA.includes(f)) ? "block" : "none";
+    if(prefix==="reg"){
+      const notas = {
+        USUARIO: "O cadastro fica pendente até análise/aprovação pelo responsável.",
+        PSICOLOGIA: "O cadastro fica pendente até análise/aprovação pelo responsável.",
+        SOCIAL: "O cadastro fica pendente até análise/aprovação pelo responsável.",
+        CPEN: "O cadastro fica pendente até ser aprovado pela Superintendência Regional ou pelo DPP.",
+        DIR: "O cadastro fica pendente até ser aprovado pela Superintendência Regional ou pelo DPP.",
+        SR: "Contas de Superintendência só são liberadas diretamente pelo DPP.",
+        SR_PSICOLOGIA: "Contas de cobertura regional só são liberadas diretamente pelo DPP.",
+        SR_SOCIAL: "Contas de cobertura regional só são liberadas diretamente pelo DPP.",
+        DPP: "Contas de acesso total só são liberadas por quem já é DPP.",
+      };
+      document.getElementById("regAprovacaoNota").textContent = notas[f] || "";
+    }
   },
   erro(campo, msg){
     const el = document.getElementById(campo);
@@ -2793,6 +2985,25 @@ const AuthUI = {
         criadoEm: serverTimestamp(),
       });
     }catch(e){ this.erro("authRegistroErro", traduzErroAuth(e)); }
+  },
+  async completarCadastro(){
+    this.erro("authCompletarErro","");
+    const nome = document.getElementById("compNome").value.trim();
+    const cpf = document.getElementById("compCpf").value.replace(/\D/g,"");
+    const funcao = document.getElementById("compFuncao").value;
+    const unidade = ([...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(funcao)) ? document.getElementById("compUnidade").value : null;
+    const sr = (funcao==="SR"||PERFIS_SR_COBERTURA.includes(funcao)) ? document.getElementById("compSR").value : (unidade ? srDaUnidade(unidade) : null);
+    if(!nome || (funcao!=="DPP" && !unidade && !sr)){
+      this.erro("authCompletarErro","Preencha todos os campos."); return;
+    }
+    try{
+      await setDoc(doc(db,"usuarios",meuUid), {
+        nome, cpf, email: auth.currentUser.email, unidade: unidade||null, sr: sr||null,
+        perfilSolicitado: funcao, perfil: null, status: "PENDENTE",
+        criadoEm: serverTimestamp(),
+      });
+      location.reload();
+    }catch(e){ this.erro("authCompletarErro", traduzErroAuth(e)); }
   },
   async resetSenha(){
     const email = document.getElementById("loginEmail").value.trim();
@@ -3094,7 +3305,7 @@ const ExamesFS = {
     if(unsubscribeExames){ unsubscribeExames(); unsubscribeExames=null; }
     let q;
     if(perfil.perfil === "DPP") q = collection(db,"exames");
-    else if(perfil.perfil === "SR") q = query(collection(db,"exames"), where("sr","==", perfil.sr));
+    else if(perfil.perfil === "SR" || PERFIS_SR_COBERTURA.includes(perfil.perfil)) q = query(collection(db,"exames"), where("sr","==", perfil.sr));
     else q = query(collection(db,"exames"), where("unidade","==", perfil.unidade));
     unsubscribeExames = onSnapshot(q, (snap)=>{
       window.App.data.exames = snap.docs.map(d=>({ id:d.id, ...d.data() }));
@@ -3111,6 +3322,38 @@ const ExamesFS = {
   },
 };
 window.ExamesFS = ExamesFS;
+
+/* ---------- Centros de Observação: configuração compartilhada no Firestore ---------- */
+const CAMPOS_CENTRO = ["nome","unidades","equipePadrao"];
+const CentrosFS = {
+  async salvar(c){
+    const payload = { atualizadoEm: serverTimestamp(), atualizadoPor: meuUid || null };
+    CAMPOS_CENTRO.forEach(k=>{ if(c[k]!==undefined) payload[k]=c[k]; });
+    await setDoc(doc(db,"centros", c.id), payload, { merge: true });
+  },
+  async carregar(){
+    let snap;
+    try{ snap = await getDocs(collection(db,"centros")); }
+    catch(e){ console.error("Falha ao carregar Centros do servidor:", e); return; }
+    const remotos = {}; snap.docs.forEach(d=>{ remotos[d.id]=d.data(); });
+    const cocs = window.App.data.cocs;
+    for(const c of cocs){
+      const r = remotos[c.id];
+      if(r){
+        /* servidor manda: é a versão compartilhada por todos os usuários */
+        CAMPOS_CENTRO.forEach(k=>{ if(r[k]!==undefined) c[k]=r[k]; });
+      }else if(window.App.podeEditarCoc(c.id)){
+        /* ainda não existe no servidor: sobe o que estiver neste navegador
+           (migração da equipe padrão que antes ficava só no localStorage) */
+        const temEquipe = Object.values(c.equipePadrao||{}).some(v=>String(v||"").trim());
+        if(temEquipe){ try{ await CentrosFS.salvar(c); }catch(e){ console.error("Falha ao migrar Centro "+c.id+":", e); } }
+      }
+    }
+    window.App.persist();
+    window.App.aoSincronizarCentros();
+  },
+};
+window.CentrosFS = CentrosFS;
 
 /* ---------- Boot / roteamento por estado de autenticação ---------- */
 onAuthStateChanged(auth, async (usuarioFirebase) => {
@@ -3129,13 +3372,23 @@ onAuthStateChanged(auth, async (usuarioFirebase) => {
     perfilDoc = snap.exists() ? snap.data() : null;
   }catch(e){ console.error("Falha ao carregar perfil:", e); }
 
-  if(!perfilDoc || perfilDoc.status!=="ATIVO" || !perfilDoc.perfil){
+  if(!perfilDoc){
+    /* a conta de login existe (Firebase Auth) mas o documento em usuarios/{uid}
+       nunca chegou a ser criado — normalmente porque o autocadastro caiu no
+       meio do caminho (ex.: regra do Firestore recusou a gravação). Sem essa
+       tela a pessoa fica travada pra sempre: não pode se recadastrar (e-mail
+       já em uso) nem aparece pendente pra ninguém aprovar. */
     document.getElementById("appShell").style.display = "none";
     document.getElementById("authShell").style.display = "block";
-    document.getElementById("agNome").textContent = perfilDoc?.nome || usuarioFirebase.email;
-    document.getElementById("agUnidade").textContent = perfilDoc
-      ? (PERFIL_LABEL[perfilDoc.perfilSolicitado]||perfilDoc.perfilSolicitado) + (perfilDoc.unidade ? (" — "+perfilDoc.unidade) : (perfilDoc.sr ? (" — "+nomeSR(perfilDoc.sr)) : ""))
-      : "";
+    AuthUI.mostrar("completar");
+    return;
+  }
+  if(perfilDoc.status!=="ATIVO" || !perfilDoc.perfil){
+    document.getElementById("appShell").style.display = "none";
+    document.getElementById("authShell").style.display = "block";
+    document.getElementById("agNome").textContent = perfilDoc.nome || usuarioFirebase.email;
+    document.getElementById("agUnidade").textContent =
+      (PERFIL_LABEL[perfilDoc.perfilSolicitado]||perfilDoc.perfilSolicitado) + (perfilDoc.unidade ? (" — "+perfilDoc.unidade) : (perfilDoc.sr ? (" — "+nomeSR(perfilDoc.sr)) : ""));
     AuthUI.mostrar("aguardando");
     return;
   }
@@ -3149,6 +3402,7 @@ onAuthStateChanged(auth, async (usuarioFirebase) => {
   window.App.init();
   window.App.aplicarEscopoPerfil(meuPerfilDoc);
   ExamesFS.subscribe(meuPerfilDoc);
+  CentrosFS.carregar();
   AuthUI.atualizarBotaoUsuario(meuPerfilDoc);
   UsuariosUI._cache = [];
   NotifUI.render();

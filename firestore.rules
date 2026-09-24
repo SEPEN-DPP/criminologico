@@ -73,10 +73,22 @@ service cloud.firestore {
         && resource.data.perfil in ['USUARIO','PSICOLOGIA','SOCIAL']
         && resource.data.unidade == perfilAtual().unidade;
     }
-    // Exames: USUARIO/DIR/CPEN so veem/editam da propria unidade; SR so le
-    // (dashboard) as da propria regional; SR_PSICOLOGIA/SR_SOCIAL leem E
-    // criam/editam as da propria regional (cobertura movel entre unidades);
-    // DPP tem acesso total.
+    // Exames: USUARIO/DIR/CPEN so veem/editam da propria unidade; SR le E
+    // cria/edita as da propria regional (dashboard + cadastro direto, ex.:
+    // quando precisa lancar/corrigir um exame sem depender de outro perfil);
+    // SR_PSICOLOGIA/SR_SOCIAL leem E criam/editam as da propria regional
+    // (cobertura movel entre unidades); DPP tem acesso total.
+    // Centros de Observacao: configuracao compartilhada (equipe padrao,
+    // unidades vinculadas, nome). Antes ficava so no localStorage de cada
+    // navegador e se perdia em outro computador/login. Qualquer conta ATIVA
+    // le (a equipe padrao pre-preenche o novo exame); so o DPP grava qualquer
+    // Centro e o SR grava apenas o da propria regional (SR01 -> coc1 ... SR08 -> coc8).
+    match /centros/{cocId} {
+      allow read: if ativo();
+      allow create, update: if ehDPP()
+        || (ehSR() && perfilAtual().sr.replace('SR0', 'coc') == cocId);
+      allow delete: if ehDPP();
+    }
     match /exames/{examId} {
       allow read: if ehDPP()
         || minhaSR(resource.data.sr)
@@ -84,10 +96,12 @@ service cloud.firestore {
         || minhaUnidade(resource.data.unidade)
         || (ehNivelUnidade() && resource.data.unidade == perfilAtual().unidade);
       allow create: if ehDPP()
+        || minhaSR(request.resource.data.sr)
         || minhaSRComoCobertura(request.resource.data.sr)
         || minhaUnidade(request.resource.data.unidade)
         || (ehNivelUnidade() && request.resource.data.unidade == perfilAtual().unidade);
       allow update, delete: if ehDPP()
+        || minhaSR(resource.data.sr)
         || minhaSRComoCobertura(resource.data.sr)
         || minhaUnidade(resource.data.unidade)
         || (ehNivelUnidade() && resource.data.unidade == perfilAtual().unidade);
