@@ -2022,8 +2022,7 @@ const App = {
       /* só os profissionais lotados na unidade do exame */
       const daUnidade=this.quadro.filter(p=>p.cargo===this.CARGO_QUADRO[k] && !p.sede && p.unidade===unid);
       if(!daUnidade.length){ sel.innerHTML=`<option value="">Nenhum(a) ${cargoTxt} desta unidade no quadro — digite nome e matrícula abaixo</option>`; return; }
-      const rotulo=p=>[p.nome, p.matricula||"sem matrícula"]
-        .concat(/ACT/i.test(p.vinculo||"")?["ACT — temporário"]:[]).concat(p.obs?[p.obs]:[]).join(" · ");
+      const rotulo=p=>p.nome+" · "+(p.matricula||"sem matrícula");
       sel.innerHTML=`<option value="">Selecionar ${cargoTxt} de ${esc(unid)} (${daUnidade.length})…</option>`
         + daUnidade.map(p=>`<option value="${this.quadro.indexOf(p)}">${esc(rotulo(p))}</option>`).join("");
     });
@@ -2033,7 +2032,8 @@ const App = {
     if(!p) return;
     const avisos=[];
     if(/ACT/i.test(p.vinculo||"")) avisos.push("vínculo temporário (ACT) — confira a vedação a profissionais temporários contratados só para exames (art. 5º, §2º, da Portaria)");
-    if(p.obs) avisos.push(p.obs);
+    const obsPessoa=(p.obs||"").split("; ").filter(o=>o && !/^lotação no quadro/.test(o));
+    if(obsPessoa.length) avisos.push(...obsPessoa);
     if(avisos.length && !confirm(p.nome+":\n\n• "+avisos.join("\n• ")+"\n\nUsar mesmo assim?")) return;
     this.setEquipeCampo(k, p.nome, p.matricula);
     this.syncRespNomes();
