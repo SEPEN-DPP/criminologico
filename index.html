@@ -1922,9 +1922,19 @@ const App = {
   renderEqBanner(){
     const nome=document.getElementById("e_nome").value.trim();
     const box=document.getElementById("eqBanner");
-    box.innerHTML = (this.editId || nome)
+    const titulo = (this.editId || nome)
       ? `Equipe do exame de: <b>${nome?esc(nome):"(sem nome ainda)"}</b>${this.editId?"":" — ainda não salvo"}`
-      : `Novo exame (ainda sem nome). Os nomes abaixo vêm da <b>equipe padrão da unidade prisional</b> escolhida na aba Identificação. Para editar a equipe de um exame já existente, abra-o em <b>Exames</b>.`;
+      : `Novo exame (ainda sem nome).`;
+    /* de onde vem a equipe padrão — diz se achou ou não, pra ninguém ficar sem saber por que veio vazio */
+    const unid=this.getUnidadeValor();
+    const eqp=this.equipeDaUnidade(unid);
+    const qtd=this.EQ_KEYS.filter(k=>eqp[k]).length;
+    const origem = !unid
+      ? `Equipe padrão: escolha a <b>unidade prisional</b> na aba Identificação para puxar a equipe padrão dela.`
+      : qtd
+        ? `Equipe padrão de <b>${esc(unid)}</b>: ${qtd} nome(s) cadastrado(s) — campos vazios são preenchidos com ela.`
+        : `Equipe padrão de <b>${esc(unid)}</b>: <b>nenhuma cadastrada</b>. Preencha os nomes abaixo e clique em "Gravar estes nomes como equipe padrão da unidade" para os próximos exames já virem preenchidos.`;
+    box.innerHTML = titulo+"<br>"+origem;
   },
   setCoc(id){
     this.coc=id; this.calFiltroUnidade=""; this.dashUnidadeFiltro=""; this.dashPrazoFiltro="";
@@ -1961,6 +1971,7 @@ const App = {
     this.renderUnidInfo();
     this.preencherEquipePadrao();
     this.renderSelectsQuadro();
+    this.renderEqBanner();
   },
   /* Centro de Observação responsável pela unidade (SR0X -> cocX); sem unidade
      conhecida, cai no Centro selecionado no topo. A equipe padrão fica gravada
@@ -3320,6 +3331,7 @@ const App = {
   aoSincronizarCentros(){
     this.renderCocSel(); this.renderConfig(); this.renderUnidadeSel(this.getUnidadeValor());
     this.preencherEquipePadrao();
+    this.renderEqBanner();
   },
   /* botão na aba "Equipe examinadora" do exame: grava os nomes digitados como
      equipe padrão da unidade do exame, para vir preenchida nos próximos exames dela */
@@ -3333,7 +3345,7 @@ const App = {
     if(!this.EQ_KEYS.some(k=>nova[k])){ alert("Preencha ao menos um nome da equipe antes de gravar."); return; }
     if(!confirm("Gravar estes nomes como equipe padrão de "+unid+"?\n\nEles passarão a vir preenchidos nos exames desta unidade, para todos os usuários.")) return;
     c.equipesUnidade={...(c.equipesUnidade||{}), [unid]:nova};
-    this.persistCoc(c).then(ok=>{ if(ok){ alert("Equipe padrão gravada para "+unid+"."); this.renderConfig(); } });
+    this.persistCoc(c).then(ok=>{ if(ok){ alert("Equipe padrão gravada para "+unid+"."); this.renderConfig(); this.renderEqBanner(); } });
   },
   addUnidade(id){
     const inp=document.getElementById("novaUnid_"+id);
