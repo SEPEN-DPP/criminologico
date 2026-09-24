@@ -542,7 +542,7 @@
     <div id="triagemBox" style="margin-top:14px;"></div>
 
     <div class="btnrow" style="margin-top:14px;">
-      <button class="btn" onclick="App.salvar()">Salvar exame</button>
+      <button class="btn btnSalvar" onclick="App.salvar()">Salvar exame</button>
     </div>
     </div>
 
@@ -803,13 +803,24 @@
     <textarea id="e_obs" style="min-height:60px;"></textarea>
 
     <div class="btnrow">
-      <button class="btn" onclick="App.salvar()">Salvar exame</button>
+      <button class="btn btnSalvar" onclick="App.salvar()">Salvar exame</button>
       <button class="btn ghost" onclick="App.imprimir()">Gerar PDF / imprimir</button>
       <button class="btn ghost" id="btnConcluir" onclick="App.concluir()" style="display:none;">Marcar como concluído</button>
       <button class="btn ghost" id="btnReabrir" onclick="App.reabrir()" style="display:none;">Reabrir exame</button>
+      <button class="btn ghost" id="btnHistorico" onclick="App.abrirHistorico()" style="display:none;">Histórico</button>
       <button class="btn danger" id="btnExcluir" onclick="App.excluir()" style="display:none;">Excluir</button>
     </div>
     <div id="salvoMsg" class="note" style="color:var(--ok); font-weight:700;"></div>
+    <div id="auditInfo" class="note" style="color:var(--mut);"></div>
+    <div id="histModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; overflow:auto; padding:16px;">
+      <div class="card" style="max-width:900px; margin:24px auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h3 style="margin:0;">Histórico do exame</h3>
+          <button class="btn sm ghost" type="button" onclick="App.fecharHistorico()">Fechar</button>
+        </div>
+        <div id="histBody" style="margin-top:12px;"></div>
+      </div>
+    </div>
     <div id="verifInline" style="margin-top:12px;"></div>
     </div>
   </div>
@@ -1413,6 +1424,22 @@ const hoje = ()=> new Date(new Date().toDateString());
    exibidos depois para outros usuários, então precisam ser tratados como não confiáveis) */
 const esc = v => String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 
+/* ---------- auditoria: helpers ---------- */
+function fmtTs(ts){
+  const d = ts && typeof ts.toDate==="function" ? ts.toDate() : (ts ? new Date(ts) : null);
+  return d && !isNaN(d) ? d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}) : "—";
+}
+/* JSON com chaves em ordem fixa — base do código de verificação (hash) da versão fechada */
+function jsonEstavel(v){
+  if(Array.isArray(v)) return "["+v.map(jsonEstavel).join(",")+"]";
+  if(v && typeof v==="object") return "{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+jsonEstavel(v[k])).join(",")+"}";
+  return JSON.stringify(v===undefined?null:v);
+}
+async function sha256(txt){
+  const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
 const App = {
   data:null, coc:null, editId:null, calAno:null, calMes:null, calDiaSel:null, calSemanaBase:null, calModoAtual:null, calFormAberto:null,
 
@@ -1447,6 +1474,14 @@ const App = {
   persist(){ Store.save({ cocs: this.data.cocs }); },
   aoSincronizarExames(){
     this.renderDash(); this.renderLista();
+    const aberto=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    if(aberto && !this._gravando) this.atualizarEstadoExame(aberto);
+    if(aberto && this._base && (aberto.rev||0)>this._base.rev && !this._gravando && this._avisoConflito!==aberto.rev){
+      this._avisoConflito=aberto.rev;
+      const msg=document.getElementById("salvoMsg");
+      msg.style.color="#B4232B";
+      msg.textContent="⚠ "+(aberto.updatedByNome||"Outra pessoa")+" alterou este exame depois que você o abriu. Se você salvar agora, a gravação será recusada — copie o que digitou e reabra o exame pela lista.";
+    }
     if(document.getElementById("v-cal").classList.contains("on")) this.renderCalendario();
   },
   /* trava a navegação conforme o perfil de login: DPP mantém acesso livre e
@@ -1455,6 +1490,14 @@ const App = {
      Firestore já limita quais exames chegam (regra de segurança), isto aqui
      é só pra não mostrar um seletor de "Centro" que sugere um acesso que a
      pessoa não tem. */
+  aplicarPermEquipe(){
+    const perfil=this._meuPerfil;
+    const podeDesignarEquipe = !perfil || perfil.perfil==="DPP" || perfil.perfil==="SR";
+    ["q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_semPsq"].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.disabled = !podeDesignarEquipe;
+    });
+    return podeDesignarEquipe;
+  },
   aplicarEscopoPerfil(perfil){
     this._meuPerfil = perfil;
     /* reseta os controles que podem ter ficado escondidos numa aplicação anterior
@@ -1465,10 +1508,7 @@ const App = {
 
     /* Equipe examinadora (art. 5º) so e designada por quem tem alcada regional pra isso
        (SR) ou pelo DPP — DIR/CPEN/USUARIO so acompanham os nomes ja definidos. */
-    const podeDesignarEquipe = !perfil || perfil.perfil==="DPP" || perfil.perfil==="SR";
-    ["q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_semPsq"].forEach(id=>{
-      const el=document.getElementById(id); if(el) el.disabled = !podeDesignarEquipe;
-    });
+    const podeDesignarEquipe = this.aplicarPermEquipe();
     const notaEquipe=document.getElementById("eqSomenteLeituraNota");
     if(notaEquipe) notaEquipe.style.display = podeDesignarEquipe ? "none" : "block";
     const rowPadrao=document.getElementById("eqGravarPadraoRow");
@@ -1752,8 +1792,9 @@ const App = {
     const data=document.getElementById("calfData").value;
     const hora=document.getElementById("calfHora").value;
     if(!data){ alert("Informe a data."); return; }
-    const ex=this.data.exames.find(x=>x.id===exId); if(!ex) return;
-    ex.etapas=ex.etapas||{};
+    const exServidor=this.data.exames.find(x=>x.id===exId); if(!exServidor) return;
+    if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de agendar."); return; }
+    const ex={...exServidor, etapas:JSON.parse(JSON.stringify(exServidor.etapas||{}))};
     const novo=Object.assign({ok:false}, ex.etapas[tipo]||{}, {data, hora});
     novo.area=document.getElementById("calfArea").value;
     if(tipo==="entConv"){
@@ -1765,16 +1806,17 @@ const App = {
       novo.prof=document.getElementById("calfProf").value.trim();
     }
     ex.etapas[tipo]=novo;
-    if(this.editId===exId) this.renderEtapas(ex.etapas);
     const nomeEx=ex.nome;
-    this.calFecharForm(true);
-    this.renderCalendario();
-    /* grava no Firestore — sem isso o agendamento ficava só na memória do navegador e
-       sumia na próxima sincronização (onSnapshot) ou ao recarregar a página */
-    if(!window.ExamesFS){ alert("Entrevista agendada para "+nomeEx+"."); return; }
-    window.ExamesFS.salvar(ex)
-      .then(()=>alert("Entrevista agendada para "+nomeEx+"."))
-      .catch(e=>alert("Falhou ao salvar o agendamento no servidor: "+(e?.code||e?.message||e)));
+    /* grava no Firestore (com histórico) a partir da versão do servidor; se o
+       exame estiver aberto no formulário, só as etapas da tela são atualizadas */
+    this.gravarExame(ex,{acao:"alterou", base:this.baseDoServidor(exServidor)})
+      .then(()=>{
+        if(this.editId===exId) this.renderEtapas(ex.etapas);
+        this.calFecharForm(true);
+        this.renderCalendario();
+        alert("Entrevista agendada para "+nomeEx+".");
+      })
+      .catch(e=>alert("Falhou ao salvar o agendamento: "+e.message));
   },
   renderDashGeral(){
     document.getElementById("painelUnidadeAtualBox").innerHTML="";
@@ -2120,7 +2162,8 @@ const App = {
     this.tab("novo");
   },
   novo(){
-    this.editId=null;
+    this.editId=null; this._base=null; this._avisoConflito=null;
+    this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
     ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_dataBase","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_dataIni","e_dataConcl",
      "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
@@ -2149,9 +2192,7 @@ const App = {
     this.relTab("coord");
     this.novoTab("ident");
     this.syncRespNomes();
-    document.getElementById("btnExcluir").style.display="none";
-    document.getElementById("btnConcluir").style.display="none";
-    document.getElementById("btnReabrir").style.display="none";
+    this.atualizarEstadoExame(null);
     document.getElementById("salvoMsg").textContent="";
     document.getElementById("verifInline").innerHTML="";
     this.triagem();
@@ -2197,12 +2238,16 @@ const App = {
     this.REL_OK_KEYS.forEach(k=>{ out[k]=document.getElementById("relok_"+k).checked; });
     return out;
   },
-  aplicarRelOk(relOk){
-    relOk=relOk||{};
+  aplicarRelOk(relOk, relOkPor){
+    relOk=relOk||{}; relOkPor=relOkPor||{};
     this.REL_OK_KEYS.forEach(k=>{
       const chk=document.getElementById("relok_"+k);
       const on=!!relOk[k];
       chk.checked=on;
+      let por=chk.parentElement.querySelector(".relok-por");
+      if(!por){ por=document.createElement("span"); por.className="relok-por muted"; por.style.fontSize="11.5px"; chk.parentElement.appendChild(por); }
+      const quem=relOkPor[k];
+      por.textContent = on && quem ? " — marcada por "+(quem.nome||"?")+(quem.em?" em "+fmtTs(quem.em):"") : "";
       const btn=document.querySelector('#relTabs button[data-r="'+k+'"]');
       if(btn) btn.classList.toggle("relok", on);
     });
@@ -2230,13 +2275,12 @@ const App = {
     document.getElementById("rp_psiNome").textContent=psi||"—";
     document.getElementById("rp_psqNome").textContent=psq||(document.getElementById("q_semPsq").checked?"sem psiquiatra na equipe":"—");
   },
-  salvar(){
+  /* conteúdo do formulário (tudo o que o usuário edita); os metadados de
+     auditoria (quem/quando/versão) são acrescentados por ExamesFS.gravar */
+  lerFormulario(){
     const nome=document.getElementById("e_nome").value.trim();
-    if(!nome){ alert("Informe o nome do avaliado."); return; }
     const unid=this.getUnidadeValor();
-    if(!unid){ alert("Selecione a unidade prisional de custódia antes de salvar."); return; }
-    const ex = this.editId ? this.data.exames.find(x=>x.id===this.editId) : {id:uid(), coc:this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
-    Object.assign(ex,{
+    return {
       nome, mat:document.getElementById("e_mat").value.trim(),
       unid,
       proc:document.getElementById("e_proc").value.trim(),
@@ -2271,24 +2315,35 @@ const App = {
       etapas:this.lerEtapas(),
       rel:{met:r_met.value,direcao:r_direcao.value,chefiaSeg:r_chefiaSeg.value,execPenal:r_execPenal.value,ativLab:r_ativLab.value,ensino:r_ensino.value,semiab:r_semiab.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,sin:r_sin.value,diverg:r_diverg.value,limit:r_limit.value},
       obs:document.getElementById("e_obs").value
-    });
-    if(!this.editId){ this.data.exames.push(ex); this.editId=ex.id; }
-    document.getElementById("btnExcluir").style.display="inline-block";
-    document.getElementById("btnConcluir").style.display=ex.status==="concluido"?"none":"inline-block";
-    document.getElementById("btnReabrir").style.display=ex.status==="concluido"?"inline-block":"none";
+    };
+  },
+  salvar(){
+    if(this._gravando) return;
+    const nome=document.getElementById("e_nome").value.trim();
+    if(!nome){ alert("Informe o nome do avaliado."); return; }
+    const unid=this.getUnidadeValor();
+    if(!unid){ alert("Selecione a unidade prisional de custódia antes de salvar."); return; }
+    const exServidor = this.editId ? this.data.exames.find(x=>x.id===this.editId) : null;
+    if(this.editId && !exServidor){ alert("Este exame não está mais disponível (pode ter sido excluído por outra pessoa)."); return; }
+    if(exServidor && exServidor.status==="concluido"){ alert("Este exame está concluído. Para alterar, a SR ou o DPP precisa reabri-lo."); return; }
+    const ex = exServidor ? {...exServidor} : {id:uid(), coc:this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
+    Object.assign(ex, this.lerFormulario());
     const msg=document.getElementById("salvoMsg");
-    msg.style.color="var(--ok)";
-    msg.textContent="✓ Exame salvo ("+new Date().toLocaleTimeString("pt-BR")+")";
-    this.renderDash();
-    window.ExamesFS?.salvar(ex).catch(e=>{
+    msg.style.color="var(--mut)"; msg.textContent="Gravando…";
+    this.gravarExame(ex,{acao: exServidor?"alterou":"criou", doFormulario:true}).then(r=>{
+      msg.style.color="var(--ok)";
+      msg.textContent = r.semMudanca ? "Nenhuma alteração para salvar." : "✓ Exame salvo ("+new Date().toLocaleTimeString("pt-BR")+")";
+      this.renderDash();
+    }).catch(e=>{
       msg.style.color="#B4232B";
-      msg.textContent="⚠ Salvo neste navegador, mas falhou ao sincronizar no servidor: "+(e?.code||e?.message||e);
+      msg.textContent="⚠ Não foi salvo: "+e.message;
     });
   },
   abrir(id){
     const ex=this.data.exames.find(x=>x.id===id); if(!ex) return;
     if(ex.coc && ex.coc!==this.coc){ this.coc=ex.coc; document.getElementById("selCoc").value=ex.coc; }
-    this.editId=id; this.tab("novo");
+    this.editId=id; this._base=this.baseDoServidor(ex); this._avisoConflito=null; this.tab("novo");
+    this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(ex.status==="concluido"?" (concluído)":"");
     e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_proc.value=ex.proc||""; document.getElementById("e_sgpe").value=ex.sgpe||"";
     this.renderUnidadeSel(ex.unid||"");
@@ -2318,7 +2373,7 @@ const App = {
     document.getElementById("quesitosBox").innerHTML="";
     (ex.quesitos?.lista||[]).forEach(q=>this.addQuesito(q));
     this.aplicarSuprimir(ex.sup);
-    this.aplicarRelOk(ex.relOk);
+    this.aplicarRelOk(ex.relOk, ex.relOkPor);
     this.relTab("coord"); this.novoTab("ident"); this.syncRespNomes();
     this.preencherEquipePadrao();
     r_met.value=ex.rel?.met||TEXTO_MODELO.met; r_direcao.value=ex.rel?.direcao||TEXTO_MODELO.direcao; r_chefiaSeg.value=ex.rel?.chefiaSeg||TEXTO_MODELO.chefiaSeg;
@@ -2328,38 +2383,233 @@ const App = {
     document.getElementById("condBox").innerHTML="";
     (ex.conds&&ex.conds.length?ex.conds:[{}]).forEach(c=>this.addCond(c));
     this.renderEtapas(ex.etapas||{});
-    document.getElementById("btnExcluir").style.display="inline-block";
-    document.getElementById("btnConcluir").style.display=ex.status==="concluido"?"none":"inline-block";
-    document.getElementById("btnReabrir").style.display=ex.status==="concluido"?"inline-block":"none";
+    this.atualizarEstadoExame(ex);
     document.getElementById("salvoMsg").textContent="";
     document.getElementById("verifInline").innerHTML="";
     this.triagem();
   },
-  concluir(){
-    if(!this.editId) { alert("Salve o exame antes."); return; }
-    const ex=this.data.exames.find(x=>x.id===this.editId);
-    ex.status="concluido"; this.renderDash(); this.renderLista();
-    document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+" (concluído)";
-    document.getElementById("btnConcluir").style.display="none";
-    document.getElementById("btnReabrir").style.display="inline-block";
-    window.ExamesFS?.salvar(ex).catch(e=>alert("Falhou ao sincronizar no servidor: "+(e?.code||e?.message||e)));
+  /* ---------- trilha de auditoria ----------
+     Toda gravação passa por gravarExame → ExamesFS.gravar, que grava o exame e a
+     entrada exames/{id}/historico/{rev} no mesmo lote (as regras do Firestore
+     exigem). _base guarda a versão do servidor em que o formulário aberto se
+     apoia: é contra ela que se calcula o "antes/depois" e o número da versão. */
+  META_EXAME: ["id","coc","status","criadoEm","unidade","sr","rev","createdBy","createdByNome","createdAt","updatedBy","updatedByNome","updatedAt",
+    "finalizedBy","finalizedByNome","finalizedAt","versaoFinal","excluidoBy","excluidoByNome","excluidoAt","motivoExclusao","relOkPor"],
+  conteudoExame(ex){
+    const out={};
+    Object.keys(ex||{}).forEach(k=>{ if(!this.META_EXAME.includes(k) && ex[k]!==undefined) out[k]=ex[k]; });
+    return JSON.parse(JSON.stringify(out));
+  },
+  baseDoServidor(ex){
+    return { rev:ex.rev||0, versaoFinal:ex.versaoFinal||0, conteudo:this.conteudoExame(ex) };
+  },
+  ROTULO_CAMPO: {
+    nome:"Nome do avaliado", mat:"Matrícula", unid:"Unidade prisional", proc:"Processo", sgpe:"SGPE", tipo:"Finalidade do exame",
+    dataProg:"Data prevista da progressão", dataBase:"Data-base", faltaNaoReab:"Falta grave não reabilitada", exameAnterior:"Exame anterior",
+    modal:"Modalidade", filiacao:"Filiação", nasc:"Nascimento", regime:"Regime", juizo:"Juízo da execução", penaTotal:"Pena total",
+    beneficio:"Benefício pretendido", dataIni:"Início da avaliação", dataConcl:"Conclusão da avaliação", conds:"Condenações", obs:"Observações internas"
+  },
+  ROTULO_SUB: {
+    met:"Metodologia", coord:"Coordenação", direcao:"Direção", chefiaSeg:"Chefia de Segurança", execPenal:"Execução Penal",
+    ativLab:"Atividades Laborais", ensino:"Ensino e Promoção Social", semiab:"Ala de Semiaberto", psq:"Psiquiatria", psi:"Psicologia",
+    soc:"Serviço Social", as:"Assistente social", sin:"Parecer", diverg:"Divergências técnicas", limit:"Limitações",
+    chefesExtra:"Outros chefes de serviço", semPsq:"Sem psiquiatra", detOrigem:"Determinação de origem", impedimento:"Impedimento/suspeição",
+    defesaNome:"Defesa — nome", defesaOAB:"Defesa — OAB", mpQuesitos:"Quesitos do MP", defQuesitos:"Quesitos da defesa", lista:"Quesitos",
+    ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista com convivente"
+  },
+  GRUPO_SUB: { equipe:"Equipe examinadora", quesitos:"Quesitos", rel:"Relatório", relOk:"Seção concluída", sup:"Seção suprimida", etapas:"Etapas" },
+  rotuloCampo(campo){
+    const [g,sub]=campo.split(".");
+    if(!sub) return this.ROTULO_CAMPO[g]||g;
+    return (this.GRUPO_SUB[g]||g)+" — "+(this.ROTULO_SUB[sub]||sub);
+  },
+  /* compara dois conteúdos; objetos agrupados (equipe, relatório...) são comparados campo a campo */
+  diffExame(a,b){
+    const alteracoes=[], secoes=new Set();
+    const igual=(x,y)=>jsonEstavel(x===undefined?null:x)===jsonEstavel(y===undefined?null:y);
+    const vazio=v=>v==null||v===""||v===false||(Array.isArray(v)&&!v.length)||(typeof v==="object"&&!Array.isArray(v)&&!Object.keys(v).length);
+    const reg=(campo,antes,depois)=>{
+      if(vazio(antes)&&vazio(depois)) return;
+      alteracoes.push({campo, rotulo:this.rotuloCampo(campo), antes:antes===undefined?null:antes, depois:depois===undefined?null:depois});
+      const g=campo.split(".")[0];
+      secoes.add(this.GRUPO_SUB[g] ? (g==="rel"||g==="relOk"||g==="sup" ? "Relatório — "+(this.ROTULO_SUB[campo.split(".")[1]]||campo.split(".")[1]) : this.GRUPO_SUB[g]) : "Identificação e condenações");
+    };
+    new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>{
+      const va=a[k], vb=b[k];
+      if(igual(va,vb)) return;
+      if(this.GRUPO_SUB[k]){
+        const oa=(va&&typeof va==="object")?va:{}, ob=(vb&&typeof vb==="object")?vb:{};
+        new Set([...Object.keys(oa),...Object.keys(ob)]).forEach(sk=>{ if(!igual(oa[sk],ob[sk])) reg(k+"."+sk, oa[sk], ob[sk]); });
+      } else reg(k, va, vb);
+    });
+    return { alteracoes, secoes:[...secoes] };
+  },
+  gravarExame(ex, o){
+    if(!window.ExamesFS) return Promise.reject(new Error("sem conexão com o servidor."));
+    if(this._gravando) return Promise.reject(new Error("aguarde a gravação anterior terminar."));
+    const criando = o.acao==="criou";
+    const base = criando ? null : (o.base || (ex.id===this.editId && this._base) || this.baseDoServidor(ex));
+    o={...o, base};
+    if(["criou","alterou","concluiu"].includes(o.acao)){
+      const d=this.diffExame(base?base.conteudo:{}, this.conteudoExame(ex));
+      if(o.acao==="alterou" && !d.alteracoes.length) return Promise.resolve({semMudanca:true});
+      o.alteracoes=d.alteracoes; o.secoes=d.secoes;
+      const r0=(base&&base.conteudo.relOk)||{}, r1=ex.relOk||{};
+      o.relOkMarcadas=this.REL_OK_KEYS.filter(k=>r1[k]&&!r0[k]);
+      o.relOkDesmarcadas=this.REL_OK_KEYS.filter(k=>!r1[k]&&r0[k]);
+    }
+    this._gravando=true;
+    return window.ExamesFS.gravar(ex,o).then(r=>{
+      this._gravando=false;
+      if(criando && o.doFormulario) this.editId=ex.id;
+      if(ex.id===this.editId){
+        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: (o.acao==="reabriu"||o.acao==="excluiu") ? base.conteudo : this.conteudoExame(ex) };
+        this._avisoConflito=null;
+        const vivo=this.data.exames.find(x=>x.id===ex.id);
+        if(vivo) this.atualizarEstadoExame(vivo);
+      }
+      return r;
+    }).catch(async e=>{
+      this._gravando=false;
+      console.error("Falha ao gravar exame:", e);
+      if(e?.code==="permission-denied" && base){
+        const revSrv=await window.ExamesFS.revServidor(ex.id).catch(()=>null);
+        if(revSrv!==null && revSrv!==base.rev)
+          throw new Error("outra pessoa alterou este exame depois que você o abriu. Copie o que você digitou, reabra o exame pela lista e aplique de novo.");
+      }
+      throw new Error(e?.code==="permission-denied" ? "o servidor recusou a gravação (sem permissão para esta ação)." : (e?.code||e?.message||String(e)));
+    });
+  },
+  podeReabrirOuExcluir(ex){
+    const p=this._meuPerfil;
+    if(!p || !ex) return false;
+    return p.perfil==="DPP" || (p.perfil==="SR" && ex.sr===p.sr);
+  },
+  /* botões, modo somente leitura e resumo "criado por / alterado por" */
+  atualizarEstadoExame(ex){
+    const concl=!!ex && ex.status==="concluido";
+    const pode=this.podeReabrirOuExcluir(ex);
+    document.getElementById("btnConcluir").style.display = ex && !concl ? "inline-block" : "none";
+    document.getElementById("btnReabrir").style.display = concl && pode ? "inline-block" : "none";
+    document.getElementById("btnExcluir").style.display = ex && !concl && pode ? "inline-block" : "none";
+    document.getElementById("btnHistorico").style.display = ex ? "inline-block" : "none";
+    document.querySelectorAll(".btnSalvar").forEach(b=>b.style.display = concl ? "none" : "");
+    if(ex) document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(concl?" (concluído)":"");
+    this.setSomenteLeitura(concl);
+    const linhas=[];
+    if(ex){
+      linhas.push(ex.createdBy ? "Criado por "+esc(ex.createdByNome||"?")+" em "+fmtTs(ex.createdAt) : "Criado antes da trilha de auditoria"+(ex.criadoEm?" (em "+fmtTs(ex.criadoEm)+")":""));
+      if(ex.updatedBy) linhas.push("Última alteração por "+esc(ex.updatedByNome||"?")+" em "+fmtTs(ex.updatedAt)+" (versão "+(ex.rev||0)+")");
+      if(concl && ex.finalizedBy) linhas.push("<b>Concluído por "+esc(ex.finalizedByNome||"?")+" em "+fmtTs(ex.finalizedAt)+" — versão fechada nº "+ex.versaoFinal+"</b>");
+      if(concl) linhas.push("Exame concluído: o conteúdo não pode mais ser alterado. "+(pode?"Para corrigir, use \"Reabrir exame\" (o motivo fica registrado).":"Para corrigir, peça à SR ou ao DPP que reabra o exame."));
+    }
+    document.getElementById("auditInfo").innerHTML=linhas.join("<br>");
+  },
+  setSomenteLeitura(on){
+    document.querySelectorAll("#v-novo input, #v-novo textarea, #v-novo select").forEach(el=>{
+      if(el.closest("#novoPreviewCol")) return;
+      if(on) el.disabled=true;
+      else if(el.id!=="e_prazo") el.disabled=false;
+    });
+    if(!on){ this.aplicarPermEquipe(); this.aplicarSuprimir(this.lerSuprimir()); }
+  },
+  async concluir(){
+    if(!this.editId){ alert("Salve o exame antes."); return; }
+    const exServidor=this.data.exames.find(x=>x.id===this.editId); if(!exServidor) return;
+    if(!this.checarAntesDeExportar("concluir")) return;
+    if(!confirm("Concluir gera uma VERSÃO FECHADA do relatório, com o conteúdo atual do formulário, que não poderá mais ser alterada.\n\nPara corrigir algo depois, a SR ou o DPP terá de reabrir o exame, com motivo registrado — e uma nova conclusão gera uma nova versão, sem apagar a anterior.\n\nConcluir agora?")) return;
+    const ex={...exServidor, ...this.lerFormulario()};
+    const n=((this._base&&this._base.versaoFinal)||0)+1;
+    const preview=document.getElementById("previewBox");
+    const htmlCompleto=this._previewEditing ? preview.innerHTML : this.montarRelatorioHTML();
+    const logo=document.querySelector(".dpp-logo").src;
+    /* o brasão (imagem embutida, ~45 KB por página) não é copiado para a versão — volta na impressão */
+    const html=htmlCompleto.split(logo).join("{{LOGO}}");
+    const conteudo=this.conteudoExame(ex);
+    const hash=await sha256(jsonEstavel({exameId:ex.id, n, conteudo, html}));
+    const msg=document.getElementById("salvoMsg");
+    msg.style.color="var(--mut)"; msg.textContent="Gerando versão fechada…";
+    this.gravarExame(ex,{acao:"concluiu", versao:{n, conteudo, html, hash}}).then(()=>{
+      msg.style.color="var(--ok)";
+      msg.textContent="✓ Exame concluído — versão fechada nº "+n+" gerada ("+new Date().toLocaleTimeString("pt-BR")+")";
+      this.renderDash(); this.renderLista();
+    }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ Não foi concluído: "+e.message; });
   },
   reabrir(){
     if(!this.editId) return;
-    const ex=this.data.exames.find(x=>x.id===this.editId);
-    ex.status="andamento"; this.renderDash(); this.renderLista();
-    document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome;
-    document.getElementById("btnReabrir").style.display="none";
-    document.getElementById("btnConcluir").style.display="inline-block";
-    window.ExamesFS?.salvar(ex).catch(e=>alert("Falhou ao sincronizar no servidor: "+(e?.code||e?.message||e)));
+    const ex=this.data.exames.find(x=>x.id===this.editId); if(!ex) return;
+    if(!this.podeReabrirOuExcluir(ex)){ alert("Somente a Superintendência Regional ou o DPP pode reabrir um exame concluído."); return; }
+    const motivo=(prompt("Motivo da reabertura (obrigatório — fica registrado no histórico):")||"").trim();
+    if(!motivo){ alert("Reabertura cancelada: o motivo é obrigatório."); return; }
+    const msg=document.getElementById("salvoMsg");
+    this.gravarExame(ex,{acao:"reabriu", motivo}).then(()=>{
+      msg.style.color="var(--ok)"; msg.textContent="✓ Exame reaberto. A versão fechada anterior continua guardada no histórico.";
+      this.renderDash(); this.renderLista();
+    }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ Não foi reaberto: "+e.message; });
   },
   excluir(){
     if(!this.editId) return;
-    if(!confirm("Excluir definitivamente este exame?")) return;
-    const id=this.editId;
-    this.data.exames=this.data.exames.filter(x=>x.id!==id);
-    this.novo(); this.tab("lista"); this.renderLista(); this.renderDash();
-    window.ExamesFS?.excluir(id).catch(e=>alert("Falhou ao excluir no servidor: "+(e?.code||e?.message||e)));
+    const ex=this.data.exames.find(x=>x.id===this.editId); if(!ex) return;
+    if(!this.podeReabrirOuExcluir(ex)){ alert("Somente a Superintendência Regional ou o DPP pode excluir um exame."); return; }
+    const motivo=(prompt("Motivo da exclusão (obrigatório — fica registrado no histórico):")||"").trim();
+    if(!motivo){ alert("Exclusão cancelada: o motivo é obrigatório."); return; }
+    if(!confirm("Excluir o exame de "+ex.nome+"?\n\nEle deixa de aparecer nas listas, mas continua guardado no banco, com todo o histórico.")) return;
+    this.gravarExame(ex,{acao:"excluiu", motivo}).then(()=>{
+      this.novo(); this.tab("lista"); this.renderLista(); this.renderDash();
+    }).catch(e=>alert("Não foi excluído: "+e.message));
+  },
+  /* ---------- histórico e versões fechadas ---------- */
+  ROTULO_ACAO: { criou:"criou o exame", alterou:"alterou", concluiu:"concluiu (versão fechada)", reabriu:"reabriu", excluiu:"excluiu" },
+  valorHist(v){
+    if(v===null || v===undefined || v==="") return '<span class="muted">(vazio)</span>';
+    if(typeof v==="boolean") return v?"sim":"não";
+    if(typeof v==="object") return '<code style="white-space:pre-wrap; font-size:11.5px;">'+esc(JSON.stringify(v,null,1))+'</code>';
+    return esc(String(v)).replace(/\n/g,"<br>");
+  },
+  async abrirHistorico(){
+    if(!this.editId || !window.ExamesFS) return;
+    const box=document.getElementById("histBody");
+    box.innerHTML='<p class="muted">Carregando…</p>';
+    document.getElementById("histModal").style.display="block";
+    try{
+      const [hist, vers]=await Promise.all([window.ExamesFS.historico(this.editId), window.ExamesFS.versoes(this.editId)]);
+      const htmlVers = vers.length ? vers.map(v=>`
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:6px 0; font-size:13px;">
+          <div><b>Versão fechada nº ${v.n}</b> — concluída por ${esc(v.finalizadoPorNome||"?")} (${esc(v.finalizadoPorPerfil||"")}) em ${fmtTs(v.em)}<br>
+          <span class="muted" style="font-size:11px; word-break:break-all;">SHA-256: ${esc(v.hash||"")}</span></div>
+          <button class="btn sm ghost" type="button" onclick="App.imprimirVersao(${v.n})">Imprimir</button>
+        </div>`).join("") : '<p class="muted" style="font-size:13px;">Nenhuma versão fechada ainda.</p>';
+      const htmlHist = hist.length ? hist.map(h=>`
+        <div style="border-top:1px solid var(--line); padding:8px 0; font-size:13px;">
+          <div><b>${fmtTs(h.em)}</b> — ${esc(h.autorNome||"?")} <span class="muted">(${esc(h.autorPerfil||"")})</span> — ${esc(this.ROTULO_ACAO[h.acao]||h.acao)}${h.versao?" nº "+h.versao:""}
+          ${h.secoes&&h.secoes.length?`<br><span class="muted">Seções: ${esc(h.secoes.join(", "))}</span>`:""}
+          ${h.motivo?`<br><b>Motivo:</b> ${esc(h.motivo)}`:""}</div>
+          ${h.alteracoes&&h.alteracoes.length?`<details style="margin-top:4px;"><summary style="cursor:pointer;">Ver ${h.alteracoes.length} alteração(ões) — antes e depois</summary>
+            <table style="width:100%; border-collapse:collapse; margin-top:6px; font-size:12.5px;">
+              <tr><th style="text-align:left; width:22%; padding:4px; border-bottom:1px solid var(--line);">Campo</th><th style="text-align:left; padding:4px; border-bottom:1px solid var(--line);">Antes</th><th style="text-align:left; padding:4px; border-bottom:1px solid var(--line);">Depois</th></tr>
+              ${h.alteracoes.map(a=>`<tr style="vertical-align:top;"><td style="padding:4px; border-bottom:1px solid var(--line);">${esc(a.rotulo||a.campo)}</td>
+                <td style="padding:4px; border-bottom:1px solid var(--line);"><div style="max-height:180px; overflow:auto;">${this.valorHist(a.antes)}</div></td>
+                <td style="padding:4px; border-bottom:1px solid var(--line);"><div style="max-height:180px; overflow:auto;">${this.valorHist(a.depois)}</div></td></tr>`).join("")}
+            </table></details>`:""}
+        </div>`).join("") : '<p class="muted" style="font-size:13px;">Nenhum registro — este exame foi criado antes da trilha de auditoria e ainda não foi alterado desde então.</p>';
+      box.innerHTML=`<h4 style="margin:0 0 6px;">Versões fechadas</h4>${htmlVers}<h4 style="margin:16px 0 6px;">Alterações</h4>${htmlHist}`;
+    }catch(e){
+      box.innerHTML='<p style="color:#B4232B;">Não foi possível carregar o histórico: '+esc(e?.code||e?.message||String(e))+'</p>';
+    }
+  },
+  fecharHistorico(){ document.getElementById("histModal").style.display="none"; },
+  async imprimirVersao(n){
+    if(!this.editId || !window.ExamesFS) return;
+    let v;
+    try{ v=await window.ExamesFS.lerVersao(this.editId, n); }catch(e){ alert("Não foi possível carregar a versão fechada: "+(e?.code||e?.message||e)); return; }
+    if(!v){ alert("Versão fechada nº "+n+" não encontrada."); return; }
+    const confere = (await sha256(jsonEstavel({exameId:v.exameId, n:v.n, conteudo:v.conteudo, html:v.html})))===v.hash;
+    if(!confere && !confirm("ATENÇÃO: o código de verificação desta versão não confere com o conteúdo gravado. Imprimir mesmo assim?")) return;
+    const logo=document.querySelector(".dpp-logo").src;
+    document.getElementById("printArea").innerHTML = v.html.split("{{LOGO}}").join(logo)
+      + `<div style="font-size:8.5pt; color:#444; margin-top:10px; word-break:break-all;">Versão fechada nº ${v.n} — concluída por ${esc(v.finalizadoPorNome||"?")} em ${fmtTs(v.em)}. Código de verificação (SHA-256): ${esc(v.hash)}</div>`;
+    this.fecharHistorico();
+    window.print();
   },
 
   /* ---------- prazo/status ---------- */
@@ -2723,6 +2973,8 @@ const App = {
     return true;
   },
   imprimir(){
+    const exAtual=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    if(exAtual && exAtual.status==="concluido" && exAtual.versaoFinal){ this.imprimirVersao(exAtual.versaoFinal); return; }
     if(!this.checarAntesDeExportar("imprimir")) return;
     /* usa o conteúdo da pré-visualização (com eventuais edições manuais do usuário);
        só recalcula do zero se ela nunca foi aberta ou não está em edição */
@@ -2873,7 +3125,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where,
-  getDocs, onSnapshot, serverTimestamp,
+  getDocs, onSnapshot, serverTimestamp, writeBatch,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -3322,17 +3574,70 @@ const ExamesFS = {
     else if(perfil.perfil === "SR" || PERFIS_SR_COBERTURA.includes(perfil.perfil)) q = query(collection(db,"exames"), where("sr","==", perfil.sr));
     else q = query(collection(db,"exames"), where("unidade","==", perfil.unidade));
     unsubscribeExames = onSnapshot(q, (snap)=>{
-      window.App.data.exames = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      /* exclusão é lógica: o exame excluído continua no banco (com histórico), só some das telas */
+      window.App.data.exames = snap.docs.map(d=>({ id:d.id, ...d.data() })).filter(e=>e.status!=="excluido");
       window.App.aoSincronizarExames();
     }, (err)=>{ console.error("Falha ao sincronizar exames:", err); });
   },
   parar(){ if(unsubscribeExames){ unsubscribeExames(); unsubscribeExames=null; } },
-  async salvar(ex){
-    const payload = { ...ex, unidade: ex.unid || null, sr: srDaUnidade(ex.unid) || meuPerfilDoc?.sr || null };
-    await setDoc(doc(db,"exames", ex.id), payload, { merge: true });
+  /* Grava o exame junto com a entrada de histórico (e, na conclusão, a versão
+     fechada) num único lote — as regras do Firestore recusam a gravação do
+     exame se o histórico daquela versão não vier junto. Ver firestore.rules.
+     o = { acao: criou|alterou|concluiu|reabriu|excluiu, base:{rev,versaoFinal}|null,
+           motivo, secoes, alteracoes, relOkMarcadas, relOkDesmarcadas, versao:{n,conteudo,html,hash} } */
+  async gravar(ex, o){
+    const rev = (o.base ? o.base.rev : 0) + 1;
+    const quem = { uid: meuUid, nome: meuPerfilDoc?.nome || "", perfil: meuPerfilDoc?.perfil || "" };
+    const agora = serverTimestamp();
+    const meta = { rev, updatedBy: quem.uid, updatedByNome: quem.nome, updatedAt: agora };
+    let payload;
+    if(o.acao === "reabriu"){
+      payload = { ...meta, status: "andamento" };
+    }else if(o.acao === "excluiu"){
+      payload = { ...meta, status: "excluido", excluidoBy: quem.uid, excluidoByNome: quem.nome, excluidoAt: agora, motivoExclusao: o.motivo };
+    }else{
+      payload = { ...ex, ...meta, unidade: ex.unid || null, sr: srDaUnidade(ex.unid) || meuPerfilDoc?.sr || null };
+      if(!o.base){ Object.assign(payload, { createdBy: quem.uid, createdByNome: quem.nome, createdAt: agora, status: "andamento" }); }
+      const relOkPor = { ...(ex.relOkPor || {}) };
+      (o.relOkMarcadas || []).forEach(k=>{ relOkPor[k] = { uid: quem.uid, nome: quem.nome, em: agora }; });
+      (o.relOkDesmarcadas || []).forEach(k=>{ relOkPor[k] = null; });
+      payload.relOkPor = relOkPor;
+      if(o.acao === "concluiu"){
+        Object.assign(payload, { status: "concluido", finalizedBy: quem.uid, finalizedByNome: quem.nome, finalizedAt: agora, versaoFinal: o.versao.n });
+      }
+    }
+    const ref = doc(db, "exames", ex.id);
+    const lote = writeBatch(db);
+    lote.set(ref, payload, { merge: true });
+    lote.set(doc(ref, "historico", String(rev)), {
+      rev, acao: o.acao, autor: quem.uid, autorNome: quem.nome, autorPerfil: quem.perfil, em: agora,
+      motivo: o.motivo || null, secoes: o.secoes || [], alteracoes: o.alteracoes || [],
+      versao: o.acao === "concluiu" ? o.versao.n : null,
+    });
+    if(o.acao === "concluiu"){
+      lote.set(doc(ref, "versoes", String(o.versao.n)), {
+        n: o.versao.n, exameId: ex.id, conteudo: o.versao.conteudo, html: o.versao.html, hash: o.versao.hash,
+        finalizadoPor: quem.uid, finalizadoPorNome: quem.nome, finalizadoPorPerfil: quem.perfil, em: agora,
+      });
+    }
+    await lote.commit();
+    return { rev, versaoFinal: o.acao === "concluiu" ? o.versao.n : (o.base ? o.base.versaoFinal : 0) };
   },
-  async excluir(id){
-    await deleteDoc(doc(db,"exames", id));
+  async revServidor(id){
+    const snap = await getDoc(doc(db, "exames", id));
+    return snap.exists() ? (snap.data().rev || 0) : null;
+  },
+  async historico(id){
+    const snap = await getDocs(collection(db, "exames", id, "historico"));
+    return snap.docs.map(d=>d.data()).sort((a,b)=>b.rev-a.rev);
+  },
+  async versoes(id){
+    const snap = await getDocs(collection(db, "exames", id, "versoes"));
+    return snap.docs.map(d=>d.data()).sort((a,b)=>b.n-a.n);
+  },
+  async lerVersao(id, n){
+    const snap = await getDoc(doc(db, "exames", id, "versoes", String(n)));
+    return snap.exists() ? snap.data() : null;
   },
 };
 window.ExamesFS = ExamesFS;

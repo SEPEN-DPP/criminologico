@@ -89,22 +89,97 @@ service cloud.firestore {
         || (ehSR() && perfilAtual().sr.replace('SR0', 'coc') == cocId);
       allow delete: if ehDPP();
     }
+    // Trilha de auditoria dos exames. Toda gravacao em exames/{id}:
+    //  - leva rev = rev anterior + 1 (controle de concorrencia: quem salva em
+    //    cima de uma versao velha e recusado em vez de apagar o trabalho do colega);
+    //  - leva updatedBy = quem esta logado e updatedAt = hora do servidor;
+    //  - so e aceita se, no MESMO lote, for criado exames/{id}/historico/{rev}
+    //    (quem, quando, acao, secoes e valores antes/depois). O historico nunca
+    //    pode ser editado nem apagado.
+    // Conclusao gera exames/{id}/versoes/{n}: copia fechada e imutavel do
+    // relatorio. Exame concluido so volta a ser editavel se SR/DPP reabrir, com
+    // motivo. Exclusao e logica (status "excluido", com motivo), so SR/DPP; o
+    // documento nunca e apagado de fato.
+    function podeVer(d) {
+      return ehDPP()
+        || minhaSR(d.sr)
+        || minhaSRComoCobertura(d.sr)
+        || minhaUnidade(d.unidade)
+        || (ehNivelUnidade() && d.unidade == perfilAtual().unidade);
+    }
+    function ehSROuDPPDo(d) { return ehDPP() || minhaSR(d.sr); }
+    function exameDoc(examId) { return /databases/$(database)/documents/exames/$(examId); }
+    function historicoDoc(examId, rev) { return /databases/$(database)/documents/exames/$(examId)/historico/$(string(rev)); }
+    function versaoDoc(examId, n) { return /databases/$(database)/documents/exames/$(examId)/versoes/$(string(n)); }
+    function metaOk() {
+      return request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+    }
+    function motivoOk(h) { return h.motivo is string && h.motivo.size() > 0; }
+    function transicaoOk(examId) {
+      let de = resource.data.get('status', 'andamento');
+      let para = request.resource.data.get('status', 'andamento');
+      let n = request.resource.data;
+      let h = getAfter(historicoDoc(examId, n.rev)).data;
+      return de == 'excluido' ? false
+        : de == 'concluido' ? (
+            para == 'andamento'
+            && ehSROuDPPDo(resource.data)
+            && h.acao == 'reabriu' && motivoOk(h)
+            && n.diff(resource.data).affectedKeys().hasOnly(['status','rev','updatedBy','updatedByNome','updatedAt']))
+        : para == 'andamento' ? true
+        : para == 'concluido' ? (
+            n.finalizedBy == request.auth.uid
+            && n.finalizedAt == request.time
+            && n.versaoFinal == resource.data.get('versaoFinal', 0) + 1
+            && existsAfter(versaoDoc(examId, n.versaoFinal)))
+        : para == 'excluido' ? (
+            ehSROuDPPDo(resource.data)
+            && h.acao == 'excluiu' && motivoOk(h)
+            && n.excluidoBy == request.auth.uid
+            && n.excluidoAt == request.time)
+        : false;
+    }
     match /exames/{examId} {
-      allow read: if ehDPP()
-        || minhaSR(resource.data.sr)
-        || minhaSRComoCobertura(resource.data.sr)
-        || minhaUnidade(resource.data.unidade)
-        || (ehNivelUnidade() && resource.data.unidade == perfilAtual().unidade);
-      allow create: if ehDPP()
-        || minhaSR(request.resource.data.sr)
-        || minhaSRComoCobertura(request.resource.data.sr)
-        || minhaUnidade(request.resource.data.unidade)
-        || (ehNivelUnidade() && request.resource.data.unidade == perfilAtual().unidade);
-      allow update, delete: if ehDPP()
-        || minhaSR(resource.data.sr)
-        || minhaSRComoCobertura(resource.data.sr)
-        || minhaUnidade(resource.data.unidade)
-        || (ehNivelUnidade() && resource.data.unidade == perfilAtual().unidade);
+      allow read: if podeVer(resource.data);
+      allow create: if podeVer(request.resource.data)
+        && metaOk()
+        && request.resource.data.rev == 1
+        && request.resource.data.get('status', 'andamento') == 'andamento'
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && existsAfter(historicoDoc(examId, 1));
+      allow update: if podeVer(resource.data)
+        && podeVer(request.resource.data)
+        && metaOk()
+        && request.resource.data.rev == resource.data.get('rev', 0) + 1
+        && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && existsAfter(historicoDoc(examId, request.resource.data.rev))
+        && transicaoOk(examId);
+      allow delete: if false;
+
+      match /historico/{rev} {
+        allow read: if podeVer(get(exameDoc(examId)).data);
+        allow create: if request.resource.data.autor == request.auth.uid
+          && request.resource.data.em == request.time
+          && request.resource.data.rev == int(rev)
+          && getAfter(exameDoc(examId)).data.rev == int(rev)
+          && getAfter(exameDoc(examId)).data.updatedAt == request.time
+          && podeVer(getAfter(exameDoc(examId)).data);
+        allow update, delete: if false;
+      }
+      match /versoes/{n} {
+        allow read: if podeVer(get(exameDoc(examId)).data);
+        allow create: if request.resource.data.finalizadoPor == request.auth.uid
+          && request.resource.data.em == request.time
+          && request.resource.data.n == int(n)
+          && getAfter(exameDoc(examId)).data.status == 'concluido'
+          && getAfter(exameDoc(examId)).data.versaoFinal == int(n)
+          && getAfter(exameDoc(examId)).data.finalizedAt == request.time
+          && podeVer(getAfter(exameDoc(examId)).data);
+        allow update, delete: if false;
+      }
     }
   }
 }
