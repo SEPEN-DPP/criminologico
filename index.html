@@ -1598,7 +1598,14 @@ const App = {
   },
   novoTab(n){
     document.querySelectorAll("#novoTabs button").forEach(b=>b.classList.toggle("on", b.dataset.n===n));
-    document.querySelectorAll(".novopanel").forEach(p=>p.classList.toggle("on", p.id==="np-"+n));
+    /* só os painéis do exame (np-*): os de Configurações usam a mesma classe e
+       ficavam escondidos, deixando Configurações → Centros em branco */
+    document.querySelectorAll('.novopanel[id^="np-"]').forEach(p=>p.classList.toggle("on", p.id==="np-"+n));
+    if(n==="equipe"){
+      this.renderEqBanner();
+      /* aba aberta antes da importação do quadro: tenta carregar de novo */
+      if(!this.quadro && window.QuadroFS) window.QuadroFS.carregar();
+    }
     this.atualizarPreview();
   },
   atualizarPreview(){
@@ -1899,7 +1906,7 @@ const App = {
     const box=document.getElementById("eqBanner");
     box.innerHTML = (this.editId || nome)
       ? `Equipe do exame de: <b>${nome?esc(nome):"(sem nome ainda)"}</b>${this.editId?"":" — ainda não salvo"}`
-      : `Nenhum exame aberto no momento — os nomes abaixo são a <b>equipe padrão do centro</b> e serão usados ao criar um novo exame. Para editar a equipe de um exame específico, abra-o em <b>Exames</b> ou <b>Novo exame</b> primeiro.`;
+      : `Novo exame (ainda sem nome). Os nomes abaixo vêm da <b>equipe padrão da unidade prisional</b> escolhida na aba Identificação. Para editar a equipe de um exame já existente, abra-o em <b>Exames</b>.`;
   },
   setCoc(id){
     this.coc=id; this.calFiltroUnidade=""; this.dashUnidadeFiltro=""; this.dashPrazoFiltro="";
@@ -2006,7 +2013,12 @@ const App = {
     const srUnid=(UNIDADES_INFO[unid]||{}).sr || (cocUnid ? "SR0"+cocUnid.id.replace(/\D/g,"") : "");
     Object.keys(this.CARGO_QUADRO).forEach(k=>{
       const sel=document.getElementById("q_"+k+"_quadro"); if(!sel) return;
-      if(!this.quadro){ sel.innerHTML='<option value="">Quadro de profissionais não carregado — digite nome e matrícula abaixo</option>'; return; }
+      if(!this.quadro){
+        sel.innerHTML = this._meuPerfil?.perfil==="DPP"
+          ? '<option value="">Quadro de profissionais ainda não importado — importe em Configurações → Centros → Quadro de profissionais</option>'
+          : '<option value="">Quadro de profissionais indisponível — digite nome e matrícula abaixo</option>';
+        return;
+      }
       const lista=this.quadro.filter(p=>p.cargo===this.CARGO_QUADRO[k]);
       const rotulo=p=>[p.nome, p.matricula||"sem matrícula", p.sede?"sede da "+p.sr:p.unidade]
         .concat(/ACT/i.test(p.vinculo||"")?["ACT — temporário"]:[]).concat(p.obs?[p.obs]:[]).join(" · ");
