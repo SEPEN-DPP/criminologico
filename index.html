@@ -2480,18 +2480,24 @@ const App = {
       throw new Error(e?.code==="permission-denied" ? "o servidor recusou a gravação (sem permissão para esta ação)." : (e?.code||e?.message||String(e)));
     });
   },
-  podeReabrirOuExcluir(ex){
+  podeReabrir(ex){
     const p=this._meuPerfil;
     if(!p || !ex) return false;
     return p.perfil==="DPP" || (p.perfil==="SR" && ex.sr===p.sr);
   },
+  /* excluir: DPP ou qualquer perfil de nível regional da própria SR (SR, SR_PSICOLOGIA, SR_SOCIAL) */
+  podeExcluir(ex){
+    const p=this._meuPerfil;
+    if(!p || !ex) return false;
+    return p.perfil==="DPP" || (["SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil) && ex.sr===p.sr);
+  },
   /* botões, modo somente leitura e resumo "criado por / alterado por" */
   atualizarEstadoExame(ex){
     const concl=!!ex && ex.status==="concluido";
-    const pode=this.podeReabrirOuExcluir(ex);
+    const pode=this.podeReabrir(ex);
     document.getElementById("btnConcluir").style.display = ex && !concl ? "inline-block" : "none";
     document.getElementById("btnReabrir").style.display = concl && pode ? "inline-block" : "none";
-    document.getElementById("btnExcluir").style.display = ex && !concl && pode ? "inline-block" : "none";
+    document.getElementById("btnExcluir").style.display = ex && !concl && this.podeExcluir(ex) ? "inline-block" : "none";
     document.getElementById("btnHistorico").style.display = ex ? "inline-block" : "none";
     document.querySelectorAll(".btnSalvar").forEach(b=>b.style.display = concl ? "none" : "");
     if(ex) document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(concl?" (concluído)":"");
@@ -2538,7 +2544,7 @@ const App = {
   reabrir(){
     if(!this.editId) return;
     const ex=this.data.exames.find(x=>x.id===this.editId); if(!ex) return;
-    if(!this.podeReabrirOuExcluir(ex)){ alert("Somente a Superintendência Regional ou o DPP pode reabrir um exame concluído."); return; }
+    if(!this.podeReabrir(ex)){ alert("Somente a Superintendência Regional ou o DPP pode reabrir um exame concluído."); return; }
     const motivo=(prompt("Motivo da reabertura (obrigatório — fica registrado no histórico):")||"").trim();
     if(!motivo){ alert("Reabertura cancelada: o motivo é obrigatório."); return; }
     const msg=document.getElementById("salvoMsg");
@@ -2550,7 +2556,7 @@ const App = {
   excluir(){
     if(!this.editId) return;
     const ex=this.data.exames.find(x=>x.id===this.editId); if(!ex) return;
-    if(!this.podeReabrirOuExcluir(ex)){ alert("Somente a Superintendência Regional ou o DPP pode excluir um exame."); return; }
+    if(!this.podeExcluir(ex)){ alert("Somente o DPP ou perfis de nível regional (SR, psicólogo(a) ou assistente social regional) da própria Superintendência podem excluir um exame."); return; }
     const motivo=(prompt("Motivo da exclusão (obrigatório — fica registrado no histórico):")||"").trim();
     if(!motivo){ alert("Exclusão cancelada: o motivo é obrigatório."); return; }
     if(!confirm("Excluir o exame de "+ex.nome+"?\n\nEle deixa de aparecer nas listas, mas continua guardado no banco, com todo o histórico.")) return;

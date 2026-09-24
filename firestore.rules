@@ -98,8 +98,9 @@ service cloud.firestore {
     //    pode ser editado nem apagado.
     // Conclusao gera exames/{id}/versoes/{n}: copia fechada e imutavel do
     // relatorio. Exame concluido so volta a ser editavel se SR/DPP reabrir, com
-    // motivo. Exclusao e logica (status "excluido", com motivo), so SR/DPP; o
-    // documento nunca e apagado de fato.
+    // motivo. Exclusao e logica (status "excluido", com motivo), feita pelo DPP
+    // ou por perfil de nivel regional da propria SR (SR, SR_PSICOLOGIA,
+    // SR_SOCIAL); o documento nunca e apagado de fato.
     function podeVer(d) {
       return ehDPP()
         || minhaSR(d.sr)
@@ -134,7 +135,7 @@ service cloud.firestore {
             && n.versaoFinal == resource.data.get('versaoFinal', 0) + 1
             && existsAfter(versaoDoc(examId, n.versaoFinal)))
         : para == 'excluido' ? (
-            ehSROuDPPDo(resource.data)
+            (ehSROuDPPDo(resource.data) || minhaSRComoCobertura(resource.data.sr))
             && h.acao == 'excluiu' && motivoOk(h)
             && n.excluidoBy == request.auth.uid
             && n.excluidoAt == request.time)
