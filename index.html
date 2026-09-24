@@ -2009,8 +2009,6 @@ const App = {
   CARGO_QUADRO: { psi:"psi", as:"as" },
   renderSelectsQuadro(){
     const unid=this.getUnidadeValor();
-    const cocUnid=this.cocDaUnidade(unid);
-    const srUnid=(UNIDADES_INFO[unid]||{}).sr || (cocUnid ? "SR0"+cocUnid.id.replace(/\D/g,"") : "");
     Object.keys(this.CARGO_QUADRO).forEach(k=>{
       const sel=document.getElementById("q_"+k+"_quadro"); if(!sel) return;
       if(!this.quadro){
@@ -2019,17 +2017,15 @@ const App = {
           : '<option value="">Quadro de profissionais indisponível — digite nome e matrícula abaixo</option>';
         return;
       }
-      const lista=this.quadro.filter(p=>p.cargo===this.CARGO_QUADRO[k]);
-      const rotulo=p=>[p.nome, p.matricula||"sem matrícula", p.sede?"sede da "+p.sr:p.unidade]
+      const cargoTxt = k==="psi" ? "psicólogo(a)" : "assistente social";
+      if(!unid){ sel.innerHTML=`<option value="">Selecione a unidade prisional na aba Identificação para ver os profissionais</option>`; return; }
+      /* só os profissionais lotados na unidade do exame */
+      const daUnidade=this.quadro.filter(p=>p.cargo===this.CARGO_QUADRO[k] && !p.sede && p.unidade===unid);
+      if(!daUnidade.length){ sel.innerHTML=`<option value="">Nenhum(a) ${cargoTxt} desta unidade no quadro — digite nome e matrícula abaixo</option>`; return; }
+      const rotulo=p=>[p.nome, p.matricula||"sem matrícula"]
         .concat(/ACT/i.test(p.vinculo||"")?["ACT — temporário"]:[]).concat(p.obs?[p.obs]:[]).join(" · ");
-      const grupos=[
-        ["Lotados nesta unidade", lista.filter(p=>unid && !p.sede && p.unidade===unid)],
-        ["Sede da Superintendência", lista.filter(p=>p.sede && p.sr===srUnid)],
-        ["Outras unidades da regional", lista.filter(p=>!p.sede && p.sr===srUnid && p.unidade!==unid)],
-        ["Outras regionais", lista.filter(p=>p.sr!==srUnid)],
-      ].filter(g=>g[1].length);
-      sel.innerHTML=`<option value="">Selecionar do quadro de profissionais (${lista.length})…</option>`
-        + grupos.map(([t,ps])=>`<optgroup label="${esc(t)}">${ps.map(p=>`<option value="${this.quadro.indexOf(p)}">${esc(rotulo(p))}</option>`).join("")}</optgroup>`).join("");
+      sel.innerHTML=`<option value="">Selecionar ${cargoTxt} de ${esc(unid)} (${daUnidade.length})…</option>`
+        + daUnidade.map(p=>`<option value="${this.quadro.indexOf(p)}">${esc(rotulo(p))}</option>`).join("");
     });
   },
   escolherDoQuadro(k, sel){
