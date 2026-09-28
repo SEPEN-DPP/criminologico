@@ -487,7 +487,7 @@
       <div><label class="f">Número do SGPE</label><input type="text" id="e_sgpe" placeholder="ex.: SGPE 00012345/2026"></div>
     </div>
     <div class="row c3">
-      <div><label class="f">Filiação</label><input type="text" id="e_filiacao" placeholder="Nome do pai e da mãe"></div>
+      <div><label class="f">Filiação</label><input type="text" id="e_filiacao" placeholder="Mãe: nome; Pai: nome"></div>
       <div><label class="f">Data de nascimento</label><input type="date" id="e_nasc"></div>
       <div><label class="f">Regime atual</label>
         <select id="e_regime">
@@ -1263,13 +1263,15 @@ const Extractor = {
     else missing.push("data de nascimento");
 
     /* filiação — "Filiação: PAI e MÃE" num campo só, ou "Nome do Pai"/"Nome da Mãe" em campos separados (formato comum do BPI);
-       "DESCONHECIDO", "NÃO INFORMADO" etc. são descartados — o campo fica só com o(s) nome(s) conhecido(s) */
+       grava "Mãe: Fulana; Pai: Fulano" — "DESCONHECIDO", "IGNORADO" etc. viram "não informado" */
     const filNome=v=>{ v=(v||"").replace(/[.;:()\[\]]/g," ").trim(); return !v || /\b(?:desconhecid[oa]s?|ignorad[oa]s?|n[ãa]o\s+(?:informad[oa]|consta|declarad[oa]|identificad[oa])|sem\s+registro)\b|^(?:n\s*\/?\s*i|n\/c|-+)$/i.test(v) ? "" : v; };
-    const filJunta=(...ns)=>this.titleCase(ns.map(filNome).filter(Boolean).join(" e "));
+    const filJunta=(pai,mae)=>{ pai=filNome(pai); mae=filNome(mae); if(!pai&&!mae) return "";
+      return "Mãe: "+(mae?this.titleCase(mae):"não informado")+"; Pai: "+(pai?this.titleCase(pai):"não informado"); };
     let filiacao="";
     m=t.match(/filia[çc][ãa]o\s*[:\-]?\s*([A-ZÀ-Ü][^\n;]{4,90}?)(?=\s{2,}|\s*(?:CPF|RG|Nome\s+do\s+Pai|Nome\s+da\s+M[ãa]e|Data\s+de\s+Nascimento|Nascid[oa]|Naturalidade|Endere[çc]o|$))/i);
     if(m){
-      filiacao=filJunta(...m[1].split(/\s+e\s+/i));
+      const [p1,p2]=m[1].split(/\s+e\s+/i);
+      filiacao=filJunta(p1,p2);
     } else {
       const proxRotulo="(?:Nome\\s+d[oa]\\s+(?:Pai|M[ãa]e)|CPF|RG|Data(?:\\s+de\\s+Nascimento)?|Nascid[oa]|Naturalidade|Endere[çc]o|Sexo|$)";
       const pai=t.match(new RegExp("Nome\\s+do\\s+Pai\\s*[:\\-]?\\s*([A-ZÀ-Ü][^\\n;]{2,60}?)(?=\\s{2,}|\\s*"+proxRotulo+")","i"));
@@ -2502,8 +2504,14 @@ const App = {
     e_tipo.value=ex.tipo||"progressao"; e_dataProg.value=ex.dataProg||""; document.getElementById("e_dataBase").value=ex.dataBase||""; e_obs.value=ex.obs||"";
     document.getElementById("e_faltaNaoReab").value=ex.faltaNaoReab||"";
     document.getElementById("e_exameAnterior").value=ex.exameAnterior||"nao";
-    /* exames importados antes do filtro podem ter "Desconhecido e Fulana" gravado — mostra só o(s) nome(s) conhecido(s) */
-    document.getElementById("e_filiacao").value=(ex.filiacao||"").split(/\s+e\s+/i).filter(n=>!/^\s*(?:desconhecid[oa]|ignorad[oa]|n[ãa]o\s+informad[oa])\s*$/i.test(n)).join(" e ");
+    /* importações antigas gravavam "Pai e Mãe" (ex.: "Desconhecido e Fulana") — com pai/mãe desconhecido,
+       converte para o formato atual "Mãe: ...; Pai: não informado"; o resto fica como foi gravado */
+    let fil=ex.filiacao||"";
+    const partes=fil.split(/\s+e\s+/i);
+    const desc=n=>/^\s*(?:desconhecid[oa]|ignorad[oa]|n[ãa]o\s+informad[oa])\s*$/i.test(n);
+    if(!/m[ãa]e\s*:/i.test(fil) && partes.length===2 && partes.some(desc))
+      fil="Mãe: "+(desc(partes[1])?"não informado":partes[1].trim())+"; Pai: "+(desc(partes[0])?"não informado":partes[0].trim());
+    document.getElementById("e_filiacao").value=fil;
     document.getElementById("e_nasc").value=ex.nasc||"";
     document.getElementById("e_regime").value=ex.regime||"";
     document.getElementById("e_juizo").value=ex.juizo||"";
@@ -4113,42 +4121,6 @@ onAuthStateChanged(auth, async (usuarioFirebase) => {
   UsuariosUI._cache = [];
   NotifUI.render();
 });
-</script>
-<script>
-/* aviso de versão nova: uma aba aberta continua com o código de quando foi carregada (trocar de conta não recarrega);
-   compara a "impressão" (ETag) da página publicada com a do carregamento e oferece recarregar */
-(function(){
-  if(!/^https?:$/.test(location.protocol)) return;
-  let inicial=null, avisado=false, adiadoAte=0;
-  const impressao=async()=>{
-    try{
-      const r=await fetch(location.pathname,{method:"HEAD",cache:"no-store"});
-      return r.ok ? (r.headers.get("etag")||r.headers.get("last-modified")) : null;
-    }catch(e){ return null; }
-  };
-  const avisar=()=>{
-    if(avisado) return; avisado=true;
-    const d=document.createElement("div");
-    d.setAttribute("role","status");
-    d.style.cssText="position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--warnbg);color:#3a2a06;border-bottom:3px solid var(--warn);padding:10px 16px;font-size:14px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.12);";
-    d.innerHTML=`<b>Há uma versão nova do sistema.</b> Salve o que estiver preenchendo e clique em
-      <button class="btn sm" style="margin:0 6px;">Atualizar agora</button>
-      <button class="btn sm ghost">depois</button>`;
-    const [bAtualizar,bDepois]=d.querySelectorAll("button");
-    bAtualizar.onclick=()=>location.reload();
-    bDepois.onclick=()=>{ d.remove(); avisado=false; adiadoAte=Date.now()+30*60*1000; };
-    document.body.appendChild(d);
-  };
-  const verificar=async()=>{
-    const atual=await impressao();
-    if(!atual) return;
-    if(inicial===null){ inicial=atual; return; }
-    if(atual!==inicial && Date.now()>=adiadoAte) avisar();
-  };
-  verificar();
-  setInterval(verificar, 5*60*1000);
-  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") verificar(); });
-})();
 </script>
 </body>
 </html>
