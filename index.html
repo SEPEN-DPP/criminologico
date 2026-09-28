@@ -440,7 +440,7 @@
     <h3 id="fichaTitulo">Novo exame criminológico</h3>
 
     <nav class="subtabs" id="novoTabs">
-      <button class="on" data-n="ident" onclick="App.novoTab('ident')">Identificação e condenações</button>
+      <button class="on" data-n="ident" onclick="App.novoTab('ident')">Identificação</button>
       <button data-n="equipe" onclick="App.novoTab('equipe')">Equipe examinadora</button>
       <button data-n="comunicacao" onclick="App.novoTab('comunicacao')">Comunicação ao Juízo</button>
       <button data-n="quesitos" onclick="App.novoTab('quesitos')">Quesitos e Relatório</button>
@@ -448,7 +448,7 @@
 
     <div class="novopanel on" id="np-ident">
     <div class="lawbox" style="background:#F5F2E8; border-color:#DCD3B8; border-left-color:var(--gold);">
-      <b>Importar documento do SGPE</b> — anexe o documento do SGPE (que já reúne a decisão judicial e o BPI). O sistema lê o arquivo e preenche automaticamente os dados do apenado (nome, matrícula/IPEN, processo, unidade, data do fato, tipificação) e as condenações (guias de execução), logo abaixo. Confira sempre os campos após a extração.
+      <b>Importar documento do SGPE</b> — anexe o documento do SGPE (que já reúne a decisão judicial e o BPI). O sistema lê o arquivo e preenche automaticamente os dados do apenado (nome, matrícula/IPEN, processo, unidade, filiação, nascimento, data-base, entre outros), logo abaixo. Confira sempre os campos após a extração.
       <div class="btnrow" style="margin-top:10px;">
         <button class="btn sm" onclick="document.getElementById('docFile').click()">Selecionar arquivo (PDF ou TXT)</button>
         <input type="file" id="docFile" accept=".pdf,.txt" style="display:none;" onchange="Extractor.arquivo(this)">
@@ -520,10 +520,8 @@
       <div><label class="f">Data de conclusão da avaliação</label><input type="date" id="e_dataConcl"></div>
     </div>
 
-    <hr class="sep">
-    <h3>Condenações (guias de execução) <button class="btn sm ghost" style="float:right;" onclick="App.addCond()">+ adicionar condenação</button></h3>
-    <p class="note">A data do fato de cada condenação define a triagem legal. Preencha uma entrada por guia — as condenações também são preenchidas automaticamente ao importar o documento do SGPE, no início desta aba.</p>
-    <div id="condBox" style="margin-top:10px;"></div>
+    <!-- condenações retiradas da tela; o contêiner oculto só preserva as já gravadas em exames antigos -->
+    <div id="condBox" style="display:none;"></div>
 
     <div class="row c3" style="margin-top:6px;">
       <div><label class="f">Data prevista da progressão (requisito objetivo)</label><input type="date" id="e_dataProg" onchange="App.triagem()"></div>
@@ -1191,7 +1189,6 @@ const Extractor = {
      vêm do mesmo texto — roda os dois extratores em sequência sobre ele. */
   processarSGPE(texto, fonte){
     this.extrair(texto, fonte);
-    this.extrairBPI(texto, fonte);
   },
 
   lerPDF(file){
@@ -1265,28 +1262,28 @@ const Extractor = {
     if(m){ document.getElementById("e_nasc").value=m[3]+"-"+m[2]+"-"+m[1]; found.push("Data de nascimento: "+m[1]+"/"+m[2]+"/"+m[3]); }
     else missing.push("data de nascimento");
 
-    /* filiação — "Filiação: PAI e MÃE" num campo só, ou "Nome do Pai"/"Nome da Mãe" em campos separados (formato comum do BPI) */
+    /* filiação — "Filiação: PAI e MÃE" num campo só, ou "Nome do Pai"/"Nome da Mãe" em campos separados (formato comum do BPI);
+       "DESCONHECIDO", "NÃO INFORMADO" etc. são descartados — o campo fica só com o(s) nome(s) conhecido(s) */
+    const filNome=v=>{ v=(v||"").trim(); return /^(?:desconhecid[oa]|ignorad[oa]|n[ãa]o\s+(?:informad[oa]|consta|declarad[oa])|n\s*\/?\s*i|n\/c|-+)$/i.test(v) ? "" : v; };
+    const filJunta=(...ns)=>this.titleCase(ns.map(filNome).filter(Boolean).join(" e "));
+    let filiacao="";
     m=t.match(/filia[çc][ãa]o\s*[:\-]?\s*([A-ZÀ-Ü][^\n;]{4,90}?)(?=\s{2,}|\s*(?:CPF|RG|Nome\s+do\s+Pai|Nome\s+da\s+M[ãa]e|Data\s+de\s+Nascimento|Nascid[oa]|Naturalidade|Endere[çc]o|$))/i);
     if(m){
-      document.getElementById("e_filiacao").value=this.titleCase(m[1].trim());
-      found.push("Filiação: "+document.getElementById("e_filiacao").value);
+      filiacao=filJunta(...m[1].split(/\s+e\s+/i));
     } else {
       const proxRotulo="(?:Nome\\s+d[oa]\\s+(?:Pai|M[ãa]e)|CPF|RG|Data(?:\\s+de\\s+Nascimento)?|Nascid[oa]|Naturalidade|Endere[çc]o|Sexo|$)";
       const pai=t.match(new RegExp("Nome\\s+do\\s+Pai\\s*[:\\-]?\\s*([A-ZÀ-Ü][^\\n;]{2,60}?)(?=\\s{2,}|\\s*"+proxRotulo+")","i"));
       const mae=t.match(new RegExp("Nome\\s+da\\s+M[ãa]e\\s*[:\\-]?\\s*([A-ZÀ-Ü][^\\n;]{2,60}?)(?=\\s{2,}|\\s*"+proxRotulo+")","i"));
-      if(pai || mae){
-        document.getElementById("e_filiacao").value=this.titleCase([pai&&pai[1],mae&&mae[1]].filter(Boolean).join(" e ").trim());
-        found.push("Filiação: "+document.getElementById("e_filiacao").value);
-      } else {
+      if(pai || mae) filiacao=filJunta(pai&&pai[1], mae&&mae[1]);
+      else {
         /* formato do Boletim Penal (BPI) da Polícia Penal-SC: "pai: NOME, mãe: NOME" em minúsculas, separados por vírgula, dentro do parágrafo de qualificação */
         const pai2=t.match(/\bpai:\s*([^,]+),/i);
         const mae2=t.match(/\bm[ãa]e:\s*([^,]+),/i);
-        if(pai2 || mae2){
-          document.getElementById("e_filiacao").value=this.titleCase([pai2&&pai2[1],mae2&&mae2[1]].filter(Boolean).join(" e ").trim());
-          found.push("Filiação: "+document.getElementById("e_filiacao").value);
-        } else missing.push("filiação");
+        if(pai2 || mae2) filiacao=filJunta(pai2&&pai2[1], mae2&&mae2[1]);
       }
     }
+    if(filiacao){ document.getElementById("e_filiacao").value=filiacao; found.push("Filiação: "+filiacao); }
+    else missing.push("filiação");
 
     /* regime atual */
     m=t.match(/regime\s+(?:atual|de\s+cumprimento)?\s*[:\-]?\s*(fechad[oa]|semiabert[oa]|abert[oa]|domiciliar)/i);
@@ -1324,34 +1321,11 @@ const Extractor = {
       App.setUnidadeValor(unidBruta); found.push("Unidade: "+App.getUnidadeValor());
     } else missing.push("unidade");
 
-    /* data do fato */
-    m=t.match(/(?:data\s+do\s+fato|fatos?\s+(?:ocorrid[oa]s?|praticad[oa]s?)\s+em|delito\s+praticado\s+em|crime\s+(?:cometido|praticado)\s+em)\s*[:\-]?\s*(\d{2})\/(\d{2})\/(\d{4})/i);
-    let dataISO=null;
-    if(m){ dataISO=m[3]+"-"+m[2]+"-"+m[1]; found.push("Data do fato: "+m[1]+"/"+m[2]+"/"+m[3]); } else missing.push("data do fato");
-
-    /* tipificação — tenta capturar até o diploma legal; senão, versão curta */
-    let artigo=null, crime=null;
-    m=t.match(/art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?[^.;\n]{0,70}?(?:do|da)\s+(?:C[óo]digo\s+Penal|CP\b|Lei\s+n?[.ºo°]?\s*[\d.\/]+)/i);
-    if(!m) m=t.match(/(?<!\d\s)art(?:igo)?\.?\s*\d{1,4}(?:\s*[-–]\s*[A-Z])?(?:\s*,\s*(?:caput|§+\s*\d+[ºo°]?))*/i);
-    if(m){ artigo=m[0].replace(/\s+/g," ").trim(); found.push("Tipificação: "+artigo); }
-    m=t.match(/\b(roubo(?:\s+majorad[oa])?|homic[íi]dio(?:\s+qualificad[oa])?|latroc[íi]nio|estupro(?:\s+de\s+vulner[áa]vel)?|feminic[íi]dio|tr[áa]fico\s+de\s+drogas|tortura|terrorismo|genoc[íi]dio|furto(?:\s+qualificad[oa])?|les[ãa]o\s+corporal|amea[çc]a|estelionato|c[áa]rcere\s+privado|extors[ãa]o)\b/i);
-    if(m){ crime=this.titleCase(m[1]); found.push("Crime: "+crime); }
-    /* crimes inequivocamente violentos/hediondos → marca automática do campo (art. 122, §2º, LEP);
-       testado contra o texto inteiro (não só contra "crime") para não perder grave ameaça citada
-       fora do primeiro crime capturado */
-    const autoViol = this.VIOLENTOS_RE.test(t);
-    if(!artigo && !crime) missing.push("tipificação");
-
-    /* aplicar à primeira condenação */
-    if(dataISO || artigo || crime){
-      const c0=document.querySelector("#condBox .cond");
-      if(c0){
-        if(crime)  c0.querySelector(".c_crime").value = crime;
-        if(artigo) c0.querySelector(".c_art").value = artigo;
-        if(dataISO)c0.querySelector(".c_data").value = dataISO;
-        if(autoViol){ c0.querySelector(".c_viol").value = "sim"; found.push("Crime com violência/grave ameaça → marcado automaticamente"); }
-      }
-    }
+    /* data-base — no Boletim Penal o cabeçalho traz os rótulos soltos ("Data base: Data limite...") com as datas
+       embaixo, fora de ordem; já a "Régua penal" traz "Data base: DD/MM/AAAA" — só aceita data colada ao rótulo */
+    m=t.match(/data[\s-]*base(?:\s+informada)?\s*[:\-]?\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+    if(m){ document.getElementById("e_dataBase").value=m[3]+"-"+m[2]+"-"+m[1]; found.push("Data-base: "+m[1]+"/"+m[2]+"/"+m[3]); }
+    else missing.push("data-base");
 
     /* determinação judicial do exame? */
     if(/determino\s+a\s+realiza[çc][ãa]o\s+do\s+exame\s+criminol[óo]gico|exame\s+criminol[óo]gico[^.]{0,90}?determin/i.test(t)){
@@ -2190,7 +2164,8 @@ const App = {
       <p class="triagem-exp">Requisição para instruir procedimento de gestão da execução ou subsidiar representação ao Juízo. Não constitui hipótese autônoma de exigência para progressão — observar os limites legais.</p>`;
       return;
     }
-    if(!conds.length){ box.innerHTML=`<p class="note">Informe a(s) data(s) do fato para a triagem legal automática.</p>`; return; }
+    /* sem condenações na tela (retiradas): só os avisos da triagem prévia; exames antigos que já tinham datas do fato mantêm o carimbo */
+    if(!conds.length){ box.innerHTML=this.triagemPreviaHTML(); return; }
 
     const pos=conds.filter(c=> new Date(c.dataFato+"T00:00:00") >= MARCO);
     const ant=conds.filter(c=> new Date(c.dataFato+"T00:00:00") < MARCO);
@@ -2612,7 +2587,7 @@ const App = {
       if(vazio(antes)&&vazio(depois)) return;
       alteracoes.push({campo, rotulo:this.rotuloCampo(campo), antes:antes===undefined?null:antes, depois:depois===undefined?null:depois});
       const g=campo.split(".")[0];
-      secoes.add(this.GRUPO_SUB[g] ? (g==="rel"||g==="relOk"||g==="sup" ? "Relatório — "+(this.ROTULO_SUB[campo.split(".")[1]]||campo.split(".")[1]) : this.GRUPO_SUB[g]) : "Identificação e condenações");
+      secoes.add(this.GRUPO_SUB[g] ? (g==="rel"||g==="relOk"||g==="sup" ? "Relatório — "+(this.ROTULO_SUB[campo.split(".")[1]]||campo.split(".")[1]) : this.GRUPO_SUB[g]) : "Identificação");
     };
     new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>{
       const va=a[k], vb=b[k];
@@ -3129,7 +3104,6 @@ const App = {
     const cocNome=(this.data.cocs.find(c=>c.id===this.coc)||{}).nome||"";
     const unidNome=this.getUnidadeValor();
     const unidInfo=UNIDADES_INFO[unidNome];
-    const conds=this.lerConds().filter(c=>c.crime||c.dataFato);
     const fin={progressao:"progressão de regime (art. 112, §1º, da LEP)",judicial:"determinação judicial motivada",dpp:"requisição do Departamento de Polícia Penal"}[e_tipo.value];
     const et=this.lerEtapas();
     const semPsq=document.getElementById("q_semPsq").checked;
@@ -3210,7 +3184,6 @@ const App = {
           ${linhas.map(([label,val])=>`<tr><td style="border:1px solid #999; padding:4px 8px; font-weight:bold; width:38%; vertical-align:top;">${label}:</td><td style="border:1px solid #999; padding:4px 8px;">${val}</td></tr>`).join("")}
         </table>`;
       })()}
-      ${conds.length?`<p><b>Condenações (data do fato):</b><br>${conds.map(c=>`— ${esc(c.crime)||"(crime)"} ${c.artigo?("("+esc(c.artigo)+")"):""} — fato em ${fmt(c.dataFato)}`).join("<br>")}</p>`:""}
 
       <h3>II — Delimitação da demanda, garantias e quesitos</h3>
       <p style="text-indent:1.5cm;">${escNl(TEXTO_MODELO.delimitacao)}</p>
