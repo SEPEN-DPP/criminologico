@@ -1264,7 +1264,7 @@ const Extractor = {
 
     /* filiação — "Filiação: PAI e MÃE" num campo só, ou "Nome do Pai"/"Nome da Mãe" em campos separados (formato comum do BPI);
        "DESCONHECIDO", "NÃO INFORMADO" etc. são descartados — o campo fica só com o(s) nome(s) conhecido(s) */
-    const filNome=v=>{ v=(v||"").trim(); return /^(?:desconhecid[oa]|ignorad[oa]|n[ãa]o\s+(?:informad[oa]|consta|declarad[oa])|n\s*\/?\s*i|n\/c|-+)$/i.test(v) ? "" : v; };
+    const filNome=v=>{ v=(v||"").replace(/[.;:()\[\]]/g," ").trim(); return !v || /\b(?:desconhecid[oa]s?|ignorad[oa]s?|n[ãa]o\s+(?:informad[oa]|consta|declarad[oa]|identificad[oa])|sem\s+registro)\b|^(?:n\s*\/?\s*i|n\/c|-+)$/i.test(v) ? "" : v; };
     const filJunta=(...ns)=>this.titleCase(ns.map(filNome).filter(Boolean).join(" e "));
     let filiacao="";
     m=t.match(/filia[çc][ãa]o\s*[:\-]?\s*([A-ZÀ-Ü][^\n;]{4,90}?)(?=\s{2,}|\s*(?:CPF|RG|Nome\s+do\s+Pai|Nome\s+da\s+M[ãa]e|Data\s+de\s+Nascimento|Nascid[oa]|Naturalidade|Endere[çc]o|$))/i);
@@ -2502,7 +2502,8 @@ const App = {
     e_tipo.value=ex.tipo||"progressao"; e_dataProg.value=ex.dataProg||""; document.getElementById("e_dataBase").value=ex.dataBase||""; e_obs.value=ex.obs||"";
     document.getElementById("e_faltaNaoReab").value=ex.faltaNaoReab||"";
     document.getElementById("e_exameAnterior").value=ex.exameAnterior||"nao";
-    document.getElementById("e_filiacao").value=ex.filiacao||"";
+    /* exames importados antes do filtro podem ter "Desconhecido e Fulana" gravado — mostra só o(s) nome(s) conhecido(s) */
+    document.getElementById("e_filiacao").value=(ex.filiacao||"").split(/\s+e\s+/i).filter(n=>!/^\s*(?:desconhecid[oa]|ignorad[oa]|n[ãa]o\s+informad[oa])\s*$/i.test(n)).join(" e ");
     document.getElementById("e_nasc").value=ex.nasc||"";
     document.getElementById("e_regime").value=ex.regime||"";
     document.getElementById("e_juizo").value=ex.juizo||"";
