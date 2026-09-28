@@ -1137,6 +1137,24 @@ const TEXTO_MODELO = {
   delimitacao:"O presente exame criminológico foi realizado com a finalidade de subsidiar o Juízo da Execução Penal na apreciação do pedido de progressão de regime, mediante avaliação multiprofissional individualizada, de caráter circunstanciado, descritivo e não vinculante, observados os limites técnicos e éticos próprios de cada área profissional.\nA utilização de saberes técnicos para formular prognoses sobre comportamentos futuros apresenta limites científicos e constitucionais relevantes, especialmente diante da complexidade e da natureza dinâmica do comportamento humano (CARVALHO; WEIGERT, 2024). Desta forma, a presente avaliação foi delimitada aos elementos pertinentes à execução penal e às condições atuais da pessoa examinada, não se destinando à formulação de prognóstico de reincidência, aferição de periculosidade ou previsão de comportamento futuro.\nForam considerados, de forma contextualizada, os elementos produzidos no curso da execução penal, o percurso institucional, as oportunidades efetivamente ofertadas durante o cumprimento da pena, os vínculos familiares e comunitários, os recursos pessoais e sociais identificados, as necessidades de suporte e as limitações inerentes às fontes disponíveis. Os registros institucionais e demais documentos analisados foram considerados segundo sua natureza, atualidade e contexto de produção, sem atribuição automática de valor negativo a situações decorrentes de limitações institucionais, como ausência de vaga de trabalho, estudo ou participação em atividades não disponibilizadas pela unidade.\nO Ministério Público e a defesa técnica foram previamente cientificados acerca da data de realização do exame, sendo-lhes oportunizada a apresentação de quesitos e demais manifestações cabíveis, nos termos da Resolução CNPCP nº 36/2024. À pessoa examinada foram assegurados o direito ao silêncio, a não autoincriminação e a informação de que eventual afirmação de inocência, ausência de confissão ou ausência de manifestação de arrependimento não seriam consideradas negativamente na avaliação.\nAs entrevistas técnicas individuais foram realizadas de forma reservada, sem a presença de terceiros, de modo a preservar a confidencialidade, a livre manifestação da pessoa examinada e a autonomia técnico-profissional dos integrantes da equipe. A participação da defesa restringiu-se aos momentos compatíveis com sua atuação, sem interferência na condução metodológica das entrevistas ou no conteúdo das avaliações técnicas.\nOs quesitos eventualmente apresentados foram apreciados dentro dos limites de competência de cada área profissional e da finalidade do exame, sem ampliação indevida do objeto da avaliação ou produção de conclusões que extrapolassem os dados efetivamente obtidos."
 };
 
+/* variantes do Anexo II para quando a situação do avaliado é outra (ficam em TEXTO_MODELO para o verificador
+   de vedações também isentar as frases-padrão delas) */
+Object.assign(TEXTO_MODELO, {
+  chefiaSegReab:"Conforme o Boletim Penal Informativo e os registros institucionais consultados, a pessoa avaliada possui ocorrências disciplinares pretéritas, regularmente apuradas no âmbito administrativo.\nVerifica-se, contudo, que os respectivos períodos de reabilitação já foram integralmente cumpridos, não havendo, na presente data, pendências disciplinares ativas decorrentes daqueles registros.\nNo período mais recente, mantém comportamento compatível com as normas regimentais da unidade, sem registro de envolvimento em conflitos internos, resistência às rotinas institucionais ou outras intercorrências relevantes sob o aspecto da disciplina e da segurança.\nDessa forma, embora exista histórico disciplinar anterior, não se identificam, no momento da presente avaliação, elementos atuais de natureza disciplinar ou de segurança que demandem ressalva específica.",
+  execPenalSemSaida:"O apenado iniciou o cumprimento da pena em regime fechado em [data], tendo progredido ao regime semiaberto em [data].\nO apenado não possui, atualmente, direito à saída temporária.\nA situação executória encontra-se atualizada, conforme os registros disponíveis, não sendo identificadas pendências documentais relevantes ou inconsistências formais a consignar no momento da presente avaliação.",
+  ativLabSemVaga:"O apenado não se encontra atualmente inserido em atividade laboral em razão da indisponibilidade de vaga na unidade.\nNão há registro de recusa injustificada, desistência ou conduta atribuível ao apenado que tenha impedido sua inclusão em atividade laboral.\nA ausência de atividade, portanto, decorre de circunstância institucional, não havendo intercorrências relevantes a consignar.",
+  ensinoSemOferta:"O apenado não se encontra atualmente inserido em atividade educacional em razão da inexistência de vaga ou de oferta compatível na unidade.\nNão há registro de recusa injustificada, abandono ou comportamento atribuível ao apenado que tenha impedido sua participação em atividade educacional.\nA ausência de inserção decorre, portanto, de limitação institucional de oferta, não havendo intercorrências relevantes no âmbito educacional.",
+  sin:"A partir das informações institucionais, dos relatórios técnicos realizados e dos documentos analisados, procedeu-se à apreciação integrada dos elementos obtidos no presente exame criminológico.\nNo período avaliado, a PPL apresenta adaptação regular às rotinas institucionais, com cumprimento das normas da unidade e ausência de intercorrências atuais relevantes. [O registro disciplinar pretérito identificado encontra-se reabilitado e foi considerado de forma contextualizada, sem atribuição de caráter determinante à avaliação.]\nO interno [encontra-se inserido em atividade laboral interna, com frequência regular e adequado cumprimento das atribuições, bem como participa de atividade educacional ofertada pela unidade, sem registros de abandono ou intercorrências significativas].\nNo relatório psicológico, foram identificados recursos relacionados à capacidade de reflexão sobre sua trajetória, compreensão das consequências de suas escolhas, adaptação ao ambiente institucional e elaboração de perspectivas futuras, sem alterações observáveis que comprometessem sua participação no procedimento.\nO estudo social evidenciou [manutenção de vínculos familiares, existência de rede de apoio declarada e perspectiva de acolhimento familiar, além de intenção de reinserção em atividade laboral após eventual progressão de regime].\nAs manifestações produzidas pelas diferentes áreas apresentam convergência quanto à adaptação institucional atual, à existência de recursos pessoais e sociais e à ausência de intercorrências contemporâneas de maior relevância. Foram identificadas, contudo, necessidades relacionadas à [continuidade do fortalecimento da rede de apoio e à organização concreta das condições de inserção laboral].\nA presente síntese possui caráter técnico, informativo e interdisciplinar, limitando-se aos elementos disponíveis e às condições observadas no período avaliado. Não constitui prognóstico de comportamento futuro, juízo de periculosidade ou previsão de reincidência, competindo ao Juízo da Execução a apreciação dos requisitos legais e a decisão acerca da progressão de regime."
+});
+/* botões "Texto do modelo" acima de cada campo do relatório que tem mais de uma versão no Anexo II */
+const MODELO_OPCOES = {
+  chefiaSeg:[{t:"Sem faltas disciplinares",k:"chefiaSeg"},{t:"Faltas pretéritas já reabilitadas",k:"chefiaSegReab"}],
+  execPenal:[{t:"Com saídas temporárias",k:"execPenal"},{t:"Sem direito à saída temporária",k:"execPenalSemSaida"}],
+  ativLab:[{t:"Inserido em atividade laboral",k:"ativLab"},{t:"Sem vaga na unidade",k:"ativLabSemVaga"}],
+  ensino:[{t:"Inserido em atividade educacional",k:"ensino"},{t:"Sem oferta na unidade",k:"ensinoSemOferta"}],
+  sin:[{t:"Texto do modelo",k:"sin"}]
+};
+
 /* termos vedados — art. 10, incisos I a V (o inciso VI, sobre uso de IA generativa/tecnologia preditiva, é uma declaração e não é detectável por varredura de texto) */
 const VEDADOS = [
   {re:/prognóstic[a-zà-ÿ]*/gi, ved:"I — prognóstico de reincidência"},
@@ -2322,6 +2340,7 @@ const App = {
     r_direcao.value=TEXTO_MODELO.direcao; r_chefiaSeg.value=TEXTO_MODELO.chefiaSeg; r_execPenal.value=TEXTO_MODELO.execPenal;
     r_ativLab.value=TEXTO_MODELO.ativLab; r_ensino.value=TEXTO_MODELO.ensino; r_semiab.value=TEXTO_MODELO.semiab;
     r_psq.value=TEXTO_MODELO.psq; r_psi.value=TEXTO_MODELO.psi; r_soc.value=TEXTO_MODELO.soc;
+    r_sin.value=TEXTO_MODELO.sin;
     document.getElementById("e_tipo").value="progressao";
     document.getElementById("e_regime").value="";
     this.setBeneficio("");
@@ -3383,6 +3402,34 @@ const App = {
 /* expostos p/ o script type="module" do Firebase (modulos nao compartilham o
    escopo lexico de let/const dos scripts classicos, so o objeto window) */
 window.App = App;
+
+/* botões de escolha do texto-modelo (MODELO_OPCOES) acima dos campos do relatório; se o texto já foi
+   editado (difere de todas as versões do modelo), pergunta antes de substituir */
+(function montarBotoesModelo(){
+  Object.entries(MODELO_OPCOES).forEach(([campo,opcoes])=>{
+    const ta=document.getElementById("r_"+campo);
+    if(!ta) return;
+    const barra=document.createElement("div");
+    barra.className="btnrow";
+    barra.style.cssText="margin:4px 0 6px; gap:6px; align-items:center;";
+    barra.innerHTML=`<span class="muted" style="font-size:12px;">${opcoes.length>1?"Texto do modelo padrão:":""}</span>`;
+    opcoes.forEach(o=>{
+      const b=document.createElement("button");
+      b.type="button"; b.className="btn sm ghost";
+      b.textContent=opcoes.length>1?o.t:"Preencher com o texto do modelo padrão";
+      b.onclick=()=>{
+        if(ta.disabled || ta.readOnly) return;
+        const atual=ta.value.trim();
+        const ehModelo=!atual || opcoes.some(x=>TEXTO_MODELO[x.k].trim()===atual);
+        if(!ehModelo && !confirm("O texto deste campo já foi editado. Substituir pelo texto do modelo?")) return;
+        ta.value=TEXTO_MODELO[o.k];
+        ta.dispatchEvent(new Event("input",{bubbles:true}));
+      };
+      barra.appendChild(b);
+    });
+    ta.parentNode.insertBefore(barra, ta);
+  });
+})();
 
 /* ---------- aviso de nova versão ----------
    Trocar de conta não recarrega a página, e uma aba aberta antes de um deploy
