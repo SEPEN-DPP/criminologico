@@ -381,6 +381,8 @@
       <select id="fStatus" style="width:auto;" onchange="App.renderLista()">
         <option value="">Todos os status</option>
         <option value="andamento">Em andamento</option>
+        <option value="agendado">Em andamento — agendados</option>
+        <option value="naoagendado">Em andamento — não agendados</option>
         <option value="concluido">Concluídos</option>
       </select>
       <input type="text" id="fBusca" placeholder="Buscar por nome, matrícula ou processo…" style="max-width:300px;" oninput="App.renderLista()">
@@ -2942,6 +2944,10 @@ const App = {
       exs=this.filtrarPorUnidade(exs, unidFiltro, unidadesDoCentro);
     }
     if(st) exs=exs.filter(e=> st==="concluido" ? e.status==="concluido" : e.status!=="concluido");
+    // "agendado" = alguma entrevista (1ª, 2ª ou convívio) com data marcada — o mesmo critério do calendário
+    const temEntrevista = e => ["ent1","ent2","entConv"].some(k=>((e.etapas||{})[k]||{}).data);
+    if(st==="agendado") exs=exs.filter(temEntrevista);
+    if(st==="naoagendado") exs=exs.filter(e=>!temEntrevista(e));
     if(this.dashPrazoFiltro) exs=exs.filter(e=>this.prazoInfo(e).cls===this.dashPrazoFiltro);
     if(q) exs=exs.filter(e=>(e.nome+" "+(e.mat||"")+" "+(e.proc||"")).toLowerCase().includes(q));
     const nomeRegional = id => (this.data.cocs.find(c=>c.id===id)||{}).nome || "—";
