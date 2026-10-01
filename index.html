@@ -1181,8 +1181,12 @@ const MARCO = new Date("2024-04-11T00:00:00");
 
 /* ================= extração de dados de documentos ================= */
 const Extractor = {
-  PDFJS: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
-  WORKER: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+  /* cópia local (servida pelo próprio site) primeiro — redes que bloqueiam o cdnjs deixavam a leitura de PDF sempre falhando; CDN fica só como reserva */
+  FONTES: [
+    {lib:"vendor/pdfjs/pdf.min.js", worker:"vendor/pdfjs/pdf.worker.min.js"},
+    {lib:"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", worker:"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"}
+  ],
+  WORKER: null,
 
   togglePaste(){
     const b=document.getElementById("pasteBox");
@@ -1215,7 +1219,15 @@ const Extractor = {
     } else if(/\.pdf$/i.test(f.name)){
       out.innerHTML=`<p class="note">Lendo PDF…</p>`;
       this.lerPDF(f).then(t=>this.processarSGPE(t, f.name))
-        .catch(()=>{ out.innerHTML=`<div class="flag"><b>Não foi possível ler o PDF neste computador</b> (leitura de PDF exige conexão na primeira vez, ou o arquivo é imagem digitalizada sem texto). Alternativa garantida: abra o documento no SGPE, selecione o texto, copie e use "colar o texto do SGPE".</div>`; });
+        .catch(e=>{
+          const alt=`Alternativa garantida: abra o documento no SGPE, selecione o texto, copie e use "colar o texto do SGPE".`;
+          const msg = e && e.message==="sem camada de texto"
+            ? `<b>Este PDF não tem texto selecionável</b> — é uma imagem digitalizada (escaneada), e o sistema não consegue ler imagem. Prefira baixar do SGPE a versão gerada pelo sistema (não a escaneada). ${alt}`
+            : e && (e.message==="offline" || e.message==="timeout")
+            ? `<b>Não foi possível carregar o leitor de PDF</b> (falha de conexão com o site). Atualize a página (Ctrl+F5) e tente de novo. ${alt}`
+            : `<b>Não foi possível abrir este PDF</b> (arquivo protegido por senha ou corrompido). ${alt}`;
+          out.innerHTML=`<div class="flag">${msg}</div>`;
+        });
     } else {
       out.innerHTML=`<div class="flag">Formato não suportado. Use PDF ou TXT — ou cole o texto.</div>`;
     }
@@ -1251,11 +1263,18 @@ const Extractor = {
           fr.readAsArrayBuffer(file);
         }catch(e){reject(e);}
       };
-      if(window.pdfjsLib){ go(); return; }
-      const s=document.createElement("script");
-      s.src=this.PDFJS; s.onload=go; s.onerror=()=>reject(new Error("offline"));
-      document.head.appendChild(s);
-      setTimeout(()=>{ if(!window.pdfjsLib) reject(new Error("timeout")); }, 12000);
+      if(window.pdfjsLib && this.WORKER){ go(); return; }
+      const carregar=(i)=>{
+        const f=this.FONTES[i];
+        if(!f){ reject(new Error("offline")); return; }
+        const s=document.createElement("script");
+        s.src=f.lib;
+        s.onload=()=>{ if(window.pdfjsLib){ this.WORKER=f.worker; go(); } else carregar(i+1); };
+        s.onerror=()=>{ s.remove(); carregar(i+1); };
+        document.head.appendChild(s);
+      };
+      carregar(0);
+      setTimeout(()=>{ if(!window.pdfjsLib) reject(new Error("timeout")); }, 20000);
     });
   },
 
