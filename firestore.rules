@@ -106,7 +106,8 @@ service cloud.firestore {
     //    (quem, quando, acao, secoes e valores antes/depois). O historico nunca
     //    pode ser editado nem apagado.
     // Conclusao gera exames/{id}/versoes/{n}: copia fechada e imutavel do
-    // relatorio. Exame concluido so volta a ser editavel se SR/DPP reabrir, com
+    // relatorio. So o DPP ou perfil regional da propria SR (SR, SR_PSICOLOGIA,
+    // SR_SOCIAL) conclui; a unidade preenche e salva. Exame concluido so volta a ser editavel se SR/DPP reabrir, com
     // motivo. Exclusao e logica (status "excluido", com motivo), feita pelo DPP
     // ou por perfil de nivel regional da propria SR (SR, SR_PSICOLOGIA,
     // SR_SOCIAL); o documento nunca e apagado de fato.
@@ -118,6 +119,8 @@ service cloud.firestore {
         || (ehNivelUnidade() && d.unidade == perfilAtual().unidade);
     }
     function ehSROuDPPDo(d) { return ehDPP() || minhaSR(d.sr); }
+    // concluir e excluir: DPP ou qualquer perfil regional da propria SR
+    function ehRegionalOuDPPDo(d) { return ehSROuDPPDo(d) || minhaSRComoCobertura(d.sr); }
     function exameDoc(examId) { return /databases/$(database)/documents/exames/$(examId); }
     function historicoDoc(examId, rev) { return /databases/$(database)/documents/exames/$(examId)/historico/$(string(rev)); }
     function versaoDoc(examId, n) { return /databases/$(database)/documents/exames/$(examId)/versoes/$(string(n)); }
@@ -139,12 +142,13 @@ service cloud.firestore {
             && n.diff(resource.data).affectedKeys().hasOnly(['status','rev','updatedBy','updatedByNome','updatedAt']))
         : para == 'andamento' ? true
         : para == 'concluido' ? (
-            n.finalizedBy == request.auth.uid
+            ehRegionalOuDPPDo(resource.data)
+            && n.finalizedBy == request.auth.uid
             && n.finalizedAt == request.time
             && n.versaoFinal == resource.data.get('versaoFinal', 0) + 1
             && existsAfter(versaoDoc(examId, n.versaoFinal)))
         : para == 'excluido' ? (
-            (ehSROuDPPDo(resource.data) || minhaSRComoCobertura(resource.data.sr))
+            ehRegionalOuDPPDo(resource.data)
             && h.acao == 'excluiu' && motivoOk(h)
             && n.excluidoBy == request.auth.uid
             && n.excluidoAt == request.time)

@@ -2687,17 +2687,18 @@ const App = {
     if(!p || !ex) return false;
     return p.perfil==="DPP" || (p.perfil==="SR" && ex.sr===p.sr);
   },
-  /* excluir: DPP ou qualquer perfil de nível regional da própria SR (SR, SR_PSICOLOGIA, SR_SOCIAL) */
+  /* excluir e concluir: DPP ou qualquer perfil de nível regional da própria SR (SR, SR_PSICOLOGIA, SR_SOCIAL) */
   podeExcluir(ex){
     const p=this._meuPerfil;
     if(!p || !ex) return false;
     return p.perfil==="DPP" || (["SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil) && ex.sr===p.sr);
   },
+  podeConcluir(ex){ return this.podeExcluir(ex); },
   /* botões, modo somente leitura e resumo "criado por / alterado por" */
   atualizarEstadoExame(ex){
     const concl=!!ex && ex.status==="concluido";
     const pode=this.podeReabrir(ex);
-    document.getElementById("btnConcluir").style.display = ex && !concl ? "inline-block" : "none";
+    document.getElementById("btnConcluir").style.display = ex && !concl && this.podeConcluir(ex) ? "inline-block" : "none";
     document.getElementById("btnReabrir").style.display = concl && pode ? "inline-block" : "none";
     document.getElementById("btnExcluir").style.display = ex && !concl && this.podeExcluir(ex) ? "inline-block" : "none";
     document.getElementById("btnHistorico").style.display = ex ? "inline-block" : "none";
@@ -2724,6 +2725,7 @@ const App = {
   async concluir(){
     if(!this.editId){ alert("Salve o exame antes."); return; }
     const exServidor=this.data.exames.find(x=>x.id===this.editId); if(!exServidor) return;
+    if(!this.podeConcluir(exServidor)){ alert("Somente o DPP ou perfis de nível regional (SR, psicólogo(a) ou assistente social regional) da própria Superintendência podem concluir um exame. A unidade preenche e salva; a conclusão fica com a Superintendência."); return; }
     if(!this.checarAntesDeExportar("concluir")) return;
     if(!confirm("Concluir gera uma VERSÃO FECHADA do relatório, com o conteúdo atual do formulário, que não poderá mais ser alterada.\n\nPara corrigir algo depois, a SR ou o DPP terá de reabrir o exame, com motivo registrado — e uma nova conclusão gera uma nova versão, sem apagar a anterior.\n\nConcluir agora?")) return;
     const ex={...exServidor, ...this.lerFormulario()};
