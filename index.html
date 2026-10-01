@@ -109,6 +109,7 @@
   .cal-evt.area-psi{border-right:3px solid #3B6FA0;}
   .cal-evt.area-social{border-right:3px solid #8B5FBF;}
 
+  .sgpe-drop.over{background:#E3F1E9 !important; border-color:var(--navy) !important; outline:2px dashed var(--navy); outline-offset:-6px;}
   main{max-width:1440px; margin:0 auto; padding:22px 18px 60px;}
   section.view{display:none;} section.view.on{display:block;}
 
@@ -449,8 +450,8 @@
     </nav>
 
     <div class="novopanel on" id="np-ident">
-    <div class="lawbox" style="background:#F5F2E8; border-color:#DCD3B8; border-left-color:var(--gold);">
-      <b>Importar documento do SGPE</b> — anexe o documento do SGPE (que já reúne a decisão judicial e o BPI). O sistema lê o arquivo e preenche automaticamente os dados do apenado (nome, matrícula/IPEN, processo, unidade, filiação, nascimento, data-base, entre outros), logo abaixo. Confira sempre os campos após a extração.
+    <div class="lawbox sgpe-drop" style="background:#F5F2E8; border-color:#DCD3B8; border-left-color:var(--gold);" ondragover="Extractor.dragOver(event)" ondragleave="Extractor.dragLeave(event)" ondrop="Extractor.drop(event)">
+      <b>Importar documento do SGPE</b> — arraste o arquivo para este quadro ou anexe o documento do SGPE (que já reúne a decisão judicial e o BPI). O sistema lê o arquivo e preenche automaticamente os dados do apenado (nome, matrícula/IPEN, processo, unidade, filiação, nascimento, data-base, entre outros), logo abaixo. Confira sempre os campos após a extração.
       <div class="btnrow" style="margin-top:10px;">
         <button class="btn sm" onclick="document.getElementById('docFile').click()">Selecionar arquivo (PDF ou TXT)</button>
         <input type="file" id="docFile" accept=".pdf,.txt" style="display:none;" onchange="Extractor.arquivo(this)">
@@ -1190,6 +1191,22 @@ const Extractor = {
 
   arquivo(input){
     const f=input.files[0]; if(!f) return;
+    this.processarArquivo(f);
+    input.value="";
+  },
+
+  /* arrastar e soltar o documento do SGPE (PDF/TXT) — ou texto selecionado — sobre o quadro de importação */
+  dragOver(e){ e.preventDefault(); e.currentTarget.classList.add("over"); },
+  dragLeave(e){ if(!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove("over"); },
+  drop(e){
+    e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove("over");
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f){ this.processarArquivo(f); return; }
+    const texto = e.dataTransfer.getData("text/plain");
+    if(texto) this.processarSGPE(texto, "texto arrastado");
+  },
+
+  processarArquivo(f){
     const out=document.getElementById("extResult");
     if(/\.txt$/i.test(f.name)){
       const r=new FileReader();
@@ -1202,7 +1219,6 @@ const Extractor = {
     } else {
       out.innerHTML=`<div class="flag">Formato não suportado. Use PDF ou TXT — ou cole o texto.</div>`;
     }
-    input.value="";
   },
 
   /* processa o documento único do SGPE (decisão + BPI): identificação/condenações
@@ -3459,6 +3475,10 @@ window.App = App;
   setInterval(conferir, 5*60*1000);
   document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") conferir(); });
 })();
+/* arquivo solto fora de uma área de importação: impede o navegador de abrir o PDF por cima do sistema (perderia o que foi digitado) */
+["dragover","drop"].forEach(ev=>window.addEventListener(ev, e=>{
+  if(e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes("Files")) e.preventDefault();
+}));
 window.UNIDADES_INFO = UNIDADES_INFO;
 window.SR_INFO = SR_INFO;
 window.fmt = fmt;
