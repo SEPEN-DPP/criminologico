@@ -580,7 +580,10 @@
 
     <div class="novopanel" id="np-equipe">
       <div id="eqBanner" class="lawbox"></div>
-      <h3>Equipe examinadora</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin:6px 0 12px;">
+        <h3 style="margin:0;">Equipe examinadora</h3>
+        <button class="btn sm" type="button" onclick="App.avisarEquipe()">✉ Avisar a equipe por e-mail</button>
+      </div>
       <!-- cada função numa linha: nome e matrícula em campos separados (q_X e q_X_mat) -->
       <div class="eq-linha"><label class="f">Diretor(a) da Unidade</label>
         <div class="eq-campos"><input type="text" id="q_direcao" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_direcao_mat" placeholder="Matrícula"></div></div>
@@ -862,7 +865,6 @@
     <div class="btnrow">
       <button class="btn btnSalvar" onclick="App.salvar()">Salvar exame</button>
       <button class="btn ghost" onclick="App.imprimir()">Gerar PDF / imprimir</button>
-      <button class="btn ghost" type="button" onclick="App.avisarEquipe()">✉ Avisar a equipe por e-mail</button>
       <button class="btn ghost" id="btnConcluir" onclick="App.concluir()" style="display:none;">Marcar como concluído</button>
       <button class="btn ghost" id="btnReabrir" onclick="App.reabrir()" style="display:none;">Reabrir exame</button>
       <button class="btn ghost" id="btnHistorico" onclick="App.abrirHistorico()" style="display:none;">Histórico</button>
