@@ -1390,10 +1390,20 @@ const Extractor = {
       found.push("Detectada determinação judicial do exame → finalidade ajustada");
     }
 
-    /* data da decisão — a decisão vem antes do BPI no documento do SGPE; usa a primeira data de assinatura eletrônica */
-    m=t.match(/assinad[oa]\s+(?:digitalmente|eletronicamente)[\s\S]{0,200}?(\d{2})\/(\d{2})\/(\d{4})/i);
-    if(m){ document.getElementById("e_dataDecisao").value=m[3]+"-"+m[2]+"-"+m[1]; found.push("Data da decisão: "+m[1]+"/"+m[2]+"/"+m[3]+" (conferir)"); }
-    else missing.push("data da decisão judicial");
+    /* data da decisão — a decisão vem antes do BPI no documento do SGPE, então vale a data que aparecer primeiro:
+       eproc ("Data e Hora: 12/08/2026"), assinatura eletrônica ("assinado ... em 12/08/2026") ou fecho por extenso
+       ("Joinville, 12 de agosto de 2026" — só anos a partir de 2020, para não pegar "Lei 11.419, de 19 de dezembro de 2006") */
+    {
+      const MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+      const cands=[];
+      const re1=/Data\s+e\s+Hora\s*:?\s*(\d{2})\/(\d{2})\/(\d{4})/i, re2=/assinad[oa]\s+(?:digitalmente|eletronicamente|por)[\s\S]{0,400}?(\d{2})\/(\d{2})\/(\d{4})/i;
+      [re1,re2].forEach(re=>{ const x=re.exec(t); if(x) cands.push({i:x.index, d:x[1], mo:x[2], a:x[3]}); });
+      const x3=/,\s*(\d{1,2})º?\s+de\s+(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+(20[2-9]\d)/i.exec(t);
+      if(x3) cands.push({i:x3.index, d:x3[1].padStart(2,"0"), mo:String(MESES.indexOf(x3[2].toLowerCase().replace("marco","março"))+1).padStart(2,"0"), a:x3[3]});
+      const c=cands.filter(c=>+c.mo>=1 && +c.mo<=12 && +c.d>=1 && +c.d<=31).sort((a,b)=>a.i-b.i)[0];
+      if(c){ document.getElementById("e_dataDecisao").value=c.a+"-"+c.mo+"-"+c.d; found.push("Data da decisão: "+c.d+"/"+c.mo+"/"+c.a+" (conferir)"); }
+      else missing.push("data da decisão judicial");
+    }
 
     App.triagem();
     out.innerHTML =
