@@ -365,7 +365,7 @@
     <div id="painelUnidadesBox" style="overflow-x:auto;"></div>
   </div>
   <div class="card" style="margin-top:16px;">
-    <h3 id="prazosTitle">Prazos críticos <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 8º da Portaria; Res. CNPCP 36/2024)</span></h3>
+    <h3 id="prazosTitle">Prazos críticos <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames devem estar concluídos em até 30 dias da decisão judicial</span></h3>
     <div id="prazosBox" style="overflow-x:auto;"></div>
   </div>
 </section>
@@ -524,8 +524,11 @@
     <div id="condBox" style="display:none;"></div>
 
     <div class="row c3" style="margin-top:6px;">
-      <div><label class="f">Data prevista da progressão (requisito objetivo)</label><input type="date" id="e_dataProg" onchange="App.triagem()"></div>
-      <div><label class="f">Prazo-limite para conclusão do exame (automático: 30 dias antes)</label><input type="text" id="e_prazo" readonly style="background:#F1F4F9; font-weight:700;"></div>
+      <div><label class="f">Data da decisão judicial</label><input type="date" id="e_dataDecisao" onchange="App.triagem()"></div>
+      <div><label class="f">Prazo-limite para conclusão do exame (automático: 30 dias após a decisão)</label><input type="text" id="e_prazo" readonly style="background:#F1F4F9; font-weight:700;"></div>
+      <div><label class="f">Data prevista da progressão (requisito objetivo)</label><input type="date" id="e_dataProg"></div>
+    </div>
+    <div class="row c3">
       <div><label class="f">Data-base informada</label><input type="date" id="e_dataBase"></div>
     </div>
 
@@ -1387,6 +1390,11 @@ const Extractor = {
       found.push("Detectada determinação judicial do exame → finalidade ajustada");
     }
 
+    /* data da decisão — a decisão vem antes do BPI no documento do SGPE; usa a primeira data de assinatura eletrônica */
+    m=t.match(/assinad[oa]\s+(?:digitalmente|eletronicamente)[\s\S]{0,200}?(\d{2})\/(\d{2})\/(\d{4})/i);
+    if(m){ document.getElementById("e_dataDecisao").value=m[3]+"-"+m[2]+"-"+m[1]; found.push("Data da decisão: "+m[1]+"/"+m[2]+"/"+m[3]+" (conferir)"); }
+    else missing.push("data da decisão judicial");
+
     App.triagem();
     out.innerHTML =
       `<div class="allclear" style="margin-bottom:8px;">✓ Extração de <b>${esc(fonte)}</b> — ${found.length} campo(s) preenchido(s). Confira antes de salvar.</div>`
@@ -2203,10 +2211,8 @@ const App = {
     const box=document.getElementById("triagemBox");
 
     /* prazo automático */
-    const dp=document.getElementById("e_dataProg").value;
-    const prazoEl=document.getElementById("e_prazo");
-    if(dp){ const d=new Date(dp+"T00:00:00"); d.setDate(d.getDate()-30); prazoEl.value=d.toLocaleDateString("pt-BR"); }
-    else prazoEl.value="";
+    const lim=this.prazoLimite({dataDecisao:document.getElementById("e_dataDecisao").value});
+    document.getElementById("e_prazo").value=lim?lim.toLocaleDateString("pt-BR"):"";
 
     if(tipo==="judicial"){
       box.innerHTML=`<span class="carimbo mis">Determinação judicial</span>
@@ -2226,7 +2232,7 @@ const App = {
 
     if(pos.length && !ant.length){
       box.innerHTML=`<span class="carimbo ob">Exame obrigatório</span>
-      <p class="triagem-exp">Todos os fatos são posteriores a 11/4/2024 → exame criminológico <b>obrigatório</b> para a progressão (art. 112, §1º, LEP, red. Lei 14.843/2024). Prazo: conclusão com 30 dias de antecedência.</p>`;
+      <p class="triagem-exp">Todos os fatos são posteriores a 11/4/2024 → exame criminológico <b>obrigatório</b> para a progressão (art. 112, §1º, LEP, red. Lei 14.843/2024). Prazo: conclusão em até 30 dias da decisão judicial.</p>`;
     } else if(ant.length && !pos.length){
       box.innerHTML=`<span class="carimbo fac">Não obrigatório — Súmula 439/STJ</span>
       <p class="triagem-exp">Todos os fatos são anteriores a 11/4/2024 → a obrigatoriedade da Lei 14.843/2024 <b>não retroage</b> (art. 5º, XL, CF; STJ, HC 932.864/SC; TJSC). O exame só é exigível por <b>decisão judicial motivada</b>. Confirme nos autos se há determinação antes de mobilizar a equipe.</p>`;
@@ -2366,7 +2372,7 @@ const App = {
     this.editId=null; this._base=null; this._avisoConflito=null;
     this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
-    ["e_nome","e_mat","e_proc","e_sgpe","e_dataProg","e_dataBase","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_dataIni","e_dataConcl",
+    ["e_nome","e_mat","e_proc","e_sgpe","e_dataDecisao","e_dataProg","e_dataBase","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_dataIni","e_dataConcl",
      "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord",
      "q_direcao_mat","q_chefiaSeg_mat","q_execPenal_mat","q_ativLab_mat","q_ensino_mat","q_semiab_mat","q_psq_mat","q_psi_mat","q_as_mat","q_coord_mat","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
      "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_semiab","r_soc","r_psi","r_psq","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
@@ -2491,6 +2497,7 @@ const App = {
       proc:document.getElementById("e_proc").value.trim(),
       sgpe:document.getElementById("e_sgpe").value.trim(),
       tipo:document.getElementById("e_tipo").value,
+      dataDecisao:document.getElementById("e_dataDecisao").value,
       dataProg:document.getElementById("e_dataProg").value,
       dataBase:document.getElementById("e_dataBase").value,
       faltaNaoReab:document.getElementById("e_faltaNaoReab").value,
@@ -2554,7 +2561,7 @@ const App = {
     document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(ex.status==="concluido"?" (concluído)":"");
     e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_proc.value=ex.proc||""; document.getElementById("e_sgpe").value=ex.sgpe||"";
     this.renderUnidadeSel(ex.unid||"");
-    e_tipo.value=ex.tipo||"progressao"; e_dataProg.value=ex.dataProg||""; document.getElementById("e_dataBase").value=ex.dataBase||""; e_obs.value=ex.obs||"";
+    e_tipo.value=ex.tipo||"progressao"; document.getElementById("e_dataDecisao").value=ex.dataDecisao||""; e_dataProg.value=ex.dataProg||""; document.getElementById("e_dataBase").value=ex.dataBase||""; e_obs.value=ex.obs||"";
     document.getElementById("e_faltaNaoReab").value=ex.faltaNaoReab||"";
     document.getElementById("e_exameAnterior").value=ex.exameAnterior||"nao";
     /* importações antigas gravavam "Pai e Mãe" (ex.: "Desconhecido e Fulana") — com pai/mãe desconhecido,
@@ -2620,7 +2627,7 @@ const App = {
   },
   ROTULO_CAMPO: {
     nome:"Nome do avaliado", mat:"Matrícula", unid:"Unidade prisional", proc:"Processo", sgpe:"SGPE", tipo:"Finalidade do exame",
-    dataProg:"Data prevista da progressão", dataBase:"Data-base", faltaNaoReab:"Falta grave não reabilitada", exameAnterior:"Exame anterior",
+    dataDecisao:"Data da decisão judicial", dataProg:"Data prevista da progressão", dataBase:"Data-base", faltaNaoReab:"Falta grave não reabilitada", exameAnterior:"Exame anterior",
     modal:"Modalidade", filiacao:"Filiação", nasc:"Nascimento", regime:"Regime", juizo:"Juízo da execução", penaTotal:"Pena total",
     beneficio:"Benefício pretendido", dataIni:"Início da avaliação", dataConcl:"Conclusão da avaliação", conds:"Condenações", obs:"Observações internas"
   },
@@ -2839,9 +2846,14 @@ const App = {
   },
 
   /* ---------- prazo/status ---------- */
+  /* prazo para concluir o exame: 30 dias contados da decisão judicial (vale para qualquer finalidade) */
+  prazoLimite(ex){
+    if(!ex.dataDecisao) return null;
+    const d=new Date(ex.dataDecisao+"T00:00:00"); d.setDate(d.getDate()+30); return d;
+  },
   prazoInfo(ex){
-    if(ex.tipo!=="progressao" || !ex.dataProg) return {cls:"b-mut", txt:"sem prazo"};
-    const lim=new Date(ex.dataProg+"T00:00:00"); lim.setDate(lim.getDate()-30);
+    const lim=this.prazoLimite(ex);
+    if(!lim) return {cls:"b-mut", txt:"sem prazo"};
     const dias=Math.floor((lim-hoje())/86400000);
     if(ex.status==="concluido") return {cls:"b-ok", txt:"concluído"};
     if(dias<0)  return {cls:"b-crit", txt:"vencido há "+Math.abs(dias)+"d"};
@@ -2882,7 +2894,7 @@ const App = {
     document.getElementById("painelUnidadeAtualBox").innerHTML = unidFiltro
       ? `<p class="note" style="margin-bottom:10px;">Unidade: <b>${esc(unidLabel)}</b> — <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ voltar ao painel do centro</button></p>`
       : "";
-    document.getElementById("prazosTitle").innerHTML = `Prazos críticos${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames de progressão devem estar concluídos 30 dias antes da data prevista (art. 8º da Portaria; Res. CNPCP 36/2024)</span>`;
+    document.getElementById("prazosTitle").innerHTML = `Prazos críticos${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames devem estar concluídos em até 30 dias da decisão judicial</span>`;
 
     const exsCentro=this.data.exames.filter(e=>this.cocIdDoExame(e)===this.coc);
     const exs=this.filtrarPorUnidade(exsCentro, unidFiltro, unidadesDoCentro);
@@ -2895,11 +2907,11 @@ const App = {
       <div class="card kpi warn" onclick="App.filtrarPainel('andamento','b-warn')"><b>${warn.length}</b><span>atenção (≤ 15 dias)</span></div>
       <div class="card kpi ok" onclick="App.filtrarPainel('concluido','')"><b>${exs.filter(e=>e.status==="concluido").length}</b><span>concluídos</span></div>`;
     const urg=and.filter(e=>["b-crit","b-warn"].includes(this.prazoInfo(e).cls))
-      .sort((a,b)=>(a.dataProg||"9999")>(b.dataProg||"9999")?1:-1);
+      .sort((a,b)=>(a.dataDecisao||"9999")>(b.dataDecisao||"9999")?1:-1);
     document.getElementById("prazosBox").innerHTML = urg.length ?
-      `<table><tr><th>Avaliado</th><th>Unidade</th><th>Progressão prevista</th><th>Prazo do exame</th><th>Situação</th><th>Progresso</th></tr>`+
+      `<table><tr><th>Avaliado</th><th>Unidade</th><th>Decisão judicial</th><th>Prazo do exame</th><th>Situação</th><th>Progresso</th></tr>`+
       urg.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{});
-        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td><td>${esc(e.unid)||"—"}</td><td>${fmt(e.dataProg)}</td><td>${(()=>{if(!e.dataProg)return "—";const d=new Date(e.dataProg+"T00:00:00");d.setDate(d.getDate()-30);return d.toLocaleDateString("pt-BR");})()}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
+        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td><td>${esc(e.unid)||"—"}</td><td>${fmt(e.dataDecisao)}</td><td>${(()=>{const d=this.prazoLimite(e);return d?d.toLocaleDateString("pt-BR"):"—";})()}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
       : `<div class="empty">Nenhum exame com prazo crítico${unidFiltro?"":" neste centro"}. ✓</div>`;
     this.renderOrientacao(and, crit, warn);
 
@@ -2933,9 +2945,9 @@ const App = {
   renderOrientacao(and, crit, warn){
     const box=document.getElementById("orientBox");
     if(crit.length){
-      const top=crit.slice().sort((a,b)=>(a.dataProg||"9999")>(b.dataProg||"9999")?1:-1).slice(0,3);
+      const top=crit.slice().sort((a,b)=>(a.dataDecisao||"9999")>(b.dataDecisao||"9999")?1:-1).slice(0,3);
       box.innerHTML=`<div class="orient crit"><b>Priorize hoje:</b> ${crit.length} exame(s) com prazo crítico ou vencido neste centro.
-        <ul>${top.map(e=>`<li>${esc(e.nome)} — progressão prevista em ${fmt(e.dataProg)}</li>`).join("")}</ul>
+        <ul>${top.map(e=>`<li>${esc(e.nome)} — prazo do exame em ${(()=>{const d=this.prazoLimite(e);return d?d.toLocaleDateString("pt-BR"):"—";})()}</li>`).join("")}</ul>
         A distribuição dos exames deve considerar as datas previstas e os prazos judiciais (art. 12, parágrafo único, da Portaria).</div>`;
     } else if(warn.length){
       box.innerHTML=`<div class="orient warn"><b>Atenção:</b> ${warn.length} exame(s) com prazo se aproximando (≤ 15 dias). Nenhum está vencido, mas vale antecipar a agenda da equipe.</div>`;
