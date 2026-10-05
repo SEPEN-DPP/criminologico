@@ -239,6 +239,7 @@
     <div id="authRegistroErro" class="note" style="color:var(--crit); display:none;"></div>
     <label class="f">Nome completo</label><input type="text" id="regNome">
     <label class="f" style="margin-top:10px;">CPF</label><input type="text" id="regCpf" placeholder="Somente números">
+    <label class="f" style="margin-top:10px;">Matrícula</label><input type="text" id="regMatricula" placeholder="ex.: 0383797-1">
     <label class="f" style="margin-top:10px;">Função</label>
     <select id="regFuncao" onchange="AuthUI.atualizarCamposFuncao('reg')">
       <option value="USUARIO">Usuário (servidor da unidade)</option>
@@ -279,6 +280,7 @@
     <div id="authCompletarErro" class="note" style="color:var(--crit); display:none;"></div>
     <label class="f">Nome completo</label><input type="text" id="compNome">
     <label class="f" style="margin-top:10px;">CPF</label><input type="text" id="compCpf" placeholder="Somente números">
+    <label class="f" style="margin-top:10px;">Matrícula</label><input type="text" id="compMatricula" placeholder="ex.: 0383797-1">
     <label class="f" style="margin-top:10px;">Função</label>
     <select id="compFuncao" onchange="AuthUI.atualizarCamposFuncao('comp')">
       <option value="USUARIO">Usuário (servidor da unidade)</option>
@@ -338,11 +340,26 @@
     </button>
     <div id="userMenu" style="display:none; position:absolute; right:0; top:44px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.2); width:230px; z-index:80; color:#111; text-align:left; padding:12px;">
       <div id="userMenuInfo" style="font-size:12.5px; color:var(--mut); margin-bottom:10px; line-height:1.5;"></div>
+      <button class="btn sm ghost" style="width:100%; margin-bottom:6px;" type="button" onclick="ContaUI.abrirMatricula()">Minha matrícula</button>
       <button class="btn sm ghost" style="width:100%; margin-bottom:6px;" type="button" onclick="AuthUI.alterarSenha()">Alterar senha</button>
       <button class="btn sm ghost" style="width:100%;" type="button" onclick="AuthUI.sair()">Sair</button>
     </div>
   </div>
 </header>
+
+<div id="matModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:300; overflow:auto; padding:16px;">
+  <div class="card" style="max-width:480px; margin:60px auto;">
+    <h3 style="margin-top:0;">Sua matrícula</h3>
+    <p class="note">Informe sua matrícula de servidor(a). Com ela, o sistema reconhece quando você é escolhido(a) para a equipe examinadora de um exame: você passa a receber o aviso por e-mail e vê, no Painel, as partes do relatório que ainda faltam preencher.</p>
+    <div id="matErro" class="note" style="color:var(--crit); display:none;"></div>
+    <label class="f">Matrícula</label><input type="text" id="matValor" placeholder="ex.: 0383797-1">
+    <div class="btnrow" style="margin-top:14px;">
+      <button class="btn" type="button" onclick="ContaUI.salvarMatricula()">Salvar</button>
+      <button class="btn ghost" type="button" onclick="ContaUI.fecharMatricula()">Agora não</button>
+      <button class="btn ghost" type="button" id="matSemBtn" onclick="ContaUI.semMatricula()">Conta institucional (sem matrícula)</button>
+    </div>
+  </div>
+</div>
 
 <nav class="tabs">
   <button class="on" data-v="dash" onclick="App.tab('dash')">Painel</button>
@@ -357,6 +374,7 @@
 
 <!-- ============ PAINEL ============ -->
 <section class="view on" id="v-dash">
+  <div id="paraVoceBox"></div>
   <div id="painelUnidadeAtualBox"></div>
   <div class="grid g4" id="kpis"></div>
   <div id="orientBox" style="margin-top:16px;"></div>
@@ -844,6 +862,7 @@
     <div class="btnrow">
       <button class="btn btnSalvar" onclick="App.salvar()">Salvar exame</button>
       <button class="btn ghost" onclick="App.imprimir()">Gerar PDF / imprimir</button>
+      <button class="btn ghost" type="button" onclick="App.avisarEquipe()">✉ Avisar a equipe por e-mail</button>
       <button class="btn ghost" id="btnConcluir" onclick="App.concluir()" style="display:none;">Marcar como concluído</button>
       <button class="btn ghost" id="btnReabrir" onclick="App.reabrir()" style="display:none;">Reabrir exame</button>
       <button class="btn ghost" id="btnHistorico" onclick="App.abrirHistorico()" style="display:none;">Histórico</button>
@@ -851,6 +870,15 @@
     </div>
     <div id="salvoMsg" class="note" style="color:var(--ok); font-weight:700;"></div>
     <div id="auditInfo" class="note" style="color:var(--mut);"></div>
+    <div id="avisoModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; overflow:auto; padding:16px;">
+      <div class="card" style="max-width:720px; margin:24px auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h3 style="margin:0;">Avisar a equipe examinadora por e-mail</h3>
+          <button class="btn sm ghost" type="button" onclick="App.fecharAviso()">Fechar</button>
+        </div>
+        <div id="avisoCorpo" style="margin-top:12px;"></div>
+      </div>
+    </div>
     <div id="histModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; overflow:auto; padding:16px;">
       <div class="card" style="max-width:900px; margin:24px auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
@@ -1514,6 +1542,18 @@ const Extractor = {
 
 const uid = ()=> "e" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const fmt = d => { if(!d) return "—"; const [y,m,dd]=d.split("-"); return dd+"/"+m+"/"+y; };
+/* matrícula: compara pelo número principal, ignorando pontos, zeros à esquerda e o que vem depois
+   do primeiro "-" ou "/" (dígito e vínculo) — "0383797-1-01", "383.797-1" e "383797" são a mesma pessoa;
+   aceita também o dígito colado ("3837971") */
+function matBase(m){
+  const t=String(m||"").replace(/[.\s]/g,"");
+  return (t.match(/\d+/)||[""])[0].replace(/^0+/,"");
+}
+function matIgual(a,b){
+  const x=matBase(a), y=matBase(b);
+  if(!x || !y) return false;
+  return x===y || (x.length===y.length+1 && x.startsWith(y)) || (y.length===x.length+1 && y.startsWith(x));
+}
 const hoje = ()=> new Date(new Date().toDateString());
 /* escapa texto de origem do usuário antes de inserir via innerHTML — evita XSS armazenado
    (nomes, campos livres etc. vêm de qualquer perfil, inclusive o mais restrito, e são
@@ -1933,6 +1973,7 @@ const App = {
       .catch(e=>alert("Falhou ao salvar o agendamento: "+e.message));
   },
   renderDashGeral(){
+    this.renderParaVoce();
     document.getElementById("painelUnidadeAtualBox").innerHTML="";
     document.getElementById("painelUnidadesCard").style.display="none";
     document.getElementById("prazosTitle").innerHTML = `Painel geral por regional <span class="muted" style="font-weight:normal;font-size:12.5px;">— clique numa regional para abrir o painel operacional dela</span>`;
@@ -2556,6 +2597,7 @@ const App = {
     this.gravarExame(ex,{acao: exServidor?"alterou":"criou", doFormulario:true}).then(r=>{
       msg.style.color="var(--ok)";
       msg.textContent = r.semMudanca ? "Nenhuma alteração para salvar." : "✓ Exame salvo ("+new Date().toLocaleTimeString("pt-BR")+")";
+      if(!exServidor && !r.semMudanca) msg.innerHTML += ' — <button class="btn sm" type="button" onclick="App.avisarEquipe()">✉ Avisar a equipe por e-mail</button>';
       this.renderDash();
     }).catch(e=>{
       msg.style.color="#B4232B";
@@ -2855,6 +2897,116 @@ const App = {
     window.print();
   },
 
+  /* ---------- "Para você": exames novos da unidade + seções do relatório que a pessoa ainda deve ----------
+     novos: só para contas de unidade (SR/DPP não), exames criados por outra pessoa depois do último
+     "marcar como vistos" (usuarios/{uid}.avisosVistoEm). Pendências: seções cujo responsável na equipe
+     examinadora tem a mesma matrícula da conta e que ainda não foram marcadas como concluídas. */
+  SECAO_EQ: {coord:"coord", direcao:"direcao", chefiaSeg:"chefiaSeg", execPenal:"execPenal", ativLab:"ativLab", ensino:"ensino", semiab:"semiab", psq:"psq", psi:"psi", soc:"as", sin:"coord"},
+  SECAO_LABEL: {coord:"Metodologia", direcao:"Direção", chefiaSeg:"Chefia de Segurança", execPenal:"Execução Penal", ativLab:"Atividades Laborais", ensino:"Ensino e Promoção Social", semiab:"Ala de Semiaberto", psq:"Psiquiatria", psi:"Psicologia", soc:"Serviço Social", sin:"Parecer"},
+  matDaEquipe(eq, k){
+    return this.separarMatricula(eq[k], eq[k+"Mat"]).mat;
+  },
+  exameNovoPara(e, p){
+    const criado = e.createdAt && typeof e.createdAt.toMillis==="function" ? e.createdAt.toMillis() : (e.criadoEm ? Date.parse(e.criadoEm) : 0);
+    const visto = p.avisosVistoEm && typeof p.avisosVistoEm.toMillis==="function" ? p.avisosVistoEm.toMillis() : (+p.avisosVistoEm||0);
+    return e.status==="andamento" && e.unidade===p.unidade && e.createdBy!==p.uid && criado>visto;
+  },
+  renderParaVoce(){
+    const box=document.getElementById("paraVoceBox"); if(!box) return;
+    const p=this._meuPerfil;
+    if(!p){ box.innerHTML=""; return; }
+    const deUnidade=["USUARIO","PSICOLOGIA","SOCIAL","CPEN","DIR"].includes(p.perfil);
+    const novos = deUnidade && p.avisosVistoEm ? this.data.exames.filter(e=>this.exameNovoPara(e,p)) : [];
+    const pend=[];
+    if(p.matricula){
+      this.data.exames.filter(e=>e.status==="andamento").forEach(e=>{
+        const eq=e.equipe||{}, relOk=e.relOk||{}, sup=e.sup||{};
+        const secoes=Object.keys(this.SECAO_EQ).filter(k=>!relOk[k] && !sup[k] && matIgual(this.matDaEquipe(eq,this.SECAO_EQ[k]), p.matricula));
+        if(secoes.length) pend.push({e, secoes});
+      });
+    }
+    let html="";
+    if(novos.length){
+      html+=`<div class="orient warn" style="margin-bottom:10px;"><b>${novos.length===1?"Novo exame cadastrado":novos.length+" novos exames cadastrados"} na sua unidade</b> desde o seu último acesso:
+        <ul style="margin:6px 0;">${novos.map(e=>`<li><a href="#" onclick="App.abrir('${e.id}');return false;">${esc(e.nome)}</a>${e.mat?" — IPEN "+esc(e.mat):""} <span class="muted">(cadastrado por ${esc(e.createdByNome||"—")})</span></li>`).join("")}</ul>
+        <button class="btn sm ghost" type="button" onclick="ContaUI.marcarVistos()">Marcar como vistos</button></div>`;
+    }
+    if(pend.length){
+      html+=`<div class="card" style="margin-bottom:12px;"><h3 style="margin-top:0;">Minhas pendências <span class="muted" style="font-weight:normal;font-size:12.5px;">— seções do relatório em que você é o(a) responsável e que ainda não foram marcadas como concluídas</span></h3>
+        <table><tr><th>Avaliado</th><th>Unidade</th><th>Seções a preencher</th><th>Prazo</th></tr>${pend.map(({e,secoes})=>{const pz=this.prazoInfo(e);
+          return `<tr onclick="App.abrir('${e.id}')" style="cursor:pointer;"><td><b>${esc(e.nome)}</b></td><td>${esc(e.unid)||"—"}</td><td>${secoes.map(k=>this.SECAO_LABEL[k]).join(", ")}</td><td><span class="badge ${pz.cls}">${pz.txt}</span></td></tr>`;}).join("")}</table></div>`;
+    }
+    if(!p.matricula && !p.semMatricula){
+      html+=`<p class="note" style="margin-bottom:10px;">Cadastre sua matrícula para ver aqui as partes do relatório que são sua responsabilidade. <button class="btn sm ghost" type="button" onclick="ContaUI.abrirMatricula()">Informar matrícula</button></p>`;
+    }
+    box.innerHTML=html;
+  },
+
+  /* ---------- aviso por e-mail à equipe examinadora ----------
+     plano gratuito do Firebase não envia e-mail sozinho: o sistema monta destinatários (contas cuja
+     matrícula bate com a da equipe), assunto e texto, e abre o programa de e-mail de quem clicou */
+  async avisarEquipe(){
+    const modal=document.getElementById("avisoModal"), corpo=document.getElementById("avisoCorpo");
+    modal.style.display="block";
+    corpo.innerHTML=`<p class="note">Procurando os e-mails da equipe…</p>`;
+    const rotulos={direcao:"Diretor(a) da Unidade",chefiaSeg:"Chefe de Segurança",execPenal:"Coordenador(a) de Execução Penal",ativLab:"Coordenador(a) de Atividades Laborais",ensino:"Coordenador(a) de Ensino e Promoção Social",semiab:"Coordenador(a) da Ala de Semiaberto",psq:"Psiquiatra",psi:"Psicólogo(a)",as:"Assistente social",coord:"Coordenação do exame"};
+    const eq=this.lerEquipeCampos();
+    const membros=[
+      ...this.EQ_KEYS.map(k=>({funcao:rotulos[k]||k, ...this.separarMatricula(eq[k], eq[k+"Mat"])})),
+      ...this.lerChefesExtra().map(c=>({funcao:c.funcao||"Chefe de serviço", ...this.separarMatricula(c.nome, c.mat)}))
+    ].filter(m=>m.nome);
+    if(!membros.length){
+      corpo.innerHTML=`<p class="note">Este exame ainda não tem ninguém na <b>Equipe examinadora</b>. Escolha a equipe (aba "Equipe examinadora") e clique neste botão de novo.</p>`;
+      return;
+    }
+    let contatos=[];
+    try{ contatos=await window.ContaFS.contatos(); }
+    catch(e){ corpo.innerHTML=`<p class="note" style="color:var(--crit);">Não foi possível buscar os e-mails (erro: ${esc(e.message||e)}).</p>`; return; }
+    membros.forEach(m=>{ m.contato = m.mat ? contatos.find(c=>matIgual(c.matricula, m.mat)) : null; });
+    const comEmail=membros.filter(m=>m.contato), semEmail=membros.filter(m=>!m.contato);
+    const emails=[...new Set(comEmail.map(m=>m.contato.email))];
+    const nome=document.getElementById("e_nome").value.trim()||"(sem nome)";
+    const ipen=document.getElementById("e_mat").value.trim();
+    const lim=this.prazoLimite({dataDecisao:document.getElementById("e_dataDecisao").value});
+    const fin={progressao:"Progressão de regime",judicial:"Determinação judicial",dpp:"Requisição do DPP"}[document.getElementById("e_tipo").value]||"";
+    const assunto="Exame criminológico — "+nome+(ipen?" (IPEN "+ipen+")":"");
+    const texto=[
+      "Prezados(as),","",
+      "Foi cadastrado no Sistema do Centro de Observação um exame criminológico em que vocês integram a equipe examinadora:","",
+      "Avaliado: "+nome,
+      ipen?"IPEN/Matrícula: "+ipen:null,
+      "Unidade: "+(this.getUnidadeValor()||"—"),
+      fin?"Finalidade: "+fin:null,
+      "Data da decisão judicial: "+fmt(document.getElementById("e_dataDecisao").value),
+      "Prazo para conclusão: "+(lim?lim.toLocaleDateString("pt-BR"):"—"),"",
+      "Acesse o sistema para preencher a sua parte: https://criminologico.web.app","",
+      "Atenciosamente,", (this._meuPerfil&&this._meuPerfil.nome)||""
+    ].filter(l=>l!==null).join("\n");
+    this._aviso={emails, assunto, texto};
+    const mailto="mailto:"+emails.join(",")+"?subject="+encodeURIComponent(assunto)+"&body="+encodeURIComponent(texto);
+    corpo.innerHTML=
+      (comEmail.length?`<p><b>Vai para:</b></p><ul>${comEmail.map(m=>`<li>${esc(m.nome)} <span class="muted">— ${esc(m.funcao)} — ${esc(m.contato.email)}</span></li>`).join("")}</ul>`
+        :`<p class="note" style="color:var(--warn);">Ninguém da equipe tem conta no sistema com matrícula cadastrada, então não há para quem enviar.</p>`)
+      +(semEmail.length?`<p class="note" style="color:var(--warn);"><b>Sem e-mail no sistema</b> (sem conta, a conta não tem matrícula cadastrada, ou a matrícula na equipe está vazia) — avise por outro meio:</p>
+        <ul class="note">${semEmail.map(m=>`<li>${esc(m.nome)} — ${esc(m.funcao)}${m.mat?"":" (sem matrícula na equipe)"}</li>`).join("")}</ul>`:"")
+      +(comEmail.length?`<label class="f" style="margin-top:10px;">Assunto</label><input type="text" readonly value="${esc(assunto)}">
+        <label class="f" style="margin-top:10px;">Texto</label><textarea readonly style="min-height:200px;">${esc(texto)}</textarea>
+        <div class="btnrow" style="margin-top:12px;">
+          <a class="btn" href="${esc(mailto)}" onclick="setTimeout(()=>App.fecharAviso(),500)">Abrir no meu e-mail</a>
+          <button class="btn ghost" type="button" onclick="App.copiarAviso('emails')">Copiar e-mails</button>
+          <button class="btn ghost" type="button" onclick="App.copiarAviso('texto')">Copiar texto</button>
+        </div>
+        <p class="note" id="avisoCopiado"></p>
+        <p class="note">"Abrir no meu e-mail" abre o Outlook (ou o programa de e-mail do computador) com tudo pronto — confira e clique em Enviar. Se usar o e-mail pelo navegador, use os botões de copiar e cole lá.</p>`:"");
+  },
+  copiarAviso(o){
+    const a=this._aviso; if(!a) return;
+    const t = o==="emails" ? a.emails.join("; ") : ("Assunto: "+a.assunto+"\n\n"+a.texto);
+    navigator.clipboard.writeText(t).then(()=>{ document.getElementById("avisoCopiado").textContent = o==="emails"?"✓ E-mails copiados.":"✓ Assunto e texto copiados."; })
+      .catch(()=>{ document.getElementById("avisoCopiado").textContent="Não foi possível copiar — selecione e copie manualmente."; });
+  },
+  fecharAviso(){ document.getElementById("avisoModal").style.display="none"; },
+
   /* ---------- prazo/status ---------- */
   /* prazo para concluir o exame: 30 dias contados da decisão judicial (vale para qualquer finalidade) */
   prazoLimite(ex){
@@ -2896,6 +3048,7 @@ const App = {
   },
   renderDash(){
     if(this.coc==="_cepen"){ this.renderDashGeral(); return; }
+    this.renderParaVoce();
     const centro=this.data.cocs.find(c=>c.id===this.coc)||{unidades:[]};
     const unidadesDoCentro=centro.unidades||[];
     const unidFiltro=this.dashUnidadeFiltro||"";
@@ -3651,13 +3804,14 @@ const AuthUI = {
     const sr = (funcao==="SR"||PERFIS_SR_COBERTURA.includes(funcao)) ? document.getElementById("regSR").value : (unidade ? srDaUnidade(unidade) : null);
     const email = document.getElementById("regEmail").value.trim();
     const senha = document.getElementById("regSenha").value;
-    if(!nome || !email || !senha || (funcao!=="DPP" && !unidade && !sr)){
+    const matricula = document.getElementById("regMatricula").value.trim();
+    if(!nome || !email || !senha || !matricula || (funcao!=="DPP" && !unidade && !sr)){
       this.erro("authRegistroErro","Preencha todos os campos."); return;
     }
     try{
       const cred = await createUserWithEmailAndPassword(auth, email, senha);
       await setDoc(doc(db,"usuarios",cred.user.uid), {
-        nome, cpf, email, unidade: unidade||null, sr: sr||null,
+        nome, cpf, matricula, email, unidade: unidade||null, sr: sr||null,
         perfilSolicitado: funcao, perfil: null, status: "PENDENTE",
         criadoEm: serverTimestamp(),
       });
@@ -3670,12 +3824,13 @@ const AuthUI = {
     const funcao = document.getElementById("compFuncao").value;
     const unidade = ([...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(funcao)) ? document.getElementById("compUnidade").value : null;
     const sr = (funcao==="SR"||PERFIS_SR_COBERTURA.includes(funcao)) ? document.getElementById("compSR").value : (unidade ? srDaUnidade(unidade) : null);
-    if(!nome || (funcao!=="DPP" && !unidade && !sr)){
+    const matricula = document.getElementById("compMatricula").value.trim();
+    if(!nome || !matricula || (funcao!=="DPP" && !unidade && !sr)){
       this.erro("authCompletarErro","Preencha todos os campos."); return;
     }
     try{
       await setDoc(doc(db,"usuarios",meuUid), {
-        nome, cpf, email: auth.currentUser.email, unidade: unidade||null, sr: sr||null,
+        nome, cpf, matricula, email: auth.currentUser.email, unidade: unidade||null, sr: sr||null,
         perfilSolicitado: funcao, perfil: null, status: "PENDENTE",
         criadoEm: serverTimestamp(),
       });
@@ -3712,6 +3867,74 @@ const AuthUI = {
   },
 };
 window.AuthUI = AuthUI;
+
+/* ---------- Matrícula da conta e "contatos" (e-mail por matrícula) ----------
+   usuarios/{uid} só é lido pela própria pessoa e por quem administra contas, então
+   para montar o aviso por e-mail à equipe cada conta ATIVA publica em contatos/{uid}
+   apenas nome, e-mail e matrícula — legível por qualquer conta ativa. A própria
+   pessoa grava o seu (ver firestore.rules). */
+const ContaFS = {
+  async contatos(){
+    const snap = await getDocs(collection(db,"contatos"));
+    return snap.docs.map(d=>d.data()).filter(c=>c.email && c.matricula);
+  },
+  async publicarContato(){
+    const p = meuPerfilDoc;
+    if(!p || !p.matricula) return;
+    await setDoc(doc(db,"contatos",meuUid), {
+      uid: meuUid, nome: p.nome||"", email: auth.currentUser.email, matricula: p.matricula,
+      perfil: p.perfil, unidade: p.unidade||null, sr: p.sr||null, atualizadoEm: serverTimestamp(),
+    });
+  },
+  async gravarNaConta(campos){
+    await updateDoc(doc(db,"usuarios",meuUid), campos);
+    Object.assign(meuPerfilDoc, campos);
+  },
+};
+window.ContaFS = ContaFS;
+
+const ContaUI = {
+  abrirMatricula(){
+    document.getElementById("userMenu").style.display="none";
+    document.getElementById("matValor").value = meuPerfilDoc?.matricula || "";
+    document.getElementById("matSemBtn").style.display = ["DIR","CPEN"].includes(meuPerfilDoc?.perfil) ? "" : "none";
+    AuthUI.erro("matErro","");
+    document.getElementById("matModal").style.display="block";
+  },
+  fecharMatricula(){ document.getElementById("matModal").style.display="none"; },
+  async salvarMatricula(){
+    const v = document.getElementById("matValor").value.trim();
+    if(!matBase(v)){ AuthUI.erro("matErro","Informe a matrícula (com números)."); return; }
+    try{
+      await ContaFS.gravarNaConta({ matricula: v, semMatricula: false });
+      await ContaFS.publicarContato();
+      this.fecharMatricula();
+      window.App.renderParaVoce();
+    }catch(e){ AuthUI.erro("matErro","Não foi possível salvar (erro: "+(e.message||e)+")."); }
+  },
+  async semMatricula(){
+    try{ await ContaFS.gravarNaConta({ semMatricula: true }); this.fecharMatricula(); window.App.renderParaVoce(); }
+    catch(e){ AuthUI.erro("matErro","Não foi possível salvar (erro: "+(e.message||e)+")."); }
+  },
+  async marcarVistos(){
+    try{
+      await updateDoc(doc(db,"usuarios",meuUid), { avisosVistoEm: serverTimestamp() });
+      meuPerfilDoc.avisosVistoEm = Date.now();
+      window.App.renderParaVoce();
+    }catch(e){ alert("Não foi possível marcar como vistos (erro: "+(e.message||e)+")."); }
+  },
+  /* no login: primeira vez guarda "agora" como ponto de partida dos avisos (para não listar
+     todos os exames antigos como novos), republica o contato e pede a matrícula se faltar */
+  async aoEntrar(){
+    try{
+      if(!meuPerfilDoc.avisosVistoEm) await ContaUI.marcarVistos();
+      if(meuPerfilDoc.matricula) await ContaFS.publicarContato();
+    }catch(e){ console.error("Falha ao preparar avisos da conta:", e); }
+    if(!meuPerfilDoc.matricula && !meuPerfilDoc.semMatricula) this.abrirMatricula();
+  },
+};
+window.ContaUI = ContaUI;
+
 document.addEventListener("click", (e)=>{
   const menu=document.getElementById("userMenu");
   if(menu && menu.style.display==="block" && !e.target.closest("#userMenu") && !e.target.closest("#userBtn")) menu.style.display="none";
@@ -4233,6 +4456,7 @@ onAuthStateChanged(auth, async (usuarioFirebase) => {
   AuthUI.atualizarBotaoUsuario(meuPerfilDoc);
   UsuariosUI._cache = [];
   NotifUI.render();
+  ContaUI.aoEntrar();
 });
 </script>
 </body>

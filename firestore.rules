@@ -72,6 +72,29 @@ service cloud.firestore {
       allow delete: if ehDirOuCpen()
         && resource.data.perfil in ['USUARIO','PSICOLOGIA','SOCIAL']
         && resource.data.unidade == perfilAtual().unidade;
+      // A propria conta ATIVA so mexe na matricula (liga a conta a equipe
+      // examinadora dos exames), em "conta institucional sem matricula" e no
+      // marco dos avisos de exames novos — nunca em perfil, status, unidade ou SR.
+      allow update: if autenticado()
+        && request.auth.uid == uid
+        && resource.data.status == 'ATIVO'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['matricula','semMatricula','avisosVistoEm'])
+        && (!('matricula' in request.resource.data) || (request.resource.data.matricula is string && request.resource.data.matricula.size() <= 40));
+    }
+    // Contatos: nome, e-mail e matricula de cada conta ATIVA, para montar o
+    // aviso por e-mail a equipe examinadora (usuarios/{uid} nao e legivel por
+    // qualquer um). Cada pessoa so publica o proprio, copiado do seu cadastro
+    // e com o e-mail do proprio login.
+    match /contatos/{uid} {
+      allow read: if ativo();
+      allow create, update: if ativo()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.matricula == perfilAtual().matricula
+        && request.resource.data.nome == perfilAtual().nome
+        && request.resource.data.perfil == perfilAtual().perfil;
+      allow delete: if (autenticado() && request.auth.uid == uid) || ehDPP();
     }
     // Exames: USUARIO/DIR/CPEN so veem/editam da propria unidade; SR le E
     // cria/edita as da propria regional (dashboard + cadastro direto, ex.:
