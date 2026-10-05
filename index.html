@@ -2936,6 +2936,9 @@ const App = {
         <table><tr><th>Avaliado</th><th>Unidade</th><th>Seções a preencher</th><th>Prazo</th></tr>${pend.map(({e,secoes})=>{const pz=this.prazoInfo(e);
           return `<tr onclick="App.abrir('${e.id}')" style="cursor:pointer;"><td><b>${esc(e.nome)}</b></td><td>${esc(e.unid)||"—"}</td><td>${secoes.map(k=>this.SECAO_LABEL[k]).join(", ")}</td><td><span class="badge ${pz.cls}">${pz.txt}</span></td></tr>`;}).join("")}</table></div>`;
     }
+    if(p.matricula && !pend.length){
+      html+=`<p class="note" style="margin-bottom:10px;">Minhas pendências: nenhuma seção do relatório em aberto com a sua matrícula (<b>${esc(p.matricula)}</b>) na equipe examinadora dos exames em andamento. <button class="btn sm ghost" type="button" onclick="ContaUI.abrirMatricula()">Corrigir matrícula</button></p>`;
+    }
     if(!p.matricula && !p.semMatricula){
       html+=`<p class="note" style="margin-bottom:10px;">Cadastre sua matrícula para ver aqui as partes do relatório que são sua responsabilidade. <button class="btn sm ghost" type="button" onclick="ContaUI.abrirMatricula()">Informar matrícula</button></p>`;
     }
