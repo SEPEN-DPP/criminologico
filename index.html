@@ -2986,7 +2986,8 @@ const App = {
       "Atenciosamente,", (this._meuPerfil&&this._meuPerfil.nome)||""
     ].filter(l=>l!==null).join("\n");
     this._aviso={emails, assunto, texto};
-    const mailto="mailto:"+emails.join(",")+"?subject="+encodeURIComponent(assunto)+"&body="+encodeURIComponent(texto);
+    /* Gmail no navegador: abre uma mensagem nova já preenchida numa aba nova (a pessoa precisa estar logada no Google) */
+    const gmail="https://mail.google.com/mail/?view=cm&fs=1&to="+encodeURIComponent(emails.join(","))+"&su="+encodeURIComponent(assunto)+"&body="+encodeURIComponent(texto);
     corpo.innerHTML=
       (comEmail.length?`<p><b>Vai para:</b></p><ul>${comEmail.map(m=>`<li>${esc(m.nome)} <span class="muted">— ${esc(m.funcao)} — ${esc(m.contato.email)}</span></li>`).join("")}</ul>`
         :`<p class="note" style="color:var(--warn);">Ninguém da equipe tem conta no sistema com matrícula cadastrada, então não há para quem enviar.</p>`)
@@ -2995,12 +2996,12 @@ const App = {
       +(comEmail.length?`<label class="f" style="margin-top:10px;">Assunto</label><input type="text" readonly value="${esc(assunto)}">
         <label class="f" style="margin-top:10px;">Texto</label><textarea readonly style="min-height:200px;">${esc(texto)}</textarea>
         <div class="btnrow" style="margin-top:12px;">
-          <a class="btn" href="${esc(mailto)}" onclick="setTimeout(()=>App.fecharAviso(),500)">Abrir no meu e-mail</a>
+          <a class="btn" href="${esc(gmail)}" target="_blank" rel="noopener" onclick="setTimeout(()=>App.fecharAviso(),500)">Abrir no Gmail</a>
           <button class="btn ghost" type="button" onclick="App.copiarAviso('emails')">Copiar e-mails</button>
           <button class="btn ghost" type="button" onclick="App.copiarAviso('texto')">Copiar texto</button>
         </div>
         <p class="note" id="avisoCopiado"></p>
-        <p class="note">"Abrir no meu e-mail" abre o Outlook (ou o programa de e-mail do computador) com tudo pronto — confira e clique em Enviar. Se usar o e-mail pelo navegador, use os botões de copiar e cole lá.</p>`:"");
+        <p class="note">"Abrir no Gmail" abre uma nova aba do Gmail com a mensagem pronta — confira e clique em Enviar. Se você tiver mais de uma conta Google, confira se a mensagem saiu da conta certa. Para usar outro e-mail, copie os endereços e o texto e cole lá.</p>`:"");
   },
   copiarAviso(o){
     const a=this._aviso; if(!a) return;
