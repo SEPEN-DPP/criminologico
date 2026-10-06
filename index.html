@@ -411,7 +411,7 @@
 <section class="view" id="v-cal">
   <div class="card">
     <h3>Calendário de entrevistas <span class="muted" style="font-weight:normal; font-size:12.5px;">— agenda das etapas de entrevista dos exames em andamento</span></h3>
-    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique numa entrevista para alterar a data, o horário ou os dados dela (ou desmarcá-la) direto por aqui, sem precisar abrir o exame; clique num horário vazio para agendar uma nova. O sistema não deixa uma entrevista começar antes de outra do mesmo centro terminar (pelo horário e pela duração em minutos de cada uma), nem marcar de novo uma entrevista que já está agendada (para mudar, altere a que existe). Use os filtros abaixo para ver só a agenda de Psicologia ou de Assistência Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
+    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique numa entrevista para alterar a data, o horário ou os dados dela (ou desmarcá-la) direto por aqui, sem precisar abrir o exame; clique num horário vazio para agendar uma nova. O sistema não deixa uma entrevista começar antes de outra do mesmo centro terminar (pelo horário e pela duração em minutos de cada uma), nem marcar de novo uma entrevista que já está agendada (para mudar, altere a que existe). Use os filtros abaixo para ver só a agenda de Psicologia ou de Serviço Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
     <div class="btnrow" style="margin-top:0; margin-bottom:8px;">
       <button class="btn sm" id="calBtnSemana" type="button" onclick="App.calModo('semana')">Semana</button>
       <button class="btn sm ghost" id="calBtnMes" type="button" onclick="App.calModo('mes')">Mês</button>
@@ -419,7 +419,7 @@
     <div class="btnrow" style="margin-top:0; margin-bottom:10px;" id="calFiltroAreaBox">
       <button class="btn sm" data-area="" type="button" onclick="App.calFiltroAreaSet('')">Todas as áreas</button>
       <button class="btn sm ghost" data-area="psi" type="button" onclick="App.calFiltroAreaSet('psi')">Psicologia</button>
-      <button class="btn sm ghost" data-area="social" type="button" onclick="App.calFiltroAreaSet('social')">Assistência Social</button>
+      <button class="btn sm ghost" data-area="social" type="button" onclick="App.calFiltroAreaSet('social')">Serviço Social</button>
     </div>
     <div class="row c2" style="margin-bottom:14px; max-width:360px;" id="calFiltroUnidadeBox">
       <div><label class="f">Unidade prisional (dentro deste centro)</label>
