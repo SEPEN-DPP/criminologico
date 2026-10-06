@@ -411,7 +411,7 @@
 <section class="view" id="v-cal">
   <div class="card">
     <h3>Calendário de entrevistas <span class="muted" style="font-weight:normal; font-size:12.5px;">— agenda das etapas de entrevista dos exames em andamento</span></h3>
-    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique numa entrevista para alterar a data, o horário ou os dados dela (ou desmarcá-la) direto por aqui, sem precisar abrir o exame; clique num horário vazio para agendar uma nova. O sistema não deixa marcar duas entrevistas do mesmo centro com menos de 1 hora de diferença no mesmo dia, nem marcar de novo uma entrevista que já está agendada (para mudar, altere a que existe). Use os filtros abaixo para ver só a agenda de Psicologia ou de Assistência Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
+    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique numa entrevista para alterar a data, o horário ou os dados dela (ou desmarcá-la) direto por aqui, sem precisar abrir o exame; clique num horário vazio para agendar uma nova. O sistema não deixa uma entrevista começar antes de outra do mesmo centro terminar (pelo horário e pela duração em minutos de cada uma), nem marcar de novo uma entrevista que já está agendada (para mudar, altere a que existe). Use os filtros abaixo para ver só a agenda de Psicologia ou de Assistência Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
     <div class="btnrow" style="margin-top:0; margin-bottom:8px;">
       <button class="btn sm" id="calBtnSemana" type="button" onclick="App.calModo('semana')">Semana</button>
       <button class="btn sm ghost" id="calBtnMes" type="button" onclick="App.calModo('mes')">Mês</button>
@@ -1150,8 +1150,8 @@ const AREA_LABEL = {"":"Equipe", psi:"Psicologia", social:"Serviço Social"};
 
 /* campos extras por etapa — ver ETAPAS[].extra */
 const ETAPA_EXTRA = {
-  entrevista:[{f:"hora",p:"Horário",t:"time"},{f:"local",p:"Local"},{f:"dur",p:"Duração aprox."},{f:"prof",p:"Profissionais presentes"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS}],
-  convivio:[{f:"hora",p:"Horário",t:"time"},{f:"nome",p:"Nome da pessoa"},{f:"vinc",p:"Vínculo"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS}]
+  entrevista:[{f:"hora",p:"Horário",t:"time"},{f:"local",p:"Local"},{f:"dur",p:"Duração (minutos)",t:"number"},{f:"prof",p:"Profissionais presentes"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS}],
+  convivio:[{f:"hora",p:"Horário",t:"time"},{f:"dur",p:"Duração (minutos)",t:"number"},{f:"nome",p:"Nome da pessoa"},{f:"vinc",p:"Vínculo"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS}]
 };
 
 /* parágrafos-modelo do Anexo II (modelo padrão DPP) — usados como texto inicial/sugestão
@@ -1752,7 +1752,7 @@ const App = {
           const area = et.area||"";
           if(this.calFiltroArea && area!==this.calFiltroArea) return;
           out.push({
-            data: et.data, hora: et.hora||"", tipo: this.CAL_TIPOS[k], tipoK: k, exId: ex.id, nome: ex.nome, mat: ex.mat||"", done: !!et.ok,
+            data: et.data, hora: et.hora||"", dur: et.dur||"", tipo: this.CAL_TIPOS[k], tipoK: k, exId: ex.id, nome: ex.nome, mat: ex.mat||"", done: !!et.ok,
             detalhe: k==="entConv" ? [et.nome,et.vinc].filter(Boolean).join(" — ") : (et.local||""),
             regional: geral ? ((this.data.cocs.find(c=>c.id===this.cocIdDoExame(ex))||{}).nome||"") : "",
             unid: ex.unid||"",
@@ -1846,7 +1846,7 @@ const App = {
     if(!eventos.length){ box.innerHTML=`<p class="note">Nenhuma entrevista marcada para ${dataFmt}. <button class="btn sm ghost" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></p>`; return; }
     box.innerHTML = `<h3 style="font-size:14px;">Entrevistas em ${dataFmt} <button class="btn sm ghost" style="float:right;" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></h3>` + eventos.map(e=>`
       <div class="etapa ${e.done?"done":""}" style="cursor:pointer;" title="Clique para alterar esta entrevista" onclick="App.calEditar('${e.exId}','${e.tipoK}')">
-        <div class="et-t"><b>${esc(e.nome)}${e.mat?(" — IPEN "+esc(e.mat)):""}</b><span>${e.hora?(esc(e.hora)+" — "):""}${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${(!this.calFiltroUnidade && e.unid)?(" · "+esc(e.unid)):""}${e.regional?(" · "+esc(e.regional)):""}</span></div>
+        <div class="et-t"><b>${esc(e.nome)}${e.mat?(" — IPEN "+esc(e.mat)):""}</b><span>${e.hora?(esc(e.hora)+"–"+this.calHoraFim(e.hora,e.dur)+" — "):""}${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${(!this.calFiltroUnidade && e.unid)?(" · "+esc(e.unid)):""}${e.regional?(" · "+esc(e.regional)):""}</span></div>
         <span class="badge ${e.done?"b-ok":"b-warn"}">${e.done?"realizada":"pendente"}</span>
       </div>`).join("");
   },
@@ -1865,7 +1865,7 @@ const App = {
         const cls=e.done?"":(e.data<hojeISO?"atrasada":"pend");
         const areaCls=e.area?(" area-"+e.area):"";
         const ident=esc(e.nome)+(e.mat?(" — IPEN "+esc(e.mat)):"");
-        return `<div class="cal-evt ${cls}${areaCls}" onclick="event.stopPropagation();App.calEditar('${e.exId}','${e.tipoK}')" title="Clique para alterar — ${ident} — ${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${e.unid?(" · "+esc(e.unid)):""}">${ident} · ${this.CAL_TIPOS_CURTO[e.tipoK]}${e.area?(" · "+AREA_LABEL[e.area]):""}</div>`;
+        return `<div class="cal-evt ${cls}${areaCls}" onclick="event.stopPropagation();App.calEditar('${e.exId}','${e.tipoK}')" title="Clique para alterar — ${ident} — ${e.hora?(e.hora+"–"+this.calHoraFim(e.hora,e.dur)+" — "):""}${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${e.unid?(" · "+esc(e.unid)):""}">${ident} · ${this.CAL_TIPOS_CURTO[e.tipoK]}${e.area?(" · "+AREA_LABEL[e.area]):""}</div>`;
       }).join("");
       const horaSlot = hora===""?"":(String(hora).padStart(2,"0")+":00");
       return `<div class="cal-slot ${iso===hojeISO?"today-col":""}" onclick="App.calAbrirForm('${iso}','${horaSlot||"08:00"}')">${chips}</div>`;
@@ -1991,31 +1991,48 @@ const App = {
     const val=f=>`value="${esc(v[f]||"")}"`;
     const areaSelect=`<select id="calfArea">${AREA_OPTS.map(o=>`<option value="${o.v}" ${(v.area||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`;
     if(tipo==="entConv"){
-      box.innerHTML=`<div class="row c3"><div><label class="f">Nome da pessoa</label><input type="text" id="calfNome" ${val("nome")}></div><div><label class="f">Vínculo</label><input type="text" id="calfVinc" ${val("vinc")}></div><div><label class="f">Área/profissional responsável</label>${areaSelect}</div></div>`;
+      box.innerHTML=`<div class="row c3"><div><label class="f">Nome da pessoa</label><input type="text" id="calfNome" ${val("nome")}></div><div><label class="f">Vínculo</label><input type="text" id="calfVinc" ${val("vinc")}></div><div><label class="f">Duração (minutos)</label><input type="number" min="5" step="5" id="calfDur" value="${esc(this.calDurMin(v.dur)||"")}" placeholder="ex.: 60"></div></div>
+      <div class="row c2"><div><label class="f">Área/profissional responsável</label>${areaSelect}</div></div>`;
     } else {
-      box.innerHTML=`<div class="row c3"><div><label class="f">Local</label><input type="text" id="calfLocal" ${val("local")}></div><div><label class="f">Duração aprox.</label><input type="text" id="calfDur" ${val("dur")}></div><div><label class="f">Profissionais presentes</label><input type="text" id="calfProf" ${val("prof")}></div></div>
+      box.innerHTML=`<div class="row c3"><div><label class="f">Local</label><input type="text" id="calfLocal" ${val("local")}></div><div><label class="f">Duração (minutos)</label><input type="number" min="5" step="5" id="calfDur" value="${esc(this.calDurMin(v.dur)||"")}" placeholder="ex.: 60"></div><div><label class="f">Profissionais presentes</label><input type="text" id="calfProf" ${val("prof")}></div></div>
       <div class="row c2"><div><label class="f">Área/profissional responsável</label>${areaSelect}</div></div>`;
     }
   },
   /* lê data, horário e campos extras do formulário do calendário */
   calLerForm(tipo){
-    const d={data:document.getElementById("calfData").value, hora:document.getElementById("calfHora").value, area:document.getElementById("calfArea").value};
+    const d={data:document.getElementById("calfData").value, hora:document.getElementById("calfHora").value, dur:document.getElementById("calfDur").value.trim(), area:document.getElementById("calfArea").value};
     if(tipo==="entConv"){
       d.nome=document.getElementById("calfNome").value.trim();
       d.vinc=document.getElementById("calfVinc").value.trim();
     } else {
       d.local=document.getElementById("calfLocal").value.trim();
-      d.dur=document.getElementById("calfDur").value.trim();
       d.prof=document.getElementById("calfProf").value.trim();
     }
     return d;
   },
-  /* choque de horário: outra entrevista do mesmo centro no mesmo dia com menos de 1 hora de diferença.
+  /* choque de horário: outra entrevista do mesmo centro no mesmo dia cujo período (início + duração)
+     se sobrepõe ao desta. Sem duração informada (registros antigos), conta 1 hora.
      etapasProprias = etapas do próprio exame como vão ficar (no formulário do exame, podem diferir das do servidor) */
+  CAL_DUR_PADRAO: 60,
   calMinutos(h){ const m=/^(\d{1,2}):(\d{2})/.exec(h||""); return m ? (+m[1])*60+(+m[2]) : null; },
-  calConflito(exAlvo, k, data, hora, etapasProprias){
-    const min=this.calMinutos(hora);
-    if(!data || min==null) return null;
+  /* duração em minutos; aceita também o texto livre antigo ("1h", "1h30", "40 min") */
+  calDurMin(v){
+    const s=String(v??"").trim().toLowerCase(); if(!s) return null;
+    if(/^\d+$/.test(s)) return +s||null;
+    const hm=/(\d+)\s*h(?:oras?)?\s*(\d+)?/.exec(s);
+    if(hm) return (+hm[1])*60+(+(hm[2]||0));
+    const mm=/(\d+)\s*m/.exec(s);
+    return mm ? +mm[1] : null;
+  },
+  calHoraFim(hora,dur){
+    const ini=this.calMinutos(hora); if(ini==null) return "";
+    const f=ini+(this.calDurMin(dur)||this.CAL_DUR_PADRAO);
+    return String(Math.floor(f/60)%24).padStart(2,"0")+":"+String(f%60).padStart(2,"0");
+  },
+  calConflito(exAlvo, k, novo, etapasProprias){
+    const ini=this.calMinutos(novo&&novo.hora);
+    if(!novo || !novo.data || ini==null) return null;
+    const fim=ini+(this.calDurMin(novo.dur)||this.CAL_DUR_PADRAO);
     const coc=this.cocIdDoExame(exAlvo);
     const lista=this.data.exames.filter(e=>e.id!==exAlvo.id && this.cocIdDoExame(e)===coc).map(e=>({ex:e, etapas:e.etapas||{}}));
     lista.unshift({ex:exAlvo, etapas:etapasProprias||{}});
@@ -2023,16 +2040,18 @@ const App = {
       for(const k2 of ["ent1","ent2","entConv"]){
         if(o.ex.id===exAlvo.id && k2===k) continue;
         const et=o.etapas[k2];
-        if(!et || et.data!==data) continue;
-        const m2=this.calMinutos(et.hora);
-        if(m2!=null && Math.abs(min-m2)<60) return {ex:o.ex, k:k2, et};
+        if(!et || et.data!==novo.data) continue;
+        const ini2=this.calMinutos(et.hora); if(ini2==null) continue;
+        const fim2=ini2+(this.calDurMin(et.dur)||this.CAL_DUR_PADRAO);
+        if(ini<fim2 && ini2<fim) return {ex:o.ex, k:k2, et};
       }
     }
     return null;
   },
   calMsgConflito(c){
-    return "Já existe entrevista marcada nesse horário:\n\n"+c.ex.nome+" — "+this.CAL_TIPOS_LONGO[c.k]+", "+fmt(c.et.data)+" às "+c.et.hora+
-      "\n\nO sistema não deixa marcar duas entrevistas com menos de 1 hora de diferença. Escolha outro horário.";
+    return "Já existe entrevista marcada nesse horário:\n\n"+c.ex.nome+" — "+this.CAL_TIPOS_LONGO[c.k]+", "+fmt(c.et.data)+" das "+c.et.hora+" às "+this.calHoraFim(c.et.hora,c.et.dur)+
+      (this.calDurMin(c.et.dur)?"":" (sem duração informada — contada como 1 hora)")+
+      "\n\nO sistema não deixa uma entrevista começar antes de a outra terminar. Escolha outro horário ou ajuste a duração.";
   },
   calGravarEtapa(exServidor, k, novo, msgOk){
     const ex={...exServidor, etapas:JSON.parse(JSON.stringify(exServidor.etapas||{}))};
@@ -2058,7 +2077,8 @@ const App = {
     if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de agendar."); return; }
     const atual=(exServidor.etapas||{})[tipo]||{};
     if(atual.data){ alert("A "+this.CAL_TIPOS_LONGO[tipo].toLowerCase()+" deste exame já está marcada para "+fmt(atual.data)+(atual.hora?" às "+atual.hora:"")+".\n\nPara mudar, clique nela no calendário e altere."); this.calRenderTipos(); return; }
-    const c=this.calConflito(exServidor, tipo, f.data, f.hora, exServidor.etapas);
+    if(!this.calDurMin(f.dur)){ alert("Informe a duração da entrevista, em minutos — ela é necessária para o sistema conferir se não há choque com outra entrevista."); return; }
+    const c=this.calConflito(exServidor, tipo, f, exServidor.etapas);
     if(c){ alert(this.calMsgConflito(c)); return; }
     this.calGravarEtapa(exServidor, tipo, Object.assign({ok:false}, atual, f), "Entrevista agendada para "+exServidor.nome+".");
   },
@@ -2069,7 +2089,8 @@ const App = {
     const f=this.calLerForm(k);
     if(!f.data){ alert("Informe a data. Para tirar a entrevista do calendário, use Desmarcar entrevista."); return; }
     if(!f.hora){ alert("Informe o horário — ele é necessário para o sistema conferir se já não há outra entrevista marcada no mesmo horário."); return; }
-    const c=this.calConflito(exServidor, k, f.data, f.hora, exServidor.etapas);
+    if(!this.calDurMin(f.dur)){ alert("Informe a duração da entrevista, em minutos — ela é necessária para o sistema conferir se não há choque com outra entrevista."); return; }
+    const c=this.calConflito(exServidor, k, f, exServidor.etapas);
     if(c){ alert(this.calMsgConflito(c)); return; }
     const novo=Object.assign({}, (exServidor.etapas||{})[k]||{}, f, {ok:document.getElementById("calfOk").checked});
     this.calGravarEtapa(exServidor, k, novo, "Entrevista de "+exServidor.nome+" alterada.");
@@ -2425,7 +2446,7 @@ const App = {
         <div class="et-t"><b>${e.t}</b><span>${e.s}</span>
           ${extraCampos?`<div class="et-extra">${extraCampos.map(c=> c.t==="select"
             ? `<select data-field="${c.f}" title="${c.p}">${c.options.map(o=>`<option value="${o.v}" ${(v[c.f]||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`
-            : `<input type="${c.t||"text"}" data-field="${c.f}" placeholder="${c.p}" value="${v[c.f]||""}">`
+            : `<input type="${c.t||"text"}" data-field="${c.f}" placeholder="${c.p}" title="${c.p}" ${c.t==="number"?'min="5" step="5" style="width:150px;"':""} value="${esc(c.f==="dur"?(this.calDurMin(v.dur)||""):(v[c.f]||""))}">`
           ).join("")}</div>`:""}
         </div>
         ${e.data?`<input type="date" class="et-data" value="${v.data||""}">`:""}
@@ -2706,9 +2727,9 @@ const App = {
     for(const k of ["ent1","ent2","entConv"]){
       const et=(ex.etapas||{})[k]||{};
       const antes=((exServidor&&exServidor.etapas)||{})[k]||{};
-      if(antes.data===et.data && (antes.hora||"")===(et.hora||"")) continue; /* só confere o que mudou */
-      const c=this.calConflito(ex, k, et.data, et.hora, ex.etapas);
-      if(c){ alert(this.CAL_TIPOS_LONGO[k]+" ("+fmt(et.data)+" às "+et.hora+"):\n\n"+this.calMsgConflito(c)+"\n\nO exame não foi salvo — ajuste o horário na aba Etapas."); return; }
+      if(antes.data===et.data && (antes.hora||"")===(et.hora||"") && this.calDurMin(antes.dur)===this.calDurMin(et.dur)) continue; /* só confere o que mudou */
+      const c=this.calConflito(ex, k, et, ex.etapas);
+      if(c){ alert(this.CAL_TIPOS_LONGO[k]+" ("+fmt(et.data)+" das "+et.hora+" às "+this.calHoraFim(et.hora,et.dur)+"):\n\n"+this.calMsgConflito(c)+"\n\nO exame não foi salvo — ajuste o horário na aba Etapas."); return; }
     }
     const msg=document.getElementById("salvoMsg");
     msg.style.color="var(--mut)"; msg.textContent="Gravando…";
