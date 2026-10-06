@@ -411,7 +411,7 @@
 <section class="view" id="v-cal">
   <div class="card">
     <h3>Calendário de entrevistas <span class="muted" style="font-weight:normal; font-size:12.5px;">— agenda das etapas de entrevista dos exames em andamento</span></h3>
-    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique num evento para abrir o exame, ou num horário vazio para agendar uma nova entrevista direto por aqui. Use os filtros abaixo para ver só a agenda de Psicologia ou de Assistência Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
+    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique numa entrevista para alterar a data, o horário ou os dados dela (ou desmarcá-la) direto por aqui, sem precisar abrir o exame; clique num horário vazio para agendar uma nova. O sistema não deixa marcar duas entrevistas do mesmo centro com menos de 1 hora de diferença no mesmo dia, nem marcar de novo uma entrevista que já está agendada (para mudar, altere a que existe). Use os filtros abaixo para ver só a agenda de Psicologia ou de Assistência Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
     <div class="btnrow" style="margin-top:0; margin-bottom:8px;">
       <button class="btn sm" id="calBtnSemana" type="button" onclick="App.calModo('semana')">Semana</button>
       <button class="btn sm ghost" id="calBtnMes" type="button" onclick="App.calModo('mes')">Mês</button>
@@ -1845,7 +1845,7 @@ const App = {
     const dataFmt=fmt(this.calDiaSel);
     if(!eventos.length){ box.innerHTML=`<p class="note">Nenhuma entrevista marcada para ${dataFmt}. <button class="btn sm ghost" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></p>`; return; }
     box.innerHTML = `<h3 style="font-size:14px;">Entrevistas em ${dataFmt} <button class="btn sm ghost" style="float:right;" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></h3>` + eventos.map(e=>`
-      <div class="etapa ${e.done?"done":""}" style="cursor:pointer;" onclick="App.abrir('${e.exId}')">
+      <div class="etapa ${e.done?"done":""}" style="cursor:pointer;" title="Clique para alterar esta entrevista" onclick="App.calEditar('${e.exId}','${e.tipoK}')">
         <div class="et-t"><b>${esc(e.nome)}${e.mat?(" — IPEN "+esc(e.mat)):""}</b><span>${e.hora?(esc(e.hora)+" — "):""}${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${(!this.calFiltroUnidade && e.unid)?(" · "+esc(e.unid)):""}${e.regional?(" · "+esc(e.regional)):""}</span></div>
         <span class="badge ${e.done?"b-ok":"b-warn"}">${e.done?"realizada":"pendente"}</span>
       </div>`).join("");
@@ -1865,7 +1865,7 @@ const App = {
         const cls=e.done?"":(e.data<hojeISO?"atrasada":"pend");
         const areaCls=e.area?(" area-"+e.area):"";
         const ident=esc(e.nome)+(e.mat?(" — IPEN "+esc(e.mat)):"");
-        return `<div class="cal-evt ${cls}${areaCls}" onclick="event.stopPropagation();App.abrir('${e.exId}')" title="${ident} — ${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${e.unid?(" · "+esc(e.unid)):""}">${ident} · ${this.CAL_TIPOS_CURTO[e.tipoK]}${e.area?(" · "+AREA_LABEL[e.area]):""}</div>`;
+        return `<div class="cal-evt ${cls}${areaCls}" onclick="event.stopPropagation();App.calEditar('${e.exId}','${e.tipoK}')" title="Clique para alterar — ${ident} — ${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${e.unid?(" · "+esc(e.unid)):""}">${ident} · ${this.CAL_TIPOS_CURTO[e.tipoK]}${e.area?(" · "+AREA_LABEL[e.area]):""}</div>`;
       }).join("");
       const horaSlot = hora===""?"":(String(hora).padStart(2,"0")+":00");
       return `<div class="cal-slot ${iso===hojeISO?"today-col":""}" onclick="App.calAbrirForm('${iso}','${horaSlot||"08:00"}')">${chips}</div>`;
@@ -1884,10 +1884,22 @@ const App = {
     document.getElementById("calWeekGrid").innerHTML=html;
   },
 
-  /* ---------- agendar entrevista direto no calendário ---------- */
+  /* ---------- agendar / alterar entrevista direto no calendário ---------- */
+  CAL_TIPOS_LONGO: {ent1:"1ª entrevista com o avaliado", ent2:"2ª entrevista com o avaliado", entConv:"Entrevista com pessoa do convívio"},
   calAbrirForm(iso,hora){
     this.calFormAberto={iso,hora};
     this.calRenderForm();
+    this.calRolarForm();
+  },
+  /* clique numa entrevista já marcada: abre o formulário de alteração dela, sem sair do calendário */
+  calEditar(exId,k){
+    this.calFormAberto={editar:true, exId, k};
+    this.calRenderForm();
+    this.calRolarForm();
+  },
+  calRolarForm(){
+    const box=document.getElementById("calFormBox");
+    if(box && box.firstElementChild) box.firstElementChild.scrollIntoView({behavior:"smooth", block:"center"});
   },
   calFecharForm(semRender){
     this.calFormAberto=null;
@@ -1897,6 +1909,7 @@ const App = {
     const box=document.getElementById("calFormBox");
     if(!box) return;
     if(!this.calFormAberto){ box.innerHTML=""; return; }
+    if(this.calFormAberto.editar){ this.calRenderFormEditar(box); return; }
     const {iso,hora}=this.calFormAberto;
     const geral=this.coc==="_cepen";
     const exs=(geral?this.data.exames.slice():this.data.exames.filter(e=>this.cocIdDoExame(e)===this.coc)).filter(e=>e.status!=="concluido");
@@ -1910,69 +1923,164 @@ const App = {
     box.innerHTML=`<div class="card" style="margin-top:14px; background:#FAFBFE;">
       <h3 style="font-size:14px;">Agendar entrevista — ${fmt(iso)}${hora?(" às "+hora):""}</h3>
       <div class="row c2">
-        <div><label class="f">Exame</label><select id="calfExame">${exs.map(e=>`<option value="${e.id}">${esc(e.nome)}${geral?(" — "+esc((this.data.cocs.find(c=>c.id===this.cocIdDoExame(e))||{}).nome||"")):""}</option>`).join("")}</select></div>
+        <div><label class="f">Exame</label><select id="calfExame" onchange="App.calRenderTipos()">${exs.map(e=>`<option value="${e.id}">${esc(e.nome)}${geral?(" — "+esc((this.data.cocs.find(c=>c.id===this.cocIdDoExame(e))||{}).nome||"")):""}</option>`).join("")}</select></div>
         <div><label class="f">Tipo de entrevista</label>
-          <select id="calfTipo" onchange="App.calRenderExtra()">
-            <option value="ent1">1ª entrevista com o avaliado</option>
-            <option value="ent2">2ª entrevista com o avaliado</option>
-            <option value="entConv">Entrevista com pessoa do convívio</option>
-          </select>
+          <select id="calfTipo" onchange="App.calRenderExtra()"></select>
         </div>
       </div>
+      <div id="calfAviso"></div>
       <div class="row c2">
         <div><label class="f">Data</label><input type="date" id="calfData" value="${iso}"></div>
         <div><label class="f">Horário</label><input type="time" id="calfHora" value="${hora}"></div>
       </div>
       <div id="calfExtra"></div>
       <div class="btnrow">
-        <button class="btn sm" type="button" onclick="App.calSalvarAgendamento()">Agendar</button>
+        <button class="btn sm" type="button" id="calfBtnAgendar" onclick="App.calSalvarAgendamento()">Agendar</button>
         <button class="btn sm ghost" type="button" onclick="App.calFecharForm()">Cancelar</button>
       </div>
     </div>`;
+    this.calRenderTipos();
+  },
+  /* tipos de entrevista do exame escolhido: os que já estão marcados ficam bloqueados
+     (não se agenda por cima — para mudar, altera-se a entrevista existente) */
+  calRenderTipos(){
+    const ex=this.data.exames.find(x=>x.id===document.getElementById("calfExame").value)||{};
+    const et=ex.etapas||{};
+    const opts=["ent1","ent2","entConv"].map(k=>{
+      const v=et[k]||{}, marcada=!!v.data;
+      return {k, marcada, txt:this.CAL_TIPOS_LONGO[k]+(marcada?` — já marcada: ${fmt(v.data)}${v.hora?" às "+v.hora:""}`:"")};
+    });
+    const sel=document.getElementById("calfTipo");
+    sel.innerHTML=opts.map(o=>`<option value="${o.k}" ${o.marcada?"disabled":""}>${esc(o.txt)}</option>`).join("");
+    const livre=opts.find(o=>!o.marcada);
+    if(livre) sel.value=livre.k;
+    const algumaMarcada=opts.some(o=>o.marcada);
+    document.getElementById("calfAviso").innerHTML = !livre
+      ? `<div class="orient warn" style="margin:8px 0;">As três entrevistas deste exame já estão marcadas. Para mudar alguma, clique nela no calendário.</div>`
+      : (algumaMarcada?`<p class="note" style="margin:4px 0 8px;">As entrevistas que já estão marcadas aparecem bloqueadas na lista. Para mudar uma delas, clique nela no calendário.</p>`:"");
+    document.getElementById("calfBtnAgendar").disabled=!livre;
     this.calRenderExtra();
   },
-  calRenderExtra(){
-    const tipo=document.getElementById("calfTipo").value;
+  calRenderFormEditar(box){
+    const {exId,k}=this.calFormAberto;
+    const ex=this.data.exames.find(x=>x.id===exId);
+    const et=ex && (ex.etapas||{})[k];
+    if(!ex || !et || !et.data){ this.calFormAberto=null; box.innerHTML=""; return; }
+    box.innerHTML=`<div class="card" style="margin-top:14px; background:#FAFBFE;">
+      <h3 style="font-size:14px;">Alterar ${this.CAL_TIPOS_LONGO[k].toLowerCase()} — ${esc(ex.nome)}${ex.mat?(" — IPEN "+esc(ex.mat)):""}</h3>
+      <p class="note" style="margin-top:0;">Marcada para ${fmt(et.data)}${et.hora?(" às "+esc(et.hora)):""}. Mude o que precisar e clique em <b>Salvar alterações</b>.</p>
+      <div class="row c2">
+        <div><label class="f">Data</label><input type="date" id="calfData" value="${esc(et.data)}"></div>
+        <div><label class="f">Horário</label><input type="time" id="calfHora" value="${esc(et.hora||"")}"></div>
+      </div>
+      <div id="calfExtra"></div>
+      <label style="display:flex; gap:6px; align-items:center; margin-top:8px; font-size:13px;"><input type="checkbox" id="calfOk" ${et.ok?"checked":""}> Entrevista já realizada</label>
+      <div class="btnrow">
+        <button class="btn sm" type="button" onclick="App.calSalvarAlteracao()">Salvar alterações</button>
+        <button class="btn sm ghost" type="button" onclick="App.calDesmarcar()">Desmarcar entrevista</button>
+        <button class="btn sm ghost" type="button" onclick="App.abrir('${ex.id}')">Abrir o exame</button>
+        <button class="btn sm ghost" type="button" onclick="App.calFecharForm()">Cancelar</button>
+      </div>
+    </div>`;
+    this.calRenderExtra(k, et);
+  },
+  calRenderExtra(tipo, v){
+    tipo = tipo || document.getElementById("calfTipo").value;
+    v = v || {};
     const box=document.getElementById("calfExtra");
-    const areaSelect=`<select id="calfArea">${AREA_OPTS.map(o=>`<option value="${o.v}">${o.t}</option>`).join("")}</select>`;
+    const val=f=>`value="${esc(v[f]||"")}"`;
+    const areaSelect=`<select id="calfArea">${AREA_OPTS.map(o=>`<option value="${o.v}" ${(v.area||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`;
     if(tipo==="entConv"){
-      box.innerHTML=`<div class="row c3"><div><label class="f">Nome da pessoa</label><input type="text" id="calfNome"></div><div><label class="f">Vínculo</label><input type="text" id="calfVinc"></div><div><label class="f">Área/profissional responsável</label>${areaSelect}</div></div>`;
+      box.innerHTML=`<div class="row c3"><div><label class="f">Nome da pessoa</label><input type="text" id="calfNome" ${val("nome")}></div><div><label class="f">Vínculo</label><input type="text" id="calfVinc" ${val("vinc")}></div><div><label class="f">Área/profissional responsável</label>${areaSelect}</div></div>`;
     } else {
-      box.innerHTML=`<div class="row c3"><div><label class="f">Local</label><input type="text" id="calfLocal"></div><div><label class="f">Duração aprox.</label><input type="text" id="calfDur"></div><div><label class="f">Profissionais presentes</label><input type="text" id="calfProf"></div></div>
+      box.innerHTML=`<div class="row c3"><div><label class="f">Local</label><input type="text" id="calfLocal" ${val("local")}></div><div><label class="f">Duração aprox.</label><input type="text" id="calfDur" ${val("dur")}></div><div><label class="f">Profissionais presentes</label><input type="text" id="calfProf" ${val("prof")}></div></div>
       <div class="row c2"><div><label class="f">Área/profissional responsável</label>${areaSelect}</div></div>`;
     }
+  },
+  /* lê data, horário e campos extras do formulário do calendário */
+  calLerForm(tipo){
+    const d={data:document.getElementById("calfData").value, hora:document.getElementById("calfHora").value, area:document.getElementById("calfArea").value};
+    if(tipo==="entConv"){
+      d.nome=document.getElementById("calfNome").value.trim();
+      d.vinc=document.getElementById("calfVinc").value.trim();
+    } else {
+      d.local=document.getElementById("calfLocal").value.trim();
+      d.dur=document.getElementById("calfDur").value.trim();
+      d.prof=document.getElementById("calfProf").value.trim();
+    }
+    return d;
+  },
+  /* choque de horário: outra entrevista do mesmo centro no mesmo dia com menos de 1 hora de diferença.
+     etapasProprias = etapas do próprio exame como vão ficar (no formulário do exame, podem diferir das do servidor) */
+  calMinutos(h){ const m=/^(\d{1,2}):(\d{2})/.exec(h||""); return m ? (+m[1])*60+(+m[2]) : null; },
+  calConflito(exAlvo, k, data, hora, etapasProprias){
+    const min=this.calMinutos(hora);
+    if(!data || min==null) return null;
+    const coc=this.cocIdDoExame(exAlvo);
+    const lista=this.data.exames.filter(e=>e.id!==exAlvo.id && this.cocIdDoExame(e)===coc).map(e=>({ex:e, etapas:e.etapas||{}}));
+    lista.unshift({ex:exAlvo, etapas:etapasProprias||{}});
+    for(const o of lista){
+      for(const k2 of ["ent1","ent2","entConv"]){
+        if(o.ex.id===exAlvo.id && k2===k) continue;
+        const et=o.etapas[k2];
+        if(!et || et.data!==data) continue;
+        const m2=this.calMinutos(et.hora);
+        if(m2!=null && Math.abs(min-m2)<60) return {ex:o.ex, k:k2, et};
+      }
+    }
+    return null;
+  },
+  calMsgConflito(c){
+    return "Já existe entrevista marcada nesse horário:\n\n"+c.ex.nome+" — "+this.CAL_TIPOS_LONGO[c.k]+", "+fmt(c.et.data)+" às "+c.et.hora+
+      "\n\nO sistema não deixa marcar duas entrevistas com menos de 1 hora de diferença. Escolha outro horário.";
+  },
+  calGravarEtapa(exServidor, k, novo, msgOk){
+    const ex={...exServidor, etapas:JSON.parse(JSON.stringify(exServidor.etapas||{}))};
+    ex.etapas[k]=novo;
+    /* grava no Firestore (com histórico) a partir da versão do servidor; se o
+       exame estiver aberto no formulário, só as etapas da tela são atualizadas */
+    return this.gravarExame(ex,{acao:"alterou", base:this.baseDoServidor(exServidor)})
+      .then(()=>{
+        if(this.editId===exServidor.id) this.renderEtapas(ex.etapas);
+        this.calFecharForm(true);
+        this.renderCalendario();
+        alert(msgOk);
+      })
+      .catch(e=>alert("Falhou ao salvar: "+e.message));
   },
   calSalvarAgendamento(){
     const exId=document.getElementById("calfExame").value;
     const tipo=document.getElementById("calfTipo").value;
-    const data=document.getElementById("calfData").value;
-    const hora=document.getElementById("calfHora").value;
-    if(!data){ alert("Informe a data."); return; }
+    const f=this.calLerForm(tipo);
+    if(!f.data){ alert("Informe a data."); return; }
+    if(!f.hora){ alert("Informe o horário — ele é necessário para o sistema conferir se já não há outra entrevista marcada no mesmo horário."); return; }
     const exServidor=this.data.exames.find(x=>x.id===exId); if(!exServidor) return;
     if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de agendar."); return; }
-    const ex={...exServidor, etapas:JSON.parse(JSON.stringify(exServidor.etapas||{}))};
-    const novo=Object.assign({ok:false}, ex.etapas[tipo]||{}, {data, hora});
-    novo.area=document.getElementById("calfArea").value;
-    if(tipo==="entConv"){
-      novo.nome=document.getElementById("calfNome").value.trim();
-      novo.vinc=document.getElementById("calfVinc").value.trim();
-    } else {
-      novo.local=document.getElementById("calfLocal").value.trim();
-      novo.dur=document.getElementById("calfDur").value.trim();
-      novo.prof=document.getElementById("calfProf").value.trim();
-    }
-    ex.etapas[tipo]=novo;
-    const nomeEx=ex.nome;
-    /* grava no Firestore (com histórico) a partir da versão do servidor; se o
-       exame estiver aberto no formulário, só as etapas da tela são atualizadas */
-    this.gravarExame(ex,{acao:"alterou", base:this.baseDoServidor(exServidor)})
-      .then(()=>{
-        if(this.editId===exId) this.renderEtapas(ex.etapas);
-        this.calFecharForm(true);
-        this.renderCalendario();
-        alert("Entrevista agendada para "+nomeEx+".");
-      })
-      .catch(e=>alert("Falhou ao salvar o agendamento: "+e.message));
+    const atual=(exServidor.etapas||{})[tipo]||{};
+    if(atual.data){ alert("A "+this.CAL_TIPOS_LONGO[tipo].toLowerCase()+" deste exame já está marcada para "+fmt(atual.data)+(atual.hora?" às "+atual.hora:"")+".\n\nPara mudar, clique nela no calendário e altere."); this.calRenderTipos(); return; }
+    const c=this.calConflito(exServidor, tipo, f.data, f.hora, exServidor.etapas);
+    if(c){ alert(this.calMsgConflito(c)); return; }
+    this.calGravarEtapa(exServidor, tipo, Object.assign({ok:false}, atual, f), "Entrevista agendada para "+exServidor.nome+".");
+  },
+  calSalvarAlteracao(){
+    const {exId,k}=this.calFormAberto||{};
+    const exServidor=this.data.exames.find(x=>x.id===exId); if(!exServidor) return;
+    if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de alterar."); return; }
+    const f=this.calLerForm(k);
+    if(!f.data){ alert("Informe a data. Para tirar a entrevista do calendário, use Desmarcar entrevista."); return; }
+    if(!f.hora){ alert("Informe o horário — ele é necessário para o sistema conferir se já não há outra entrevista marcada no mesmo horário."); return; }
+    const c=this.calConflito(exServidor, k, f.data, f.hora, exServidor.etapas);
+    if(c){ alert(this.calMsgConflito(c)); return; }
+    const novo=Object.assign({}, (exServidor.etapas||{})[k]||{}, f, {ok:document.getElementById("calfOk").checked});
+    this.calGravarEtapa(exServidor, k, novo, "Entrevista de "+exServidor.nome+" alterada.");
+  },
+  calDesmarcar(){
+    const {exId,k}=this.calFormAberto||{};
+    const exServidor=this.data.exames.find(x=>x.id===exId); if(!exServidor) return;
+    if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de alterar."); return; }
+    const et=(exServidor.etapas||{})[k]||{};
+    if(!confirm("Desmarcar a "+this.CAL_TIPOS_LONGO[k].toLowerCase()+" de "+exServidor.nome+" ("+fmt(et.data)+(et.hora?" às "+et.hora:"")+")?\n\nEla sai do calendário e o horário fica livre.")) return;
+    this.calGravarEtapa(exServidor, k, {ok:false, data:""}, "Entrevista desmarcada.");
   },
   renderDashGeral(){
     this.renderParaVoce();
@@ -2594,6 +2702,14 @@ const App = {
     if(exServidor && exServidor.status==="concluido"){ alert("Este exame está concluído. Para alterar, a SR ou o DPP precisa reabri-lo."); return; }
     const ex = exServidor ? {...exServidor} : {id:uid(), coc:(this.cocDaUnidade(unid)||{}).id||this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
     Object.assign(ex, this.lerFormulario());
+    /* não deixa gravar entrevista em cima de outra já marcada no mesmo centro */
+    for(const k of ["ent1","ent2","entConv"]){
+      const et=(ex.etapas||{})[k]||{};
+      const antes=((exServidor&&exServidor.etapas)||{})[k]||{};
+      if(antes.data===et.data && (antes.hora||"")===(et.hora||"")) continue; /* só confere o que mudou */
+      const c=this.calConflito(ex, k, et.data, et.hora, ex.etapas);
+      if(c){ alert(this.CAL_TIPOS_LONGO[k]+" ("+fmt(et.data)+" às "+et.hora+"):\n\n"+this.calMsgConflito(c)+"\n\nO exame não foi salvo — ajuste o horário na aba Etapas."); return; }
+    }
     const msg=document.getElementById("salvoMsg");
     msg.style.color="var(--mut)"; msg.textContent="Gravando…";
     this.gravarExame(ex,{acao: exServidor?"alterou":"criou", doFormulario:true}).then(r=>{
