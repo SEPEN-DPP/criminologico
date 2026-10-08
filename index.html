@@ -167,6 +167,8 @@
   .sec.na{background:var(--okbg); color:var(--ok); border-color:transparent; opacity:.6; text-decoration:line-through;}
   tr.ex-pronto td{background:var(--okbg);}
   tr.ex-pronto:hover td{background:#DDF1E3;}
+  tr.grp-unid td, tr.grp-unid:hover td{background:#E8EFE8; color:var(--navy); font-weight:700; font-size:14px; cursor:default; border-top:2px solid var(--navy);}
+  tr.grp-unid td .muted{font-weight:normal; font-size:12.5px;}
 
   /* ===== etapas ===== */
   .etapa{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; background:#fff;}
@@ -3338,12 +3340,34 @@ const App = {
     if(unidFiltro) chips.push(`Unidade: <b>${esc(unidLabel)}</b> <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ ver todas as unidades</button>`);
     if(this.dashPrazoFiltro) chips.push(`Prazo: <b>${esc(this.PRAZO_FILTRO_LABEL[this.dashPrazoFiltro]||this.dashPrazoFiltro)}</b> <button class="btn sm ghost" type="button" onclick="App.limparFiltroPrazoLista()">✕ tirar filtro de prazo</button>`);
     document.getElementById("listaTituloUnidade").innerHTML = chips.length ? "— "+chips.join(" &nbsp; ") : "";
-    const showUnidCol = !geral && !unidFiltro;
-    document.getElementById("listaBox").innerHTML = exs.length ?
-      `<table><tr><th>Avaliado</th>${geral?"<th>Regional</th>":""}${showUnidCol?"<th>Unidade</th>":""}<th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th><th>Relatório</th></tr>`+
-      exs.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{}); const ro=this.progressoRelOk(e.relOk,e.sup);
+    /* sem filtro de unidade, a lista vem separada por unidade prisional (no CEPEN, por
+       regional + unidade): uma faixa de título por grupo, na ordem das unidades cadastradas
+       no centro; as que não estão no cadastro vêm depois, e "sem unidade definida" por último */
+    const linha = e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{}); const ro=this.progressoRelOk(e.relOk,e.sup);
         const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
-        return `<tr class="${this.examePronto(e)?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td>${geral?`<td>${esc(nomeRegional(this.cocIdDoExame(e)))}</td>`:""}${showUnidCol?`<td>${esc(e.unid)||"—"}</td>`:""}<td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;}).join("")+`</table>`
+        return `<tr class="${this.examePronto(e)?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td><td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;};
+    let corpo;
+    if(unidFiltro) corpo = exs.map(linha).join("");
+    else {
+      const grupos=new Map();
+      exs.forEach(e=>{
+        const unid=(e.unid||"").trim();
+        const reg=geral?nomeRegional(this.cocIdDoExame(e)):"";
+        const k=reg+"|"+unid;
+        if(!grupos.has(k)) grupos.set(k,{reg, unid, exs:[]});
+        grupos.get(k).exs.push(e);
+      });
+      const ordemCentro=(this.data.cocs.find(c=>c.id===this.coc)||{}).unidades||[];
+      const pos = g => !g.unid ? 1e9 : (geral||!ordemCentro.includes(g.unid) ? 1e6 : ordemCentro.indexOf(g.unid));
+      const lista=[...grupos.values()].sort((x,y)=> x.reg.localeCompare(y.reg,"pt") || pos(x)-pos(y) || x.unid.localeCompare(y.unid,"pt"));
+      corpo = lista.map(g=>{
+        const and=g.exs.filter(e=>e.status!=="concluido").length, conc=g.exs.length-and;
+        const nome=(geral?esc(g.reg)+" — ":"")+(g.unid?esc(g.unid):"<i>Sem unidade definida</i>");
+        return `<tr class="grp-unid"><td colspan="7">${nome} <span class="muted">— ${g.exs.length} exame(s): ${and} em andamento, ${conc} concluído(s)</span></td></tr>`+g.exs.map(linha).join("");
+      }).join("");
+    }
+    document.getElementById("listaBox").innerHTML = exs.length ?
+      `<table><tr><th>Avaliado</th><th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th><th>Relatório</th></tr>${corpo}</table>`
       : `<div class="empty">Nenhum exame cadastrado${geral?"":" neste centro"}. ${geral?"":'Use a aba <b>Novo exame</b>.'}</div>`;
   },
 
