@@ -177,6 +177,22 @@ service cloud.firestore {
             && n.excluidoAt == request.time)
         : false;
     }
+    // Contadores (numero do oficio de comunicacao ao Juizo, por Centro e ano):
+    // so sobe de 1 em 1, nunca volta nem e apagado.
+    match /contadores/{id} {
+      allow read: if ativo();
+      allow create: if ativo() && id.matches('oficio-.+')
+        && request.resource.data.keys().hasOnly(['n','por','em'])
+        && request.resource.data.n == 1
+        && request.resource.data.por == request.auth.uid
+        && request.resource.data.em == request.time;
+      allow update: if ativo()
+        && request.resource.data.keys().hasOnly(['n','por','em'])
+        && request.resource.data.n == resource.data.n + 1
+        && request.resource.data.por == request.auth.uid
+        && request.resource.data.em == request.time;
+      allow delete: if false;
+    }
     match /exames/{examId} {
       allow read: if podeVer(resource.data);
       allow create: if podeVer(request.resource.data)

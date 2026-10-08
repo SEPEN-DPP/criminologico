@@ -158,6 +158,7 @@
   .b-ok{background:var(--okbg); color:var(--ok);} .b-warn{background:var(--warnbg); color:var(--warn);}
   .b-crit{background:var(--critbg); color:var(--crit);} .b-navy{background:#ECECEC; color:var(--navy);}
   .b-mut{background:#EEF0F4; color:var(--mut);}
+  .b-crime{background:#F3E8F7; color:#7A2E8E;}
   .prog{height:7px; background:#E4E9F2; border-radius:4px; overflow:hidden; min-width:70px;}
   .prog i{display:block; height:100%; background:var(--navy); border-radius:4px;}
   /* acompanhamento: uma "bolinha" por seção do relatório; linha verde quando o exame está pronto/concluído */
@@ -516,6 +517,12 @@
     </div>
     <div class="row c2">
       <div><label class="f">Número do SGPE</label><input type="text" id="e_sgpe" placeholder="ex.: SGPE 00012345/2026"></div>
+      <div><label class="f">Crime sexual</label>
+        <label style="display:flex; align-items:center; gap:8px; font-size:13.5px; margin-top:8px;">
+          <input type="checkbox" id="e_crimeSexual" style="width:18px; height:18px; flex-shrink:0;">
+          <span>O avaliado possui condenação por crime sexual</span>
+        </label>
+      </div>
     </div>
     <div class="row c3">
       <div><label class="f">Filiação</label><input type="text" id="e_filiacao" placeholder="Mãe: nome; Pai: nome"></div>
@@ -633,10 +640,11 @@
     <div class="novopanel" id="np-comunicacao">
       <h3>Comunicação de agendamento ao Juízo</h3>
       <div class="row c3">
-        <div><label class="f">Ofício nº</label><input type="text" id="c_oficio" placeholder="ex.: 123/2026" oninput="App.renderComunicacao()"></div>
+        <div><label class="f">Ofício nº</label><div style="display:flex; gap:6px;"><input type="text" id="c_oficio" placeholder="gerado automaticamente" oninput="App.renderComunicacao()"><button class="btn sm ghost" type="button" id="c_oficioBtn" onclick="App.gerarNumeroOficio()" title="Pega o próximo número livre do Centro de Observação neste ano">Gerar nº</button></div></div>
         <div><label class="f">Cidade</label><input type="text" id="c_cidade" oninput="App.renderComunicacao()"></div>
         <div><label class="f">Local das entrevistas</label><input type="text" id="c_local" oninput="App.renderComunicacao()"></div>
       </div>
+      <p class="note">O número do ofício é gerado automaticamente (sequência própria de cada Centro de Observação, recomeça a cada ano) ao clicar em "Gerar ofício / imprimir" com o campo em branco, e fica gravado no exame. Ainda pode ser digitado à mão, se preciso.</p>
       <p class="note">Assina o ofício o(a) técnico(a) responsável do Centro cadastrado(a) na aba Equipe examinadora.</p>
       <div class="btnrow">
         <button class="btn" type="button" onclick="App.imprimirComunicacao()">Gerar ofício / imprimir</button>
@@ -2560,6 +2568,7 @@ const App = {
     r_psq.value=TEXTO_MODELO.psq; r_psi.value=TEXTO_MODELO.psi; r_soc.value=TEXTO_MODELO.soc;
     r_sin.value=TEXTO_MODELO.sin;
     document.getElementById("e_tipo").value="progressao";
+    document.getElementById("e_crimeSexual").checked=false;
     document.getElementById("e_regime").value="";
     this.setBeneficio("");
     document.getElementById("e_faltaNaoReab").value="";
@@ -2694,6 +2703,7 @@ const App = {
       unid,
       proc:document.getElementById("e_proc").value.trim(),
       sgpe:document.getElementById("e_sgpe").value.trim(),
+      crimeSexual:document.getElementById("e_crimeSexual").checked,
       tipo:document.getElementById("e_tipo").value,
       dataDecisao:document.getElementById("e_dataDecisao").value,
       dataProg:document.getElementById("e_dataProg").value,
@@ -2767,6 +2777,7 @@ const App = {
     this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(ex.status==="concluido"?" (concluído)":"");
     e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_proc.value=ex.proc||""; document.getElementById("e_sgpe").value=ex.sgpe||"";
+    document.getElementById("e_crimeSexual").checked=!!ex.crimeSexual;
     this.renderUnidadeSel(ex.unid||"");
     e_tipo.value=ex.tipo||"progressao"; document.getElementById("e_dataDecisao").value=ex.dataDecisao||""; e_dataProg.value=ex.dataProg||""; document.getElementById("e_dataBase").value=ex.dataBase||""; e_obs.value=ex.obs||"";
     document.getElementById("e_faltaNaoReab").value=ex.faltaNaoReab||"";
@@ -2833,7 +2844,7 @@ const App = {
     return { rev:ex.rev||0, versaoFinal:ex.versaoFinal||0, conteudo:this.conteudoExame(ex) };
   },
   ROTULO_CAMPO: {
-    nome:"Nome do avaliado", mat:"Matrícula", unid:"Unidade prisional", proc:"Processo", sgpe:"SGPE", tipo:"Finalidade do exame",
+    nome:"Nome do avaliado", mat:"Matrícula", unid:"Unidade prisional", proc:"Processo", sgpe:"SGPE", crimeSexual:"Crime sexual", tipo:"Finalidade do exame",
     dataDecisao:"Data da decisão judicial", dataProg:"Data prevista da progressão", dataBase:"Data-base", faltaNaoReab:"Falta grave não reabilitada", exameAnterior:"Exame anterior",
     modal:"Modalidade", filiacao:"Filiação", nasc:"Nascimento", regime:"Regime", juizo:"Juízo da execução", penaTotal:"Pena total",
     beneficio:"Benefício pretendido", dataIni:"Início da avaliação", dataConcl:"Conclusão da avaliação", conds:"Condenações", obs:"Observações internas"
@@ -3251,7 +3262,7 @@ const App = {
         const situ = e.status==="concluido" ? `<span class="badge b-ok">✓ exame concluído</span>`
           : pronto ? `<span class="badge b-ok">✓ seções prontas — falta finalizar</span>`
           : `<span class="badge b-warn">${ro.feitas}/${ro.total} seções</span>`;
-        return `<tr class="${pronto?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td>${unidFiltro?"":`<td>${esc(e.unid)||"—"}</td>`}<td>${e.status==="concluido"?"—":`<span class="badge ${p.cls}">${p.txt}</span>`}</td><td>${this.chipsSecoes(e)}</td><td>${situ}</td></tr>`;}).join("")+`</table>`
+        return `<tr class="${pronto?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td>${unidFiltro?"":`<td>${esc(e.unid)||"—"}</td>`}<td>${e.status==="concluido"?"—":`<span class="badge ${p.cls}">${p.txt}</span>`}</td><td>${this.chipsSecoes(e)}</td><td>${situ}</td></tr>`;}).join("")+`</table>`
       : `<div class="empty">Nenhum exame${unidFiltro?" nesta unidade":" neste centro"}.</div>`;
 
     const painelCard=document.getElementById("painelUnidadesCard");
@@ -3345,7 +3356,7 @@ const App = {
        no centro; as que não estão no cadastro vêm depois, e "sem unidade definida" por último */
     const linha = e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{}); const ro=this.progressoRelOk(e.relOk,e.sup);
         const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
-        return `<tr class="${this.examePronto(e)?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td><td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;};
+        return `<tr class="${this.examePronto(e)?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td><td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;};
     let corpo;
     if(unidFiltro) corpo = exs.map(linha).join("");
     else {
@@ -3528,7 +3539,31 @@ const App = {
     const box=document.getElementById("comPreview"); if(!box) return;
     box.innerHTML=this.montarComunicacaoHTML();
   },
-  imprimirComunicacao(){
+  /* número do ofício: contador no servidor (contadores/oficio-{centro}-{ano}), somado numa
+     transação — duas pessoas gerando ao mesmo tempo nunca recebem o mesmo número. O número
+     é gravado no exame logo em seguida, para não se perder se a pessoa sair sem salvar. */
+  async gerarNumeroOficio(){
+    const el=document.getElementById("c_oficio");
+    if(el.value.trim() && !confirm("Este exame já tem o ofício nº "+el.value.trim()+".\n\nGerar um número novo mesmo assim?")) return false;
+    if(!this.editId){ alert("Salve o exame antes de gerar o número do ofício."); return false; }
+    const ex=this.data.exames.find(x=>x.id===this.editId);
+    if(ex && ex.status==="concluido"){ alert("Este exame está concluído — não dá para gravar o número do ofício nele."); return false; }
+    const coc=this.cocDaUnidade(this.getUnidadeValor());
+    if(!coc){ alert("Escolha a unidade prisional (aba Identificação) — o número segue a sequência do Centro de Observação dela."); return false; }
+    if(!window.ExamesFS){ alert("Sem conexão com o servidor."); return false; }
+    const btn=document.getElementById("c_oficioBtn"); btn.disabled=true;
+    try{
+      const ano=new Date().getFullYear();
+      const n=await window.ExamesFS.proximoOficio(coc.id, ano);
+      el.value=String(n).padStart(3,"0")+"/"+ano;
+      this.renderComunicacao();
+      this.salvar();
+      return true;
+    }catch(e){ alert("Não foi possível gerar o número do ofício: "+(e?.code||e?.message||e)); return false; }
+    finally{ btn.disabled=false; }
+  },
+  async imprimirComunicacao(){
+    if(!document.getElementById("c_oficio").value.trim() && !document.getElementById("c_oficio").disabled) await this.gerarNumeroOficio();
     const f=this.avisosComunicacao();
     if(f.length && !confirm("Ainda falta: "+f.join("; ")+".\n\nGerar o ofício mesmo assim? Os campos faltantes saem entre colchetes.")) return;
     document.getElementById("printArea").innerHTML=this.montarComunicacaoHTML().replace(/background:#FFF4CC;/g,"");
@@ -3882,7 +3917,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where,
-  getDocs, onSnapshot, serverTimestamp, writeBatch,
+  getDocs, onSnapshot, serverTimestamp, writeBatch, runTransaction,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -4489,6 +4524,15 @@ const ExamesFS = {
     }
     await lote.commit();
     return { rev, versaoFinal: o.acao === "concluiu" ? o.versao.n : (o.base ? o.base.versaoFinal : 0) };
+  },
+  async proximoOficio(cocId, ano){
+    const ref = doc(db, "contadores", "oficio-"+cocId+"-"+ano);
+    return runTransaction(db, async (t)=>{
+      const snap = await t.get(ref);
+      const n = (snap.exists() ? (snap.data().n || 0) : 0) + 1;
+      t.set(ref, { n, por: auth.currentUser.uid, em: serverTimestamp() });
+      return n;
+    });
   },
   async revServidor(id){
     const snap = await getDoc(doc(db, "exames", id));
