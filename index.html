@@ -2544,18 +2544,28 @@ const App = {
 
   /* ---------- CRUD ---------- */
   novoExame(){
-    const nomeAtual = (document.getElementById("e_nome")||{}).value?.trim();
-    if(nomeAtual){
-      const msg = this.editId
-        ? `Você está editando o exame de "${nomeAtual}". Iniciar um novo exame vai limpar este formulário — salve antes se ainda não salvou. Continuar?`
-        : `Há dados preenchidos no formulário (ex.: "${nomeAtual}") que ainda não foram salvos. Iniciar um novo exame vai apagá-los. Continuar?`;
-      if(!confirm(msg)) return;
-    }
+    if(!this.podeSairDoExame()) return;
     this.novo();
     this.tab("novo");
   },
+  /* ---------- troca de exame ----------
+     _formFoto = foto do formulário logo depois de abrir/limpar/salvar; se o que está na
+     tela difere dela, há algo digitado e não salvo. _formSeq muda a cada exame aberto,
+     para respostas do servidor que chegam atrasadas não caírem no exame errado. */
+  marcarFormularioLimpo(foto){ this._formFoto = foto!=null ? foto : jsonEstavel(this.lerFormulario()); },
+  podeSairDoExame(){
+    if(this._formFoto==null || jsonEstavel(this.lerFormulario())===this._formFoto) return true;
+    const nome=document.getElementById("e_nome").value.trim();
+    return confirm(`Há alterações${nome?` no exame de "${nome}"`:" no formulário"} que ainda não foram salvas e serão perdidas.
+
+Continuar mesmo assim (sem salvar)?`);
+  },
+  sairDaEdicaoDaPrevia(){
+    if(this._previewEditing) this.toggleEditarPreview();
+  },
   novo(){
-    this.editId=null; this._base=null; this._avisoConflito=null;
+    this.editId=null; this._base=null; this._avisoConflito=null; this._formSeq=(this._formSeq||0)+1;
+    this.sairDaEdicaoDaPrevia();
     this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
     ["e_nome","e_mat","e_proc","e_sgpe","e_dataDecisao","e_dataProg","e_dataBase","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_dataIni","e_dataConcl",
@@ -2588,6 +2598,7 @@ const App = {
     this.aplicarSuprimir({});
     this.aplicarRelOk({});
     this.relTab("coord");
+    setTimeout(()=>{ if(!this.editId){ this.atualizarPreview(); this.marcarFormularioLimpo(); } }, 0);
     this.novoTab("ident");
     this.syncRespNomes();
     this.atualizarEstadoExame(null);
@@ -2759,18 +2770,25 @@ const App = {
     }
     const msg=document.getElementById("salvoMsg");
     msg.style.color="var(--mut)"; msg.textContent="Gravando…";
-    this.gravarExame(ex,{acao: exServidor?"alterou":"criou", doFormulario:true}).then(r=>{
+    const seq=this._formSeq, foto=jsonEstavel(this.lerFormulario());
+    this.gravarExame(ex,{acao: exServidor?"alterou":"criou", doFormulario:true, formSeq:seq}).then(r=>{
+      if(seq!==this._formSeq){ this.renderDash(); return; } /* a pessoa já abriu outro exame */
+      this.marcarFormularioLimpo(foto);
       msg.style.color="var(--ok)";
       msg.textContent = r.semMudanca ? "Nenhuma alteração para salvar." : "✓ Exame salvo ("+new Date().toLocaleTimeString("pt-BR")+")";
       if(!exServidor && !r.semMudanca) msg.innerHTML += ' — <button class="btn sm" type="button" onclick="App.avisarEquipe()">✉ Avisar a equipe por e-mail</button>';
       this.renderDash();
     }).catch(e=>{
+      if(seq!==this._formSeq){ alert("O exame de "+ex.nome+" NÃO foi salvo: "+e.message); return; }
       msg.style.color="#B4232B";
       msg.textContent="⚠ Não foi salvo: "+e.message;
     });
   },
   abrir(id){
     const ex=this.data.exames.find(x=>x.id===id); if(!ex) return;
+    if(id!==this.editId && !this.podeSairDoExame()) return;
+    this._formSeq=(this._formSeq||0)+1;
+    this.sairDaEdicaoDaPrevia();
     const cocEx=this.cocIdDoExame(ex);
     if(cocEx && cocEx!==this.coc && this.data.cocs.some(c=>c.id===cocEx) && (!this._meuCocId || cocEx===this._meuCocId)){ this.coc=cocEx; document.getElementById("selCoc").value=cocEx; }
     this.editId=id; this._base=this.baseDoServidor(ex); this._avisoConflito=null; this.tab("novo");
@@ -2827,6 +2845,9 @@ const App = {
     document.getElementById("salvoMsg").textContent="";
     document.getElementById("verifInline").innerHTML="";
     this.triagem();
+    /* a prévia era montada no meio do preenchimento (novoTab), ainda com os textos do exame anterior */
+    this.atualizarPreview();
+    this.marcarFormularioLimpo();
   },
   /* ---------- trilha de auditoria ----------
      Toda gravação passa por gravarExame → ExamesFS.gravar, que grava o exame e a
@@ -2903,7 +2924,7 @@ const App = {
     this._gravando=true;
     return window.ExamesFS.gravar(ex,o).then(r=>{
       this._gravando=false;
-      if(criando && o.doFormulario) this.editId=ex.id;
+      if(criando && o.doFormulario && o.formSeq===this._formSeq) this.editId=ex.id;
       if(ex.id===this.editId){
         this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: (o.acao==="reabriu"||o.acao==="excluiu") ? base.conteudo : this.conteudoExame(ex) };
         this._avisoConflito=null;
@@ -2980,7 +3001,9 @@ const App = {
     const hash=await sha256(jsonEstavel({exameId:ex.id, n, conteudo, html}));
     const msg=document.getElementById("salvoMsg");
     msg.style.color="var(--mut)"; msg.textContent="Gerando versão fechada…";
+    const seqC=this._formSeq, fotoC=jsonEstavel(this.lerFormulario());
     this.gravarExame(ex,{acao:"concluiu", versao:{n, conteudo, html, hash}}).then(()=>{
+      if(seqC===this._formSeq) this.marcarFormularioLimpo(fotoC);
       msg.style.color="var(--ok)";
       msg.textContent="✓ Exame concluído — versão fechada nº "+n+" gerada ("+new Date().toLocaleTimeString("pt-BR")+")";
       this.renderDash(); this.renderLista();
@@ -3552,10 +3575,19 @@ const App = {
     if(!coc){ alert("Escolha a unidade prisional (aba Identificação) — o número segue a sequência do Centro de Observação dela."); return false; }
     if(!window.ExamesFS){ alert("Sem conexão com o servidor."); return false; }
     const btn=document.getElementById("c_oficioBtn"); btn.disabled=true;
+    const idEx=this.editId, seq=this._formSeq;
     try{
       const ano=new Date().getFullYear();
       const n=await window.ExamesFS.proximoOficio(coc.id, ano);
-      el.value=String(n).padStart(3,"0")+"/"+ano;
+      const num=String(n).padStart(3,"0")+"/"+ano;
+      if(seq!==this._formSeq){
+        /* a pessoa trocou de exame enquanto o número era gerado: grava direto no exame de origem */
+        const exS=this.data.exames.find(x=>x.id===idEx);
+        if(exS) await this.gravarExame({...exS, comunicacao:{...(exS.comunicacao||{}), oficio:num}},{acao:"alterou"});
+        alert("O ofício nº "+num+" foi gravado no exame de "+((exS||{}).nome||"origem")+".");
+        return false;
+      }
+      el.value=num;
       this.renderComunicacao();
       this.salvar();
       return true;
