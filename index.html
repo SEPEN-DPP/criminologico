@@ -606,8 +606,6 @@
         <div class="eq-campos"><input type="text" id="q_ativLab" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_ativLab_mat" placeholder="Matrícula"></div></div>
       <div class="eq-linha"><label class="f">Coordenador(a) de Ensino e Promoção Social</label>
         <div class="eq-campos"><input type="text" id="q_ensino" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_ensino_mat" placeholder="Matrícula"></div></div>
-      <div class="eq-linha"><label class="f">Coordenador(a) da Ala de Semiaberto</label>
-        <div class="eq-campos"><input type="text" id="q_semiab" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_semiab_mat" placeholder="Matrícula"></div></div>
       <div class="eq-linha"><label class="f">Psiquiatra</label>
         <div class="eq-campos"><input type="text" id="q_psq" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_psq_mat" placeholder="Matrícula"></div></div>
       <div class="eq-linha"><label class="f">Psicólogo(a)</label>
@@ -688,7 +686,6 @@
       <button data-r="execPenal" onclick="App.relTab('execPenal')">Execução Penal</button>
       <button data-r="ativLab" onclick="App.relTab('ativLab')">Atividades Laborais</button>
       <button data-r="ensino" onclick="App.relTab('ensino')">Ensino e Promoção Social</button>
-      <button data-r="semiab" onclick="App.relTab('semiab')">Ala de Semiaberto</button>
       <button data-r="psq" onclick="App.relTab('psq')">Psiquiatria</button>
       <button data-r="psi" onclick="App.relTab('psi')">Psicologia</button>
       <button data-r="soc" onclick="App.relTab('soc')">Serviço Social</button>
@@ -774,20 +771,6 @@
       <textarea id="r_ensino"></textarea>
       <div class="orient-field">Participação em atividades educacionais e projetos de promoção social, frequência e engajamento; quando não inserido, se decorre da falta de oferta na unidade.</div>
     </div>
-    <div class="relpanel" id="rp-semiab">
-      <p class="note">Responsável: <span class="resp-tag" id="rp_semiabNome">—</span></p>
-      <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
-        <input type="checkbox" id="relok_semiab" style="width:15px; height:15px;" onchange="App.toggleRelOk('semiab')">
-        <span>Seção concluída</span>
-      </label>
-      <label style="display:flex; align-items:flex-start; gap:8px; margin:2px 0 10px; font-size:13px;">
-        <input type="checkbox" id="sup_semiab" style="width:16px; height:16px; margin-top:2px; flex-shrink:0;" onchange="App.toggleSuprimir('semiab')">
-        <span>Não se aplica a este exame — suprimir esta seção do relatório</span>
-      </label>
-      <label class="f">6 — Ala de Semiaberto – Trabalho Externo</label>
-      <textarea id="r_semiab"></textarea>
-      <div class="orient-field">Aplicável quando o avaliado está no regime semiaberto: adaptação à rotina, cumprimento de horários e das regras dos deslocamentos/trabalho externo autorizados.</div>
-    </div>
     <div class="relpanel" id="rp-psq">
       <p class="note">Responsável: <span class="resp-tag" id="rp_psqNome">—</span></p>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
@@ -799,7 +782,7 @@
         <span>Não se aplica a este exame — suprimir esta seção do relatório</span>
       </label>
       <p class="note">Se não houver psiquiatra na equipe, não é preciso suprimir: marque "Sem psiquiatra disponível" na aba Equipe — o relatório registra essa ausência automaticamente, como exige a jurisprudência.</p>
-      <label class="f">7 — Psiquiatria (quando houver)</label>
+      <label class="f">6 — Psiquiatria (quando houver)</label>
       <textarea id="r_psq"></textarea>
       <div class="orient-field">Preencha quando houver psiquiatra na equipe: eventuais diagnósticos, tratamento em curso, medicação e seu impacto sobre a avaliação. Se não houver psiquiatra disponível, use a opção correspondente na aba Equipe em vez de preencher este campo. Vedado fundamentar em periculosidade ou sugerir classificação de segurança (vedações II e IV).</div>
     </div>
@@ -809,7 +792,7 @@
         <input type="checkbox" id="relok_psi" style="width:15px; height:15px;" onchange="App.toggleRelOk('psi')">
         <span>Seção concluída</span>
       </label>
-      <label class="f">8 — Psicologia</label>
+      <label class="f">7 — Psicologia</label>
       <textarea id="r_psi"></textarea>
       <div class="orient-field">Registre a análise a partir das entrevistas e, quando aplicável, de instrumentos técnicos validados: percepções sobre a vivência do cárcere, saúde mental e projetos de vida. Não estabeleça nexo causal entre o delito e a personalidade do avaliado, nem sugira prognóstico de reincidência (vedações I e III).</div>
       <details class="roteiro-box">
@@ -850,7 +833,7 @@
         <input type="checkbox" id="relok_soc" style="width:15px; height:15px;" onchange="App.toggleRelOk('soc')">
         <span>Seção concluída</span>
       </label>
-      <label class="f">9 — Serviço Social</label>
+      <label class="f">8 — Serviço Social</label>
       <textarea id="r_soc"></textarea>
       <div class="orient-field">Aborde a realidade histórica e social do avaliado: trajetória familiar, comunitária e laboral, vínculos e rede de apoio, condições socioeconômicas antes e durante o cárcere, e o impacto da prisão sobre o avaliado e sua família (art. 9º, V, da Portaria). Evite termos indeterminados ou estigmatizantes e qualquer prognóstico de reincidência (vedações I e II).</div>
     </div>
@@ -860,7 +843,7 @@
         <input type="checkbox" id="relok_sin" style="width:15px; height:15px;" onchange="App.toggleRelOk('sin')">
         <span>Seção concluída</span>
       </label>
-      <label class="f">10 — Parecer</label>
+      <label class="f">9 — Parecer</label>
       <textarea id="r_sin"></textarea>
       <div class="orient-field">Redija uma síntese informativa e descritiva do conjunto do exame — não uma conclusão sobre o mérito da progressão; o relatório não vincula o Juízo da Execução (art. 10, parágrafo único). Não fundamente na gravidade abstrata do delito, nas circunstâncias do crime ou no tempo de pena (vedação V), nem utilize IA generativa ou tecnologia preditiva na redação (vedação VI).</div>
       <label class="f" style="margin-top:12px;">Divergências técnicas, se houver <span class="muted" style="font-weight:normal; text-transform:none;">(registrar com a justificativa do posicionamento discordante)</span></label>
@@ -1174,7 +1157,6 @@ const TEXTO_MODELO = {
   execPenal:"O apenado iniciou o cumprimento da pena em regime fechado em [data], tendo progredido ao regime semiaberto em [data].\nNo período de cumprimento da pena, usufruiu de [X] saídas temporárias, com retorno regular nas datas fixadas.\nA situação executória encontra-se atualizada, conforme os registros disponíveis, não sendo identificadas pendências documentais relevantes ou inconsistências formais a consignar no momento da presente avaliação.",
   ativLab:"O apenado encontra-se inserido em atividade laboral interna, apresentando frequência regular e cumprimento adequado das atribuições que lhe são designadas.\nNo período analisado, o desempenho mostra-se compatível com as funções exercidas, sem registros de descumprimento, inadequação ou intercorrências relevantes no âmbito laboral.",
   ensino:"O apenado encontra-se regularmente inserido em atividade educacional ofertada pela unidade, apresentando frequência e participação compatíveis com a proposta pedagógica desenvolvida.\nNo período analisado, não há registros de abandono, indisciplina ou descumprimento das normas relacionadas à atividade educacional.\nQuando disponíveis, participa também de projetos institucionais de promoção social, não havendo intercorrências relevantes a consignar nesse âmbito.",
-  semiab:"O apenado apresenta adaptação adequada à rotina do regime semiaberto, com cumprimento regular dos horários e das regras aplicáveis às atividades internas e aos deslocamentos autorizados.\nNo período analisado, não há registro de atrasos injustificados, descumprimento de determinações regimentais ou outras intercorrências relevantes relacionadas ao cumprimento do regime.",
   psq:"A avaliação psiquiátrica foi realizada mediante entrevista individual com a pessoa examinada, análise dos documentos e registros institucionais pertinentes e consideração das informações disponíveis relacionadas à sua trajetória de saúde e às condições atuais de acompanhamento.\nDurante a entrevista, a pessoa examinada apresentou-se [consciente, orientada no tempo e no espaço, colaborativa], com [atenção, memória, linguagem e curso do pensamento] compatíveis com a situação avaliativa. [Não foram observadas alterações psicopatológicas significativas no momento da avaliação / foram observados os seguintes elementos clinicamente relevantes: especificar].\nQuanto ao histórico de saúde mental, a pessoa examinada [não refere antecedentes de acompanhamento psiquiátrico / refere histórico de acompanhamento por ______], tendo sido considerados, quando existentes, os registros de atendimentos anteriores, tratamentos realizados, internações, uso de medicação e demais informações clínicas pertinentes à finalidade desta avaliação.\nNo período atual, [não se identificam elementos indicativos de sofrimento psíquico ou alteração mental que demande intervenção psiquiátrica específica / encontra-se em acompanhamento em saúde mental, com uso de ______ / foram identificadas necessidades de avaliação, acompanhamento ou continuidade de tratamento, conforme descrito].\nEventuais informações relativas ao uso de álcool ou outras substâncias, quando pertinentes, foram analisadas no contexto da história de saúde da pessoa examinada, sem estabelecimento automático de relação causal entre seu uso e a prática delitiva.\nA avaliação considerou as condições concretas de assistência em saúde disponíveis durante o cumprimento da pena, inclusive acesso a atendimento, medicação e continuidade do cuidado, evitando-se atribuir à pessoa examinada consequências decorrentes de limitações da própria estrutura institucional.\nAs informações clínicas e de saúde sensíveis foram registradas apenas na extensão necessária ao objeto do exame, preservando-se o sigilo profissional e a dignidade da pessoa examinada.\n\nSíntese psiquiátrica\nNo momento da presente avaliação, [não foram identificadas alterações psiquiátricas significativas que comprometam a capacidade de compreensão, comunicação ou participação da pessoa examinada no procedimento / foram identificadas as seguintes condições ou necessidades de acompanhamento: ______].\nOs elementos descritos correspondem às condições observadas no período avaliado e devem ser compreendidos de forma contextualizada, considerando a natureza dinâmica das condições de saúde mental e os limites inerentes à avaliação realizada.\nA presente manifestação técnica não se destina à formulação de prognóstico de comportamento futuro ou de reincidência, ou à emissão de juízo de periculosidade, restringindo-se à descrição e análise dos aspectos psiquiátricos pertinentes à composição do exame criminológico.",
   psi:"O relatório psicológico foi realizado mediante entrevistas individuais com o apenado, análise dos documentos e registros institucionais pertinentes e observação dos aspectos psicológicos manifestados no contexto avaliativo.\nDurante os encontros, o apenado apresentou-se orientado no tempo e no espaço, com comunicação clara, discurso organizado e compreensão adequada das questões formuladas. Não foram observadas, no momento da avaliação, alterações significativas que comprometessem sua capacidade de compreensão, comunicação ou participação no procedimento.\nAo abordar sua trajetória pessoal e o período de cumprimento da pena, demonstrou capacidade de refletir sobre experiências vivenciadas antes e durante o encarceramento, identificando consequências decorrentes de suas escolhas e aspectos de sua trajetória que considera necessário modificar. A análise não se condiciona à confissão, ao reconhecimento formal do delito ou à manifestação de arrependimento, sendo respeitados o direito ao silêncio e a afirmação de inocência.\nNo contexto institucional, relata compreensão das normas e rotinas da unidade e descreve estratégias utilizadas para adaptação ao ambiente prisional e manejo de situações de conflito ou frustração. Os registros institucionais analisados foram considerados em conjunto com as informações obtidas nas entrevistas, observando-se sua atualidade e o contexto em que foram produzidos.\nQuanto aos recursos pessoais, o apenado identifica [familiares/relações significativas/atividade laboral/estudo/práticas religiosas ou comunitárias/outros] como elementos relevantes de suporte. Apresenta capacidade de reconhecer situações de vulnerabilidade e refere estratégias que pretende utilizar diante de dificuldades após eventual progressão de regime.\nEm relação às perspectivas futuras, relata intenção de [retomar atividade laboral/residir com familiares/dar continuidade aos estudos/restabelecer vínculos/acessar serviços públicos], apresentando planejamento [estruturado/parcialmente estruturado], compatível com as informações disponíveis no momento da avaliação. Foram identificadas como necessidades de suporte [especificar, quando existentes: fortalecimento da rede sociofamiliar, inserção laboral, continuidade de acompanhamento em saúde, acesso à documentação, educação, assistência social ou outras].\nNo que se refere à saúde mental, [não foram identificados elementos atuais que indiquem comprometimento significativo do funcionamento psicológico / foram identificadas necessidades específicas de acompanhamento, descritas apenas na extensão necessária à finalidade desta avaliação]. Eventuais informações de natureza clínica ou sensível foram tratadas de forma restrita ao que se mostra pertinente ao objeto do exame.\n\nSíntese psicológica\nA avaliação realizada evidencia, no momento atual, recursos pessoais relacionados à capacidade de compreensão, reflexão sobre a própria trajetória, adaptação às condições institucionais e elaboração de perspectivas futuras. Foram igualmente consideradas as condições concretas de cumprimento da pena, as oportunidades efetivamente disponibilizadas pela instituição, a rede de apoio referida e as necessidades de suporte identificadas.\nOs elementos descritos correspondem ao período e às condições em que a avaliação foi realizada e devem ser compreendidos de forma contextualizada. A presente análise não permite estabelecer previsão de comportamento futuro, probabilidade de reincidência ou juízo de periculosidade, destinando-se a fornecer elementos psicológicos individualizados para composição do exame criminológico e subsídio à decisão judicial.",
   soc:"A avaliação social foi realizada mediante entrevista individual com a PPL, análise dos registros institucionais disponíveis e consideração de elementos relacionados à sua trajetória familiar, comunitária, laboral, educacional e de acesso a políticas públicas.\nNo âmbito familiar e comunitário, o interno relata manutenção de vínculos com familiares próximos e membros de sua família extensa, indicando a existência de rede de apoio disponível para acolhimento e suporte após eventual progressão de regime. As informações foram consideradas à luz das condições concretas de vida, das relações estabelecidas ao longo de sua trajetória e das limitações decorrentes do período de encarceramento.\nQuanto à trajetória laboral e educacional, refere experiências anteriores em [especificar], bem como intenção de retomada ou inserção em atividade compatível com suas possibilidades e experiência. Também foram considerados o acesso anterior e atual a políticas públicas, benefícios, serviços de saúde, assistência social, educação, documentação civil e demais recursos relevantes para sua reinserção social.\nA análise social considerou ainda aspectos relacionados às condições objetivas de moradia, renda, trabalho, vínculos familiares e comunitários, bem como eventuais situações de vulnerabilidade social. Quando pertinentes ao caso concreto, foram observados marcadores sociais como classe social, raça/etnia, gênero, orientação sexual, deficiência, idade, origem territorial ou trajetória migratória, sempre de forma contextualizada e sem atribuição individual de responsabilidade por desigualdades ou vulnerabilidades de natureza estrutural.\nQuanto ao projeto de vida, o apenado relata intenção de [retomar vínculos familiares / residir com familiares / exercer atividade laboral / prosseguir os estudos / acessar políticas públicas ou serviços], apresentando planejamento [estruturado/parcialmente estruturado], de acordo com os elementos disponíveis no momento da avaliação.\nForam identificados como recursos sociais relevantes [rede familiar, moradia, possibilidade de trabalho, acesso a serviços, vínculos comunitários ou outros], bem como, quando presentes, necessidades de suporte relacionadas a [documentação, moradia, trabalho, renda, saúde, assistência social, educação, fortalecimento de vínculos ou outras].\n\nSíntese do Serviço Social\nOs elementos analisados indicam a existência de [descrever recursos, vínculos, condições objetivas e necessidades de suporte], devendo ser compreendidos no contexto social, familiar, comunitário e institucional da pessoa avaliada.\nA presente manifestação técnica restringe-se à análise das condições sociais identificadas no período avaliado, não constituindo previsão de comportamento futuro, juízo de periculosidade ou prognóstico de reincidência.",
@@ -1609,7 +1591,7 @@ const App = {
       }
       /* migração: nome antigo "SR0X — ..." vira "CO 0X — ..." (mesma numeração, só troca o rótulo) */
       if(/^SR0\d\s/i.test(c.nome||"")) c.nome=c.nome.replace(/^SR0(\d)\s/i,"CO 0$1 ");
-      if(!c.equipePadrao) c.equipePadrao={direcao:"",chefiaSeg:"",execPenal:"",ativLab:"",ensino:"",semiab:"",psq:"",psi:"",as:""};
+      if(!c.equipePadrao) c.equipePadrao={direcao:"",chefiaSeg:"",execPenal:"",ativLab:"",ensino:"",psq:"",psi:"",as:""};
     });
     this.persist();
     this.coc = this.data.cocs[0].id;
@@ -2256,7 +2238,7 @@ const App = {
     this.syncRespNomes();
   },
   /* ---------- equipe examinadora: nome + matrícula ---------- */
-  EQ_KEYS: ["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","as","coord"],
+  EQ_KEYS: ["direcao","chefiaSeg","execPenal","ativLab","ensino","psq","psi","as","coord"],
   /* dados antigos tinham nome e matrícula no mesmo campo ("FULANO - Matrícula 123") */
   separarMatricula(nome, mat){
     nome=String(nome||"").trim(); mat=String(mat||"").trim();
@@ -2567,12 +2549,12 @@ const App = {
     this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
     ["e_nome","e_mat","e_proc","e_sgpe","e_dataDecisao","e_dataProg","e_dataBase","e_prazo","e_filiacao","e_nasc","e_juizo","e_penaTotal","e_dataIni","e_dataConcl",
-     "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_semiab","q_psq","q_psi","q_as","q_coord",
-     "q_direcao_mat","q_chefiaSeg_mat","q_execPenal_mat","q_ativLab_mat","q_ensino_mat","q_semiab_mat","q_psq_mat","q_psi_mat","q_as_mat","q_coord_mat","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
-     "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_semiab","r_soc","r_psi","r_psq","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
+     "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_psq","q_psi","q_as","q_coord",
+     "q_direcao_mat","q_chefiaSeg_mat","q_execPenal_mat","q_ativLab_mat","q_ensino_mat","q_psq_mat","q_psi_mat","q_as_mat","q_coord_mat","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
+     "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_soc","r_psi","r_psq","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
     r_met.value=TEXTO_MODELO.met;
     r_direcao.value=TEXTO_MODELO.direcao; r_chefiaSeg.value=TEXTO_MODELO.chefiaSeg; r_execPenal.value=TEXTO_MODELO.execPenal;
-    r_ativLab.value=TEXTO_MODELO.ativLab; r_ensino.value=TEXTO_MODELO.ensino; r_semiab.value=TEXTO_MODELO.semiab;
+    r_ativLab.value=TEXTO_MODELO.ativLab; r_ensino.value=TEXTO_MODELO.ensino;
     r_psq.value=TEXTO_MODELO.psq; r_psi.value=TEXTO_MODELO.psi; r_soc.value=TEXTO_MODELO.soc;
     r_sin.value=TEXTO_MODELO.sin;
     document.getElementById("e_tipo").value="progressao";
@@ -2606,8 +2588,8 @@ const App = {
     document.querySelectorAll("#relTabs button").forEach(b=>b.classList.toggle("on", b.dataset.r===r));
     document.querySelectorAll(".relpanel").forEach(p=>p.classList.toggle("on", p.id==="rp-"+r));
   },
-  /* ---------- suprimir seções não aplicáveis (ex.: Ala de Semiaberto com regime fechado) ---------- */
-  SUP_KEYS: ["direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq"],
+  /* ---------- suprimir seções não aplicáveis (ex.: Psiquiatria quando não há psiquiatra) ---------- */
+  SUP_KEYS: ["direcao","chefiaSeg","execPenal","ativLab","ensino","psq"],
   toggleSuprimir(k){
     const sup=document.getElementById("sup_"+k).checked;
     const campo=document.getElementById("r_"+k);
@@ -2635,7 +2617,7 @@ const App = {
      acesso à unidade/regional, já que é o mesmo exame) vê o progresso sem
      precisar abrir aba por aba — tanto pelo ✓ nas abas quanto pelo resumo
      no painel/lista de exames. */
-  REL_OK_KEYS: ["coord","direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","soc","sin"],
+  REL_OK_KEYS: ["coord","direcao","chefiaSeg","execPenal","ativLab","ensino","psq","psi","soc","sin"],
   toggleRelOk(k){
     const on=document.getElementById("relok_"+k).checked;
     const btn=document.querySelector('#relTabs button[data-r="'+k+'"]');
@@ -2673,7 +2655,7 @@ const App = {
     const ro=this.progressoRelOk(e.relOk, e.sup);
     return ro.feitas===ro.total;
   },
-  SECAO_CURTA: {coord:"Metod.", direcao:"Direção", chefiaSeg:"Seg.", execPenal:"Exec. Penal", ativLab:"Laboral", ensino:"Ensino", semiab:"Semiab.", psq:"Psiq.", psi:"Psic.", soc:"Serv. Social", sin:"Parecer"},
+  SECAO_CURTA: {coord:"Metod.", direcao:"Direção", chefiaSeg:"Seg.", execPenal:"Exec. Penal", ativLab:"Laboral", ensino:"Ensino", psq:"Psiq.", psi:"Psic.", soc:"Serv. Social", sin:"Parecer"},
   chipsSecoes(e){
     const relOk=e.relOk||{}, sup=e.sup||{}, eq=e.equipe||{};
     return `<div class="secs">${this.REL_OK_KEYS.map(k=>{
@@ -2686,7 +2668,7 @@ const App = {
   },
   syncRespNomes(){
     const direcao=q_direcao.value.trim(), chefiaSeg=q_chefiaSeg.value.trim(), execPenal=q_execPenal.value.trim();
-    const ativLab=q_ativLab.value.trim(), ensino=q_ensino.value.trim(), semiab=q_semiab.value.trim();
+    const ativLab=q_ativLab.value.trim(), ensino=q_ensino.value.trim();
     const psq=q_psq.value.trim(), psi=q_psi.value.trim(), as=q_as.value.trim();
     const coord=document.getElementById("q_coord").value.trim()||"—";
     document.getElementById("rp_coordNomes").textContent=coord;
@@ -2696,7 +2678,6 @@ const App = {
     document.getElementById("rp_execPenalNome").textContent=execPenal||"—";
     document.getElementById("rp_ativLabNome").textContent=ativLab||"—";
     document.getElementById("rp_ensinoNome").textContent=ensino||"—";
-    document.getElementById("rp_semiabNome").textContent=semiab||"—";
     document.getElementById("rp_socNome").textContent=as||"—";
     document.getElementById("rp_psiNome").textContent=psi||"—";
     document.getElementById("rp_psqNome").textContent=psq||(document.getElementById("q_semPsq").checked?"sem psiquiatra na equipe":"—");
@@ -2741,7 +2722,7 @@ const App = {
       sup:this.lerSuprimir(),
       relOk:this.lerRelOk(),
       etapas:this.lerEtapas(),
-      rel:{met:r_met.value,direcao:r_direcao.value,chefiaSeg:r_chefiaSeg.value,execPenal:r_execPenal.value,ativLab:r_ativLab.value,ensino:r_ensino.value,semiab:r_semiab.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,sin:r_sin.value,diverg:r_diverg.value,limit:r_limit.value},
+      rel:{met:r_met.value,direcao:r_direcao.value,chefiaSeg:r_chefiaSeg.value,execPenal:r_execPenal.value,ativLab:r_ativLab.value,ensino:r_ensino.value,soc:r_soc.value,psi:r_psi.value,psq:r_psq.value,sin:r_sin.value,diverg:r_diverg.value,limit:r_limit.value},
       obs:document.getElementById("e_obs").value
     };
   },
@@ -2823,7 +2804,7 @@ const App = {
     this.relTab("coord"); this.novoTab("ident"); this.syncRespNomes();
     this.preencherEquipePadrao();
     r_met.value=ex.rel?.met||TEXTO_MODELO.met; r_direcao.value=ex.rel?.direcao||TEXTO_MODELO.direcao; r_chefiaSeg.value=ex.rel?.chefiaSeg||TEXTO_MODELO.chefiaSeg;
-    r_execPenal.value=ex.rel?.execPenal||TEXTO_MODELO.execPenal; r_ativLab.value=ex.rel?.ativLab||TEXTO_MODELO.ativLab; r_ensino.value=ex.rel?.ensino||TEXTO_MODELO.ensino; r_semiab.value=ex.rel?.semiab||TEXTO_MODELO.semiab;
+    r_execPenal.value=ex.rel?.execPenal||TEXTO_MODELO.execPenal; r_ativLab.value=ex.rel?.ativLab||TEXTO_MODELO.ativLab; r_ensino.value=ex.rel?.ensino||TEXTO_MODELO.ensino;
     r_soc.value=ex.rel?.soc||TEXTO_MODELO.soc; r_psi.value=ex.rel?.psi||TEXTO_MODELO.psi; r_psq.value=ex.rel?.psq||TEXTO_MODELO.psq;
     r_sin.value=ex.rel?.sin||""; r_diverg.value=ex.rel?.diverg||""; r_limit.value=ex.rel?.limit||"";
     document.getElementById("condBox").innerHTML="";
@@ -3073,8 +3054,8 @@ const App = {
      novos: só para contas de unidade (SR/DPP não), exames criados por outra pessoa depois do último
      "marcar como vistos" (usuarios/{uid}.avisosVistoEm). Pendências: seções cujo responsável na equipe
      examinadora tem a mesma matrícula da conta e que ainda não foram marcadas como concluídas. */
-  SECAO_EQ: {coord:"coord", direcao:"direcao", chefiaSeg:"chefiaSeg", execPenal:"execPenal", ativLab:"ativLab", ensino:"ensino", semiab:"semiab", psq:"psq", psi:"psi", soc:"as", sin:"coord"},
-  SECAO_LABEL: {coord:"Metodologia", direcao:"Direção", chefiaSeg:"Chefia de Segurança", execPenal:"Execução Penal", ativLab:"Atividades Laborais", ensino:"Ensino e Promoção Social", semiab:"Ala de Semiaberto", psq:"Psiquiatria", psi:"Psicologia", soc:"Serviço Social", sin:"Parecer"},
+  SECAO_EQ: {coord:"coord", direcao:"direcao", chefiaSeg:"chefiaSeg", execPenal:"execPenal", ativLab:"ativLab", ensino:"ensino", psq:"psq", psi:"psi", soc:"as", sin:"coord"},
+  SECAO_LABEL: {coord:"Metodologia", direcao:"Direção", chefiaSeg:"Chefia de Segurança", execPenal:"Execução Penal", ativLab:"Atividades Laborais", ensino:"Ensino e Promoção Social", psq:"Psiquiatria", psi:"Psicologia", soc:"Serviço Social", sin:"Parecer"},
   matDaEquipe(eq, k){
     return this.separarMatricula(eq[k], eq[k+"Mat"]).mat;
   },
@@ -3124,7 +3105,7 @@ const App = {
     const modal=document.getElementById("avisoModal"), corpo=document.getElementById("avisoCorpo");
     modal.style.display="block";
     corpo.innerHTML=`<p class="note">Procurando os e-mails da equipe…</p>`;
-    const rotulos={direcao:"Diretor(a) da Unidade",chefiaSeg:"Chefe de Segurança",execPenal:"Coordenador(a) de Execução Penal",ativLab:"Coordenador(a) de Atividades Laborais",ensino:"Coordenador(a) de Ensino e Promoção Social",semiab:"Coordenador(a) da Ala de Semiaberto",psq:"Psiquiatra",psi:"Psicólogo(a)",as:"Assistente social",coord:"Coordenação do exame"};
+    const rotulos={direcao:"Diretor(a) da Unidade",chefiaSeg:"Chefe de Segurança",execPenal:"Coordenador(a) de Execução Penal",ativLab:"Coordenador(a) de Atividades Laborais",ensino:"Coordenador(a) de Ensino e Promoção Social",psq:"Psiquiatra",psi:"Psicólogo(a)",as:"Assistente social",coord:"Coordenação do exame"};
     const eq=this.lerEquipeCampos();
     const membros=[
       ...this.EQ_KEYS.map(k=>({funcao:rotulos[k]||k, ...this.separarMatricula(eq[k], eq[k+"Mat"])})),
@@ -3422,7 +3403,7 @@ const App = {
     /* varre todo texto que vai para o relatório: as seções suprimidas ficam de fora
        porque não são impressas; as respostas aos quesitos entram porque são impressas */
     const sup=this.lerSuprimir();
-    const secoes=["met","direcao","chefiaSeg","execPenal","ativLab","ensino","semiab","psq","psi","soc","sin","diverg","limit"]
+    const secoes=["met","direcao","chefiaSeg","execPenal","ativLab","ensino","psq","psi","soc","sin","diverg","limit"]
       .filter(k=>!sup[k]).map(k=>document.getElementById("r_"+k).value);
     const t=[...secoes, ...this.lerQuesitos().map(q=>q.resposta)].filter(Boolean).join("\n\n");
     const {mascarado, trechos}=this.isentarFrasesPadrao(t);
@@ -3552,7 +3533,7 @@ const App = {
     const coordNome=document.getElementById("q_coord").value.trim();
     const funcaoRotulo=(base,funcao)=> funcao?(base+" — "+esc(funcao)):base;
     const eqv=k=>[document.getElementById("q_"+k).value.trim(), (document.getElementById("q_"+k+"_mat")||{value:""}).value.trim()];
-    const eq=[["Diretor(a) da Unidade",...eqv("direcao")],["Chefe de Segurança",...eqv("chefiaSeg")],["Coordenador(a) de Execução Penal",...eqv("execPenal")],["Coordenador(a) de Atividades Laborais",...eqv("ativLab")],["Coordenador(a) de Ensino e Promoção Social",...eqv("ensino")],["Coordenador(a) da Ala de Semiaberto",...eqv("semiab")],...this.lerChefesExtra().map(c=>[funcaoRotulo("Chefe de serviço",c.funcao),c.nome,c.mat]),["Psiquiatra",...eqv("psq")],["Psicólogo(a)",...eqv("psi")],["Assistente social",...eqv("as")]].filter(x=>x[1]);
+    const eq=[["Diretor(a) da Unidade",...eqv("direcao")],["Chefe de Segurança",...eqv("chefiaSeg")],["Coordenador(a) de Execução Penal",...eqv("execPenal")],["Coordenador(a) de Atividades Laborais",...eqv("ativLab")],["Coordenador(a) de Ensino e Promoção Social",...eqv("ensino")],...this.lerChefesExtra().map(c=>[funcaoRotulo("Chefe de serviço",c.funcao),c.nome,c.mat]),["Psiquiatra",...eqv("psq")],["Psicólogo(a)",...eqv("psi")],["Assistente social",...eqv("as")]].filter(x=>x[1]);
     if(coordNome) eq.push(["Técnico(a) responsável do Centro de Observação", coordNome, (document.getElementById("q_coord_mat")||{value:""}).value.trim()]);
     const assinExtra=[];
     if(defesaNome) assinExtra.push(["Defesa técnica — ciência", defesaNome+(defesaOAB?" ("+defesaOAB+")":"")]);
@@ -3636,12 +3617,12 @@ const App = {
 
     const sup=this.lerSuprimir();
     const incluiDirecao=!sup.direcao, incluiChefiaSeg=!sup.chefiaSeg, incluiExecPenal=!sup.execPenal;
-    const incluiAtivLab=!sup.ativLab, incluiEnsino=!sup.ensino, incluiSemiab=!sup.semiab;
+    const incluiAtivLab=!sup.ativLab, incluiEnsino=!sup.ensino;
     const incluiPsq=!sup.psq && (semPsq || r_psq.value.trim());
-    /* numeração sequencial (1..10, como no Anexo II) considerando só as seções efetivamente incluídas */
+    /* numeração sequencial (1..9) considerando só as seções efetivamente incluídas */
     let n=0;
     const nDirecao=incluiDirecao?++n:0, nChefiaSeg=incluiChefiaSeg?++n:0, nExecPenal=incluiExecPenal?++n:0;
-    const nAtivLab=incluiAtivLab?++n:0, nEnsino=incluiEnsino?++n:0, nSemiab=incluiSemiab?++n:0;
+    const nAtivLab=incluiAtivLab?++n:0, nEnsino=incluiEnsino?++n:0;
     const nPsq=incluiPsq?++n:0, nPsi=++n, nSoc=++n, nParecer=++n;
 
     const pgDirecao=incluiDirecao?`<h3>${nDirecao} — Direção</h3><p style="text-indent:1.5cm;">${r_direcao.value?escNl(r_direcao.value):"—"}</p>`:"";
@@ -3649,7 +3630,6 @@ const App = {
     const pgExecPenal=incluiExecPenal?`<h3>${nExecPenal} — Execução Penal</h3><p style="text-indent:1.5cm;">${r_execPenal.value?escNl(r_execPenal.value):"—"}</p>`:"";
     const pgAtivLab=incluiAtivLab?`<h3>${nAtivLab} — Atividades Laborais</h3><p style="text-indent:1.5cm;">${r_ativLab.value?escNl(r_ativLab.value):"—"}</p>`:"";
     const pgEnsino=incluiEnsino?`<h3>${nEnsino} — Ensino e Promoção Social</h3><p style="text-indent:1.5cm;">${r_ensino.value?escNl(r_ensino.value):"—"}</p>`:"";
-    const pgSemiab=incluiSemiab?`<h3>${nSemiab} — Ala de Semiaberto – Trabalho Externo</h3><p style="text-indent:1.5cm;">${r_semiab.value?escNl(r_semiab.value):"—"}</p>`:"";
     const pgPsq=incluiPsq?(semPsq?`<h3>${nPsq} — Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:`<h3>${nPsq} — Psiquiatria</h3><p style="text-indent:1.5cm;">${escNl(r_psq.value)}</p>`):"";
     const pgPsi=`<h3>${nPsi} — Psicologia</h3><p style="text-indent:1.5cm;">${r_psi.value?escNl(r_psi.value):"—"}</p>`;
     const pgSoc=`<h3>${nSoc} — Serviço Social</h3><p style="text-indent:1.5cm;">${r_soc.value?escNl(r_soc.value):"—"}</p>`;
@@ -3662,7 +3642,7 @@ const App = {
       <p style="margin-top:16px;">${esc(cocNome)}, ${new Date().toLocaleDateString("pt-BR")}.</p>
       <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}${x[2]?"<br>Matrícula "+esc(x[2]):""}<br><i>${x[0]}</i></p>`).join("")}</div>`;
 
-    const paginas=[pgCapa,pgIdent,pgMetodologia,pgDirecao,pgChefiaSeg,pgExecPenal,pgAtivLab,pgEnsino,pgSemiab,pgPsq,pgPsi,pgSoc,pgSintese].filter(Boolean);
+    const paginas=[pgCapa,pgIdent,pgMetodologia,pgDirecao,pgChefiaSeg,pgExecPenal,pgAtivLab,pgEnsino,pgPsq,pgPsi,pgSoc,pgSintese].filter(Boolean);
     return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};"><div class="pgHead">${headerHtml}</div><div class="pgBody">${corpo}</div><div class="pgFoot">${footerHtml}</div></div>`).join("");
   },
   checarAntesDeExportar(acao){
@@ -3705,7 +3685,7 @@ const App = {
         <label class="f">Equipes padrão por unidade <span class="muted" style="font-weight:normal; text-transform:none;">— gravadas pelo botão na aba "Equipe examinadora" do exame; pré-preenchem os exames da unidade</span></label>
         ${Object.keys(c.equipesUnidade||{}).length ? Object.entries(c.equipesUnidade).map(([u,eq])=>`
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:6px 0; font-size:12.5px;">
-            <div><b>${esc(u)}</b><br>${[["Diretor(a)","direcao"],["Chefe de Segurança","chefiaSeg"],["Execução Penal","execPenal"],["Ativ. Laborais","ativLab"],["Ensino","ensino"],["Semiaberto","semiab"],["Psiquiatra","psq"],["Psicólogo(a)","psi"],["Assistente social","as"],["Coordenação","coord"]].filter(([,k])=>eq[k]).map(([t,k])=>`${t}: ${esc(eq[k])}${eq[k+"Mat"]?" ("+esc(eq[k+"Mat"])+")":""}`).join(" · ") || "—"}</div>
+            <div><b>${esc(u)}</b><br>${[["Diretor(a)","direcao"],["Chefe de Segurança","chefiaSeg"],["Execução Penal","execPenal"],["Ativ. Laborais","ativLab"],["Ensino","ensino"],["Psiquiatra","psq"],["Psicólogo(a)","psi"],["Assistente social","as"],["Coordenação","coord"]].filter(([,k])=>eq[k]).map(([t,k])=>`${t}: ${esc(eq[k])}${eq[k+"Mat"]?" ("+esc(eq[k+"Mat"])+")":""}`).join(" · ") || "—"}</div>
             ${this.podeEditarCoc(c.id)?`<button class="btn sm ghost" type="button" data-unid="${esc(u)}" onclick="App.removerEquipeUnidade('${c.id}',this.dataset.unid)">remover</button>`:""}
           </div>`).join("") : `<p class="muted" style="font-size:12.5px;">nenhuma equipe gravada ainda</p>`}
         </div>
