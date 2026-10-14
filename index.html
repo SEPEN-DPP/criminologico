@@ -413,6 +413,16 @@
         <option value="andamento">Em andamento</option>
         <option value="agendado">Em andamento — agendados</option>
         <option value="naoagendado">Em andamento — não agendados</option>
+        <optgroup label="Em andamento — falta agendar">
+          <option value="falta-psi">Falta agendar: Psicologia</option>
+          <option value="falta-social">Falta agendar: Serviço Social</option>
+          <option value="falta-conv">Falta agendar: pessoa do convívio</option>
+        </optgroup>
+        <optgroup label="Em andamento — já agendado">
+          <option value="tem-psi">Agendado: Psicologia</option>
+          <option value="tem-social">Agendado: Serviço Social</option>
+          <option value="tem-conv">Agendado: pessoa do convívio</option>
+        </optgroup>
         <option value="concluido">Concluídos</option>
       </select>
       <input type="text" id="fBusca" placeholder="Buscar por nome, matrícula ou processo…" style="max-width:300px;" oninput="App.renderLista()">
@@ -425,7 +435,7 @@
 <section class="view" id="v-cal">
   <div class="card">
     <h3>Calendário de entrevistas <span class="muted" style="font-weight:normal; font-size:12.5px;">— agenda das etapas de entrevista dos exames em andamento</span></h3>
-    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique numa entrevista para alterar a data, o horário ou os dados dela (ou desmarcá-la) direto por aqui, sem precisar abrir o exame; clique num horário vazio para agendar uma nova. O sistema não deixa uma entrevista começar antes de outra do mesmo centro terminar (pelo horário e pela duração em minutos de cada uma), nem marcar de novo uma entrevista que já está agendada (para mudar, altere a que existe). Use os filtros abaixo para ver só a agenda de Psicologia ou de Serviço Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
+    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique numa entrevista para alterar a data, o horário ou os dados dela (ou desmarcá-la) direto por aqui, sem precisar abrir o exame; clique num horário vazio para agendar uma nova. Se uma entrevista começar antes de outra do mesmo centro terminar (pelo horário e pela duração em minutos de cada uma), o sistema avisa e pergunta se quer salvar assim mesmo. Ele não deixa marcar de novo uma entrevista que já está agendada (para mudar, altere a que existe). Use os filtros abaixo para ver só a agenda de Psicologia ou de Serviço Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
     <div class="btnrow" style="margin-top:0; margin-bottom:8px;">
       <button class="btn sm" id="calBtnSemana" type="button" onclick="App.calModo('semana')">Semana</button>
       <button class="btn sm ghost" id="calBtnMes" type="button" onclick="App.calModo('mes')">Mês</button>
@@ -866,6 +876,12 @@
     <label class="f">Observações internas</label>
     <textarea id="e_obs" style="min-height:60px;"></textarea>
 
+    <!-- aparece quando todas as seções do relatório estão concluídas (ou não se aplicam) -->
+    <div id="assinaturaBox" class="orient ok" style="display:none; margin-top:14px;">
+      <b>Todas as seções do relatório estão concluídas.</b> Depois de solicitar a assinatura no SGPE, avise a equipe examinadora:
+      <div class="btnrow" style="margin-top:8px;"><button class="btn sm" type="button" onclick="App.avisarEquipe('assinatura')">✉ Avisar a equipe: assinatura solicitada no SGPE</button></div>
+    </div>
+
     <div class="btnrow">
       <button class="btn btnSalvar" onclick="App.salvar()">Salvar exame</button>
       <button class="btn ghost" onclick="App.imprimir()">Gerar PDF / imprimir</button>
@@ -879,7 +895,7 @@
     <div id="avisoModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; overflow:auto; padding:16px;">
       <div class="card" style="max-width:720px; margin:24px auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-          <h3 style="margin:0;">Avisar a equipe examinadora por e-mail</h3>
+          <h3 style="margin:0;" id="avisoTitulo">Avisar a equipe examinadora por e-mail</h3>
           <button class="btn sm ghost" type="button" onclick="App.fecharAviso()">Fechar</button>
         </div>
         <div id="avisoCorpo" style="margin-top:12px;"></div>
@@ -2054,7 +2070,11 @@ const App = {
   calMsgConflito(c){
     return "Já existe entrevista marcada nesse horário:\n\n"+c.ex.nome+" — "+this.CAL_TIPOS_LONGO[c.k]+", "+fmt(c.et.data)+" das "+c.et.hora+" às "+this.calHoraFim(c.et.hora,c.et.dur)+
       (this.calDurMin(c.et.dur)?"":" (sem duração informada — contada como 1 hora)")+
-      "\n\nO sistema não deixa uma entrevista começar antes de a outra terminar. Escolha outro horário ou ajuste a duração.";
+      "\n\nSe os horários estão certos (por exemplo, entrevistas em salas diferentes ou com profissionais diferentes), clique OK para salvar assim mesmo. Para voltar e ajustar o horário, clique Cancelar.";
+  },
+  /* choque de horário é só aviso: entrevistas reais podem acontecer ao mesmo tempo (salas/profissionais diferentes) */
+  calConfirmaConflito(c, prefixo){
+    return !c || confirm((prefixo||"")+this.calMsgConflito(c));
   },
   calGravarEtapa(exServidor, k, novo, msgOk){
     const ex={...exServidor, etapas:JSON.parse(JSON.stringify(exServidor.etapas||{}))};
@@ -2081,8 +2101,7 @@ const App = {
     const atual=(exServidor.etapas||{})[tipo]||{};
     if(atual.data){ alert("A "+this.CAL_TIPOS_LONGO[tipo].toLowerCase()+" deste exame já está marcada para "+fmt(atual.data)+(atual.hora?" às "+atual.hora:"")+".\n\nPara mudar, clique nela no calendário e altere."); this.calRenderTipos(); return; }
     if(!this.calDurMin(f.dur)){ alert("Informe a duração da entrevista, em minutos — ela é necessária para o sistema conferir se não há choque com outra entrevista."); return; }
-    const c=this.calConflito(exServidor, tipo, f, exServidor.etapas);
-    if(c){ alert(this.calMsgConflito(c)); return; }
+    if(!this.calConfirmaConflito(this.calConflito(exServidor, tipo, f, exServidor.etapas))) return;
     this.calGravarEtapa(exServidor, tipo, Object.assign({ok:false}, atual, f), "Entrevista agendada para "+exServidor.nome+".");
   },
   calSalvarAlteracao(){
@@ -2093,8 +2112,7 @@ const App = {
     if(!f.data){ alert("Informe a data. Para tirar a entrevista do calendário, use Desmarcar entrevista."); return; }
     if(!f.hora){ alert("Informe o horário — ele é necessário para o sistema conferir se já não há outra entrevista marcada no mesmo horário."); return; }
     if(!this.calDurMin(f.dur)){ alert("Informe a duração da entrevista, em minutos — ela é necessária para o sistema conferir se não há choque com outra entrevista."); return; }
-    const c=this.calConflito(exServidor, k, f, exServidor.etapas);
-    if(c){ alert(this.calMsgConflito(c)); return; }
+    if(!this.calConfirmaConflito(this.calConflito(exServidor, k, f, exServidor.etapas))) return;
     const novo=Object.assign({}, (exServidor.etapas||{})[k]||{}, f, {ok:document.getElementById("calfOk").checked});
     this.calGravarEtapa(exServidor, k, novo, "Entrevista de "+exServidor.nome+" alterada.");
   },
@@ -2644,6 +2662,13 @@ Continuar mesmo assim (sem salvar)?`);
     const on=document.getElementById("relok_"+k).checked;
     const btn=document.querySelector('#relTabs button[data-r="'+k+'"]');
     if(btn) btn.classList.toggle("relok", on);
+    this.atualizarAssinaturaBox();
+  },
+  /* todas as seções concluídas (ou suprimidas) → mostra o botão de avisar a equipe que a assinatura foi pedida no SGPE */
+  atualizarAssinaturaBox(){
+    const box=document.getElementById("assinaturaBox"); if(!box) return;
+    const ok=this.lerRelOk(), sup=this.lerSuprimir();
+    box.style.display = this.REL_OK_KEYS.every(k=>ok[k]||sup[k]) ? "" : "none";
   },
   relOkPorEl(chk){
     let por=chk.parentElement.querySelector(".relok-por");
@@ -2684,6 +2709,7 @@ Continuar mesmo assim (sem salvar)?`);
       const btn=document.querySelector('#relTabs button[data-r="'+k+'"]');
       if(btn) btn.classList.toggle("relok", on);
     });
+    this.atualizarAssinaturaBox();
   },
   progressoRelOk(relOk, sup){
     relOk=relOk||{}; sup=sup||{};
@@ -2781,13 +2807,13 @@ Continuar mesmo assim (sem salvar)?`);
     if(exServidor && exServidor.status==="concluido"){ alert("Este exame está concluído. Para alterar, a SR ou o DPP precisa reabri-lo."); return; }
     const ex = exServidor ? {...exServidor} : {id:uid(), coc:(this.cocDaUnidade(unid)||{}).id||this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
     Object.assign(ex, this.lerFormulario());
-    /* não deixa gravar entrevista em cima de outra já marcada no mesmo centro */
+    /* avisa se a entrevista cai em cima de outra já marcada no mesmo centro (a pessoa pode salvar assim mesmo) */
     for(const k of ["ent1","ent2","entConv"]){
       const et=(ex.etapas||{})[k]||{};
       const antes=((exServidor&&exServidor.etapas)||{})[k]||{};
       if(antes.data===et.data && (antes.hora||"")===(et.hora||"") && this.calDurMin(antes.dur)===this.calDurMin(et.dur)) continue; /* só confere o que mudou */
       const c=this.calConflito(ex, k, et, ex.etapas);
-      if(c){ alert(this.CAL_TIPOS_LONGO[k]+" ("+fmt(et.data)+" das "+et.hora+" às "+this.calHoraFim(et.hora,et.dur)+"):\n\n"+this.calMsgConflito(c)+"\n\nO exame não foi salvo — ajuste o horário na aba Etapas."); return; }
+      if(!this.calConfirmaConflito(c, c ? this.CAL_TIPOS_LONGO[k]+" ("+fmt(et.data)+" das "+et.hora+" às "+this.calHoraFim(et.hora,et.dur)+"):\n\n" : "")) return;
     }
     const msg=document.getElementById("salvoMsg");
     msg.style.color="var(--mut)"; msg.textContent="Gravando…";
@@ -3160,8 +3186,11 @@ Continuar mesmo assim (sem salvar)?`);
   /* ---------- aviso por e-mail à equipe examinadora ----------
      plano gratuito do Firebase não envia e-mail sozinho: o sistema monta destinatários (contas cuja
      matrícula bate com a da equipe), assunto e texto, e abre o programa de e-mail de quem clicou */
-  async avisarEquipe(){
+  /* tipo "assinatura": relatório pronto, assinatura solicitada no SGPE (o mesmo número do SGPE de entrada) */
+  async avisarEquipe(tipo){
+    const assinatura = tipo==="assinatura";
     const modal=document.getElementById("avisoModal"), corpo=document.getElementById("avisoCorpo");
+    document.getElementById("avisoTitulo").textContent = assinatura ? "Avisar a equipe: assinatura solicitada no SGPE" : "Avisar a equipe examinadora por e-mail";
     modal.style.display="block";
     corpo.innerHTML=`<p class="note">Procurando os e-mails da equipe…</p>`;
     const rotulos={direcao:"Diretor(a) da Unidade",chefiaSeg:"Chefe de Segurança",execPenal:"Coordenador(a) de Execução Penal",ativLab:"Coordenador(a) de Atividades Laborais",ensino:"Coordenador(a) de Ensino e Promoção Social",psq:"Psiquiatra",psi:"Psicólogo(a)",as:"Assistente social",coord:"Coordenação do exame"};
@@ -3184,8 +3213,19 @@ Continuar mesmo assim (sem salvar)?`);
     const ipen=document.getElementById("e_mat").value.trim();
     const lim=this.prazoLimite({dataDecisao:document.getElementById("e_dataDecisao").value});
     const fin={progressao:"Progressão de regime",judicial:"Determinação judicial",dpp:"Requisição do DPP"}[document.getElementById("e_tipo").value]||"";
-    const assunto="Exame criminológico — "+nome+(ipen?" (IPEN "+ipen+")":"");
-    const texto=[
+    const sgpe=document.getElementById("e_sgpe").value.trim();
+    const assunto=(assinatura?"Assinatura no SGPE — ":"")+"Exame criminológico — "+nome+(ipen?" (IPEN "+ipen+")":"");
+    const texto = assinatura ? [
+      "Prezados(as),","",
+      "O relatório do exame criminológico abaixo está concluído e foi solicitada a assinatura de vocês no SGPE"+(sgpe?" nº "+sgpe:"")+" (o mesmo SGPE de entrada do exame):","",
+      "Avaliado: "+nome,
+      ipen?"IPEN/Matrícula: "+ipen:null,
+      "Unidade: "+(this.getUnidadeValor()||"—"),
+      "SGPE: "+(sgpe||"—"),
+      "Prazo para conclusão: "+(lim?lim.toLocaleDateString("pt-BR"):"—"),"",
+      "Por favor, acessem o SGPE e assinem o documento.","",
+      "Atenciosamente,", (this._meuPerfil&&this._meuPerfil.nome)||""
+    ].filter(l=>l!==null).join("\n") : [
       "Prezados(as),","",
       "Foi cadastrado no Sistema do Centro de Observação um exame criminológico em que vocês integram a equipe examinadora:","",
       "Avaliado: "+nome,
@@ -3201,7 +3241,8 @@ Continuar mesmo assim (sem salvar)?`);
     /* Gmail no navegador: abre uma mensagem nova já preenchida numa aba nova (a pessoa precisa estar logada no Google) */
     const gmail="https://mail.google.com/mail/?view=cm&fs=1&to="+encodeURIComponent(emails.join(","))+"&su="+encodeURIComponent(assunto)+"&body="+encodeURIComponent(texto);
     corpo.innerHTML=
-      (comEmail.length?`<p><b>Vai para:</b></p><ul>${comEmail.map(m=>`<li>${esc(m.nome)} <span class="muted">— ${esc(m.funcao)} — ${esc(m.contato.email)}</span></li>`).join("")}</ul>`
+      (assinatura && !sgpe?`<p class="note" style="color:var(--warn);"><b>O número do SGPE não está preenchido</b> (aba Identificação) — preencha e salve antes de avisar, para o número ir no e-mail.</p>`:"")
+      +(comEmail.length?`<p><b>Vai para:</b></p><ul>${comEmail.map(m=>`<li>${esc(m.nome)} <span class="muted">— ${esc(m.funcao)} — ${esc(m.contato.email)}</span></li>`).join("")}</ul>`
         :`<p class="note" style="color:var(--warn);">Ninguém da equipe tem conta no sistema com matrícula cadastrada, então não há para quem enviar.</p>`)
       +(semEmail.length?`<p class="note" style="color:var(--warn);"><b>Sem e-mail no sistema</b> (sem conta, a conta não tem matrícula cadastrada, ou a matrícula na equipe está vazia) — avise por outro meio:</p>
         <ul class="note">${semEmail.map(m=>`<li>${esc(m.nome)} — ${esc(m.funcao)}${m.mat?"":" (sem matrícula na equipe)"}</li>`).join("")}</ul>`:"")
@@ -3390,6 +3431,14 @@ Continuar mesmo assim (sem salvar)?`);
     const temEntrevista = e => ["ent1","ent2","entConv"].some(k=>((e.etapas||{})[k]||{}).data);
     if(st==="agendado") exs=exs.filter(temEntrevista);
     if(st==="naoagendado") exs=exs.filter(e=>!temEntrevista(e));
+    /* por tipo de agendamento: Psicologia e Serviço Social = entrevista com o avaliado (1ª ou 2ª)
+       daquela área — "Equipe (conjunta)" vale para as duas; convívio = entrevista com pessoa do
+       convívio, de qualquer área. Conta a entrevista com data marcada ou já marcada como feita. */
+    const marcada = v => !!(v && (v.data || v.ok));
+    const agend = e => { const et=e.etapas||{}; const av=[et.ent1,et.ent2].filter(marcada);
+      return { psi:av.some(v=>(v.area||"")!=="social"), social:av.some(v=>(v.area||"")!=="psi"), conv:marcada(et.entConv) }; };
+    const mTipo=/^(falta|tem)-(psi|social|conv)$/.exec(st);
+    if(mTipo) exs=exs.filter(e=>agend(e)[mTipo[2]]===(mTipo[1]==="tem"));
     if(this.dashPrazoFiltro) exs=exs.filter(e=>this.prazoInfo(e).cls===this.dashPrazoFiltro);
     if(q) exs=exs.filter(e=>(e.nome+" "+(e.mat||"")+" "+(e.proc||"")).toLowerCase().includes(q));
     const nomeRegional = id => (this.data.cocs.find(c=>c.id===id)||{}).nome || "—";
@@ -3400,9 +3449,12 @@ Continuar mesmo assim (sem salvar)?`);
     /* sem filtro de unidade, a lista vem separada por unidade prisional (no CEPEN, por
        regional + unidade): uma faixa de título por grupo, na ordem das unidades cadastradas
        no centro; as que não estão no cadastro vêm depois, e "sem unidade definida" por último */
+    const selosAgend = e=>{const a=agend(e);
+        return [["psi","Psi","Psicologia"],["social","Social","Serviço Social"],["conv","Convívio","pessoa do convívio"]].map(([k,curto,nome])=>
+          `<span class="badge ${a[k]?"b-ok":"b-mut"}" style="padding:2px 7px;" title="${a[k]?"Entrevista agendada":"Falta agendar"}: ${nome}">${a[k]?"✓":"–"} ${curto}</span>`).join(" ");};
     const linha = e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{}); const ro=this.progressoRelOk(e.relOk,e.sup);
         const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
-        return `<tr class="${this.examePronto(e)?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td><td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;};
+        return `<tr class="${this.examePronto(e)?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td><td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td style="white-space:nowrap;">${selosAgend(e)}</td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;};
     let corpo;
     if(unidFiltro) corpo = exs.map(linha).join("");
     else {
@@ -3420,11 +3472,11 @@ Continuar mesmo assim (sem salvar)?`);
       corpo = lista.map(g=>{
         const and=g.exs.filter(e=>e.status!=="concluido").length, conc=g.exs.length-and;
         const nome=(geral?esc(g.reg)+" — ":"")+(g.unid?esc(g.unid):"<i>Sem unidade definida</i>");
-        return `<tr class="grp-unid"><td colspan="7">${nome} <span class="muted">— ${g.exs.length} exame(s): ${and} em andamento, ${conc} concluído(s)</span></td></tr>`+g.exs.map(linha).join("");
+        return `<tr class="grp-unid"><td colspan="8">${nome} <span class="muted">— ${g.exs.length} exame(s): ${and} em andamento, ${conc} concluído(s)</span></td></tr>`+g.exs.map(linha).join("");
       }).join("");
     }
     document.getElementById("listaBox").innerHTML = exs.length ?
-      `<table><tr><th>Avaliado</th><th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Progresso</th><th>Relatório</th></tr>${corpo}</table>`
+      `<table><tr><th>Avaliado</th><th>Matrícula</th><th>Finalidade</th><th>SGPE</th><th>Prazo</th><th>Entrevistas</th><th>Progresso</th><th>Relatório</th></tr>${corpo}</table>`
       : `<div class="empty">Nenhum exame cadastrado${geral?"":" neste centro"}. ${geral?"":'Use a aba <b>Novo exame</b>.'}</div>`;
   },
 
