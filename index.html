@@ -687,11 +687,9 @@
 
     <hr class="sep">
     <h3>Etapas do exame <span class="muted" style="font-size:12px; font-weight:normal;">(Res. CNPCP 36/2024)</span></h3>
-    <label class="f">Modalidade padrão das entrevistas <span class="muted" style="font-weight:normal; text-transform:none;">(se alguma for diferente, escolha a modalidade dela na própria entrevista, abaixo)</span></label>
-    <select id="e_modal" onchange="App.modalChange()" style="max-width:280px;">
-      <option value="presencial">Presencial</option>
-      <option value="video">Por videoconferência</option>
-    </select>
+    <!-- modalidade antiga, do exame todo: hoje cada entrevista tem a sua; fica guardada só para os exames
+         antigos, em que a entrevista sem modalidade própria usa esta -->
+    <input type="hidden" id="e_modal">
     <div id="modalNote" class="lawbox" style="display:none;">
       Videoconferência admitida quando o deslocamento da equipe for inviável ou excessivamente oneroso, considerada a distância, a disponibilidade dos profissionais e a necessidade de atendimento tempestivo (art. 9º, §1º, da Portaria). O ambiente deve ser reservado, com identificação dos participantes, privacidade, sigilo e autonomia técnica assegurados; a adoção da modalidade deve constar expressamente no relatório (art. 9º, §2º).
     </div>
@@ -1167,13 +1165,13 @@ const ETAPAS = [
 /* área/profissional responsável pela entrevista — usada para filtrar o calendário por Psicologia/Serviço Social */
 const AREA_OPTS = [{v:"",t:"Equipe (conjunta)"},{v:"psi",t:"Psicologia"},{v:"social",t:"Serviço Social"}];
 const AREA_LABEL = {"":"Equipe", psi:"Psicologia", social:"Serviço Social"};
-/* modalidade de cada entrevista — vazio = a modalidade padrão do exame (campo e_modal) */
-const MODAL_OPTS = [{v:"",t:"Modalidade: a padrão do exame"},{v:"presencial",t:"Presencial"},{v:"video",t:"Por videoconferência"}];
+/* modalidade de cada entrevista — em exames antigos, sem modalidade na entrevista, vale a do exame (campo e_modal) */
+const MODAL_OPTS = [{v:"presencial",t:"Modalidade: presencial"},{v:"video",t:"Modalidade: por videoconferência"}];
 
 /* campos extras por etapa — ver ETAPAS[].extra */
 const ETAPA_EXTRA = {
-  entrevista:[{f:"hora",p:"Horário",t:"time"},{f:"local",p:"Local"},{f:"dur",p:"Duração (minutos)",t:"number"},{f:"prof",p:"Profissionais presentes"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS},{f:"modal",p:"Modalidade desta entrevista",t:"select",options:MODAL_OPTS}],
-  convivio:[{f:"hora",p:"Horário",t:"time"},{f:"dur",p:"Duração (minutos)",t:"number"},{f:"nome",p:"Nome da pessoa"},{f:"vinc",p:"Vínculo"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS},{f:"modal",p:"Modalidade desta entrevista",t:"select",options:MODAL_OPTS}]
+  entrevista:[{f:"hora",p:"Horário",t:"time"},{f:"local",p:"Local"},{f:"dur",p:"Duração (minutos)",t:"number"},{f:"prof",p:"Profissionais presentes"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS},{f:"modal",p:"Modalidade",t:"select",options:MODAL_OPTS}],
+  convivio:[{f:"hora",p:"Horário",t:"time"},{f:"dur",p:"Duração (minutos)",t:"number"},{f:"nome",p:"Nome da pessoa"},{f:"vinc",p:"Vínculo"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS},{f:"modal",p:"Modalidade",t:"select",options:MODAL_OPTS}]
 };
 
 /* parágrafos-modelo do Anexo II (modelo padrão DPP) — usados como texto inicial/sugestão
@@ -2004,7 +2002,7 @@ const App = {
         <button class="btn sm ghost" type="button" onclick="App.calFecharForm()">Cancelar</button>
       </div>
     </div>`;
-    this.calRenderExtra(k, et);
+    this.calRenderExtra(k, Object.assign({}, et, {modal: et.modal||ex.modal||"presencial"}));
   },
   calRenderExtra(tipo, v){
     tipo = tipo || document.getElementById("calfTipo").value;
@@ -2012,8 +2010,8 @@ const App = {
     const box=document.getElementById("calfExtra");
     const val=f=>`value="${esc(v[f]||"")}"`;
     const areaSelect=`<select id="calfArea">${AREA_OPTS.map(o=>`<option value="${o.v}" ${(v.area||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`;
-    const modalSelect=`<select id="calfModal">${MODAL_OPTS.map(o=>`<option value="${o.v}" ${(v.modal||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`;
-    const linhaAreaModal=`<div class="row c2"><div><label class="f">Área/profissional responsável</label>${areaSelect}</div><div><label class="f">Modalidade desta entrevista</label>${modalSelect}</div></div>`;
+    const modalSelect=`<select id="calfModal">${MODAL_OPTS.map(o=>`<option value="${o.v}" ${(v.modal||"presencial")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`;
+    const linhaAreaModal=`<div class="row c2"><div><label class="f">Área/profissional responsável</label>${areaSelect}</div><div><label class="f">Modalidade</label>${modalSelect.replace(/Modalidade: p/g,"P")}</div></div>`;
     if(tipo==="entConv"){
       box.innerHTML=`<div class="row c3"><div><label class="f">Nome da pessoa</label><input type="text" id="calfNome" ${val("nome")}></div><div><label class="f">Vínculo</label><input type="text" id="calfVinc" ${val("vinc")}></div><div><label class="f">Duração (minutos)</label><input type="number" min="5" step="5" id="calfDur" value="${esc(this.calDurMin(v.dur)||"")}" placeholder="ex.: 60"></div></div>
       ${linhaAreaModal}`;
@@ -2368,8 +2366,7 @@ const App = {
     this.beneficioChange();
   },
   modalChange(){
-    const algumaVideo = document.getElementById("e_modal").value==="video" ||
-      [...document.querySelectorAll('#etapasBox select[data-field="modal"]')].some(s=>s.value==="video");
+    const algumaVideo = [...document.querySelectorAll('#etapasBox select[data-field="modal"]')].some(s=>s.value==="video");
     document.getElementById("modalNote").style.display = algumaVideo ? "block" : "none";
   },
   getUnidadeValor(){
@@ -2467,7 +2464,8 @@ const App = {
     et = et || {};
     const box=document.getElementById("etapasBox");
     box.innerHTML = ETAPAS.map(e=>{
-      const v = et[e.k]||{};
+      const v = Object.assign({}, et[e.k]||{});
+      if(!v.modal) v.modal = document.getElementById("e_modal").value || "presencial"; /* exame antigo: vale a modalidade do exame */
       const extraCampos = e.extra ? ETAPA_EXTRA[e.extra] : null;
       return `<div class="etapa ${v.ok?"done":""}" id="et_${e.k}">
         <input type="checkbox" ${v.ok?"checked":""} onchange="App.etToggle('${e.k}',this)">
@@ -3787,7 +3785,7 @@ Continuar mesmo assim (sem salvar)?`);
     const pgMetodologia=`
       <h3>III — Metodologia</h3><p style="text-indent:1.5cm;">${r_met.value?escNl(r_met.value):"—"}</p>
       <p><b>Entrevistas realizadas em:</b> ${(()=>{
-        /* cada entrevista pode ter a sua modalidade; vazio = a padrão do exame. Todas iguais: uma só menção no fim */
+        /* cada entrevista pode ter a sua modalidade; vazio (exame antigo) = a do exame. Todas iguais: uma só menção no fim */
         const padrao=document.getElementById("e_modal").value||"presencial";
         const feitas=[et.ent1,et.ent2,et.entConv].filter(x=>x&&x.ok&&x.data).map(x=>({data:fmt(x.data), modal:x.modal||padrao}));
         const nomeModal=m=>m==="video"?"por videoconferência":"presencial";
