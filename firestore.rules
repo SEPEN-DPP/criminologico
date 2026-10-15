@@ -36,7 +36,7 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.resource.data.status == 'PENDENTE'
         && request.resource.data.perfil == null
-        && request.resource.data.perfilSolicitado in ['USUARIO','PSICOLOGIA','SOCIAL','CPEN','DIR','SR','SR_PSICOLOGIA','SR_SOCIAL','DPP'];
+        && request.resource.data.perfilSolicitado in ['USUARIO','PSICOLOGIA','SOCIAL','CPEN','DIR','SR','SR_PSICOLOGIA','SR_SOCIAL','HCTP','DPP'];
       allow read: if autenticado() && (
         request.auth.uid == uid
         || ehDPP()
@@ -139,7 +139,9 @@ service cloud.firestore {
         || minhaSR(d.sr)
         || minhaSRComoCobertura(d.sr)
         || minhaUnidade(d.unidade)
-        || (ehNivelUnidade() && d.unidade == perfilAtual().unidade);
+        || (ehNivelUnidade() && d.unidade == perfilAtual().unidade)
+        // HCTP (psiquiatra): so os exames com pedido ao HCTP ativo ou realizado (hctpPedido, ligado pelo Centro)
+        || (ativo() && perfilAtual().perfil == 'HCTP' && d.get('hctpPedido', false) == true);
     }
     function ehSROuDPPDo(d) { return ehDPP() || minhaSR(d.sr); }
     // concluir e excluir: DPP ou qualquer perfil regional da propria SR
@@ -182,8 +184,9 @@ service cloud.firestore {
     // de Servico Social (texto, "Secao concluida" e quem marcou) — nao cadastram exame
     // nem mexem no resto. As demais contas da unidade (USUARIO, DIR, CPEN) gravam o
     // resto do exame, menos essas duas secoes. Perfis regionais da propria SR (SR,
-    // SR_PSICOLOGIA, SR_SOCIAL) e o DPP editam tudo.
-    function secaoDoPerfil(p) { return p == 'PSICOLOGIA' ? 'psi' : 'soc'; }
+    // SR_PSICOLOGIA, SR_SOCIAL) e o DPP editam tudo. A conta HCTP (psiquiatra) so grava a secao
+    // de Psiquiatria, nos exames com pedido ao HCTP.
+    function secaoDoPerfil(p) { return p == 'PSICOLOGIA' ? 'psi' : p == 'SOCIAL' ? 'soc' : 'psq'; }
     function mudouEm(n, a, campo) { return n.get(campo, {}).diff(a.get(campo, {})).affectedKeys(); }
     // Versoes das checagens de perfil que recebem o perfil ja lido (eu = perfilAtual()), para
     // a gravacao de exame ler o cadastro uma vez so — o Firestore limita cada verificacao a
@@ -195,12 +198,13 @@ service cloud.firestore {
     function podeVerComo(d, eu) {
       return regionalOuDPP(d, eu)
         || (eu.status == 'ATIVO' && eu.perfil in ['USUARIO','PSICOLOGIA','SOCIAL','DIR','CPEN']
-            && eu.get('unidade', null) != null && eu.get('unidade', null) == d.get('unidade', null));
+            && eu.get('unidade', null) != null && eu.get('unidade', null) == d.get('unidade', null))
+        || (eu.status == 'ATIVO' && eu.perfil == 'HCTP' && d.get('hctpPedido', false) == true);
     }
     function edicaoPorSecaoOk(n, a, eu) {
       let p = eu.perfil;
       return regionalOuDPP(a, eu) ? true
-        : p in ['PSICOLOGIA','SOCIAL'] ? (
+        : p in ['PSICOLOGIA','SOCIAL','HCTP'] ? (
             n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt','numCrim'])
             && mudouEm(n, a, 'rel').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOk').hasOnly([secaoDoPerfil(p)])
@@ -254,7 +258,7 @@ service cloud.firestore {
     function criacaoPorSecaoOk(n, eu) {
       let p = eu.perfil;
       return regionalOuDPP(n, eu) ? true
-        : p in ['PSICOLOGIA','SOCIAL'] ? false
+        : p in ['PSICOLOGIA','SOCIAL','HCTP'] ? false
         : n.get('rel', {}).get('psi', '') == '' && n.get('rel', {}).get('soc', '') == ''
           && n.get('relOk', {}).get('psi', false) == false && n.get('relOk', {}).get('soc', false) == false;
     }
@@ -300,8 +304,60 @@ service cloud.firestore {
         && edicaoPorSecaoOk(n, a, eu)
         && autoriaOk(n, a, eu);
     }
+    // Agendamento da avaliacao psiquiatrica no HCTP (colecao hctp). O Centro (quem ve o exame)
+    // pede, para crime sexual ou outra demanda (ex.: transtorno mental); a conta HCTP (perfil
+    // estadual, aprovado pelo DPP) responde com data/hora/local ou recusa; depois de agendado, os
+    // dois lados remarcam e cancelam. O HCTP NAO le exames (podeVer/podeVerComo nao o incluem):
+    // so a ficha da solicitacao, com nome/IPEN/unidade copiados do exame e conferidos aqui.
+    // "eventos" (quem/quando/o que) so cresce: cada mudanca acrescenta um item e preserva os
+    // anteriores. Pedido recusado, cancelado ou realizado nao muda mais (faz-se outro pedido).
+    function ehHctpConta(eu) { return eu.status == 'ATIVO' && eu.perfil == 'HCTP'; }
+    function hctpCriacaoOk(eu) {
+      let n = request.resource.data;
+      let ex = get(exameDoc(n.exameId)).data;
+      return !ehHctpConta(eu) && podeVerComo(ex, eu)
+        && n.keys().hasOnly(['exameId','nome','ipen','unidade','sr','coc','cocNome','prazo','motivo','obs','status','data','hora',
+             'dur','local','resposta','motivoCancelamento','novidadeParaHctp','novidadeParaCentro','solicitadoPor',
+             'solicitadoPorNome','solicitadoEm','atualizadoPor','atualizadoPorNome','atualizadoEm','atualizadoLado','eventos'])
+        && n.nome == ex.nome && n.ipen == ex.get('mat', '') && n.unidade == ex.get('unidade', null) && n.sr == ex.get('sr', null)
+        && n.status == 'solicitado' && n.motivo in ['crimeSexual','transtorno','outra']
+        && n.solicitadoPor == request.auth.uid && n.solicitadoEm == request.time
+        && n.atualizadoPor == request.auth.uid && n.atualizadoEm == request.time && n.atualizadoLado == 'Centro'
+        && n.novidadeParaHctp == true && n.novidadeParaCentro == false
+        && n.eventos is list && n.eventos.size() == 1;
+    }
+    function hctpAtualizacaoOk(eu) {
+      let n = request.resource.data;
+      let a = resource.data;
+      let mudou = n.diff(a).affectedKeys();
+      let doHctp = ehHctpConta(eu);
+      let doCentro = !doHctp && podeVerComo(a, eu);
+      return mudou.hasOnly(['novidadeParaHctp','novidadeParaCentro'])
+        // "Ciente": cada lado so apaga o proprio aviso
+        ? ((doHctp && mudou.hasOnly(['novidadeParaHctp']) && n.novidadeParaHctp == false)
+           || (doCentro && mudou.hasOnly(['novidadeParaCentro']) && n.novidadeParaCentro == false))
+        : (doHctp || doCentro)
+          && mudou.hasOnly(['status','data','hora','dur','local','resposta','motivoCancelamento','novidadeParaHctp',
+               'novidadeParaCentro','eventos','atualizadoPor','atualizadoPorNome','atualizadoEm','atualizadoLado'])
+          && n.atualizadoPor == request.auth.uid && n.atualizadoEm == request.time
+          && n.atualizadoLado == (doHctp ? 'HCTP' : 'Centro')
+          && n.eventos.size() == a.eventos.size() + 1 && n.eventos[0:a.eventos.size()] == a.eventos
+          && a.status in ['solicitado','agendado']
+          && (doHctp
+              ? n.status in ['agendado','recusado','cancelado','realizado']
+              // o Centro cancela, ou remarca o que ja esta agendado (sem mexer em local/duracao/resposta do HCTP)
+              : (n.status == 'cancelado' || (n.status == 'agendado' && a.status == 'agendado'))
+                && !mudou.hasAny(['resposta','local','dur']));
+    }
+    match /hctp/{id} {
+      allow read: if (ativo() && perfilAtual().perfil == 'HCTP') || podeVer(resource.data);
+      allow create: if autenticado() && hctpCriacaoOk(perfilAtual());
+      allow update: if autenticado() && hctpAtualizacaoOk(perfilAtual());
+      allow delete: if false;
+    }
     match /exames/{examId} {
-      allow read: if podeVer(resource.data);
+      allow read: if podeVer(resource.data)
+        || (ativo() && perfilAtual().perfil == 'HCTP' && resource.data.hctpPedido == true);
       allow create: if autenticado() && criacaoOk(examId, perfilAtual());
       allow update: if autenticado() && atualizacaoOk(examId, perfilAtual());
       allow delete: if false;

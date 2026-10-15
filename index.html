@@ -45,6 +45,11 @@
   .relpanel{display:none;} .relpanel.on{display:block;}
   .novopanel{display:none;} .novopanel.on{display:block;}
   .novoLayout{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start;}
+  /* conta HCTP: no exame só aparece a seção de Psiquiatria (sem as outras abas, a prévia e a impressão) */
+  #v-novo.so-psq .novoLayout{grid-template-columns:minmax(0,1fr);}
+  #v-novo.so-psq #novoTabs, #v-novo.so-psq #novoPreviewCol, #v-novo.so-psq #np-quesitos > *{display:none !important;}
+  #v-novo.so-psq #np-quesitos > #rp-psq, #v-novo.so-psq #np-quesitos > .btnrow, #v-novo.so-psq #np-quesitos > #salvoMsg, #v-novo.so-psq #np-quesitos > #verifInline{display:block !important;}
+  #v-novo.so-psq #np-quesitos > .btnrow > :not(.btnSalvar){display:none !important;}
   .novoPreviewCol{position:sticky; top:12px; max-height:calc(100vh - 24px); overflow:auto;}
   @media (max-width:1100px){ .novoLayout{grid-template-columns:1fr;} .novoPreviewCol{position:static; max-height:none;} }
   .reportPreview{background:#fff; border:1px solid var(--line); border-radius:8px; padding:24px 28px; font-family:Arial,Helvetica,sans-serif; font-size:11pt; line-height:1; color:#111;}
@@ -260,6 +265,7 @@
       <option value="SR">SR — Superintendente Regional</option>
       <option value="SR_PSICOLOGIA">SR — Psicólogo(a) de cobertura regional</option>
       <option value="SR_SOCIAL">SR — Assistente Social de cobertura regional</option>
+      <option value="HCTP">HCTP — agendamento de avaliação psiquiátrica (estadual)</option>
       <option value="DPP">DPP — acesso total (central)</option>
     </select>
     <div id="regCampoUnidade" style="margin-top:10px;">
@@ -301,6 +307,7 @@
       <option value="SR">SR — Superintendente Regional</option>
       <option value="SR_PSICOLOGIA">SR — Psicólogo(a) de cobertura regional</option>
       <option value="SR_SOCIAL">SR — Assistente Social de cobertura regional</option>
+      <option value="HCTP">HCTP — agendamento de avaliação psiquiátrica (estadual)</option>
       <option value="DPP">DPP — acesso total (central)</option>
     </select>
     <div id="compCampoUnidade" style="margin-top:10px;">
@@ -377,6 +384,7 @@
   <button data-v="cal" onclick="App.tab('cal')">Calendário</button>
   <button data-v="novo" onclick="App.novoExame()">Novo exame</button>
   <button data-v="config" onclick="App.tab('config')">Configurações</button>
+  <button data-v="hctp" onclick="App.tab('hctp')" style="display:none;">HCTP — Agendamentos</button>
 </nav>
 </div>
 
@@ -385,6 +393,7 @@
 <!-- ============ PAINEL ============ -->
 <section class="view on" id="v-dash">
   <div id="paraVoceBox"></div>
+  <div id="hctpAvisosBox"></div>
   <div id="painelUnidadeAtualBox"></div>
   <div class="grid g4" id="kpis"></div>
   <div id="orientBox" style="margin-top:16px;"></div>
@@ -399,6 +408,27 @@
   <div class="card" style="margin-top:16px;">
     <h3 id="prazosTitle">Prazos críticos <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames devem estar concluídos em até 30 dias da decisão judicial</span></h3>
     <div id="prazosBox" style="overflow-x:auto;"></div>
+  </div>
+</section>
+
+<!-- ============ HCTP (perfil HCTP: solicitações dos Centros, respostas e calendário) ============ -->
+<section class="view" id="v-hctp">
+  <div class="card">
+    <h3>Solicitações de agendamento <span class="muted" style="font-weight:normal; font-size:12.5px;">— avaliação psiquiátrica no HCTP pedida pelos Centros de Observação</span></h3>
+    <p class="note">O preso é levado ao HCTP na data e hora que vocês informarem aqui; o Centro que pediu vê a resposta no exame, no calendário e no Painel. Nos exames com pedido ativo ou avaliação realizada, o psiquiatra preenche a <b>seção de Psiquiatria</b> pelo botão "Abrir a seção de Psiquiatria" — só ela pode ser editada pelo HCTP.</p>
+    <div id="hctpPendBox"></div>
+  </div>
+  <div class="card">
+    <h3>Agendados</h3>
+    <div id="hctpAgBox"></div>
+  </div>
+  <div class="card">
+    <div class="cal-nav">
+      <button class="btn sm ghost" type="button" onclick="App.hctpMudarMes(-1)">‹ Anterior</button>
+      <b id="hctpCalTitulo"></b>
+      <button class="btn sm ghost" type="button" onclick="App.hctpMudarMes(1)">Seguinte ›</button>
+    </div>
+    <div id="hctpCalBox" style="overflow-x:auto;"></div>
   </div>
 </section>
 
@@ -529,7 +559,7 @@
       <div><label class="f">Número do SGPE</label><input type="text" id="e_sgpe" placeholder="ex.: SGPE 00012345/2026"></div>
       <div><label class="f">Crime sexual</label>
         <label style="display:flex; align-items:center; gap:8px; font-size:13.5px; margin-top:8px;">
-          <input type="checkbox" id="e_crimeSexual" style="width:18px; height:18px; flex-shrink:0;">
+          <input type="checkbox" id="e_crimeSexual" style="width:18px; height:18px; flex-shrink:0;" onchange="App.renderHctpExame()">
           <span>O avaliado possui condenação por crime sexual</span>
         </label>
       </div>
@@ -694,6 +724,7 @@
       Videoconferência admitida quando o deslocamento da equipe for inviável ou excessivamente oneroso, considerada a distância, a disponibilidade dos profissionais e a necessidade de atendimento tempestivo (art. 9º, §1º, da Portaria). O ambiente deve ser reservado, com identificação dos participantes, privacidade, sigilo e autonomia técnica assegurados; a adoção da modalidade deve constar expressamente no relatório (art. 9º, §2º).
     </div>
     <div id="etapasBox" onchange="App.modalChange()"></div>
+    <div id="hctpExameBox" style="margin-top:14px;"></div>
 
     <hr class="sep">
     <h3>Relatório</h3>
@@ -971,6 +1002,7 @@
             <option value="SR">Superintendente Regional</option>
             <option value="SR_PSICOLOGIA">SR — Psicólogo(a) de cobertura regional</option>
             <option value="SR_SOCIAL">SR — Assistente Social de cobertura regional</option>
+            <option value="HCTP">HCTP — agendamento psiquiátrico</option>
             <option value="DPP">DPP</option>
           </select>
         </div>
@@ -1606,6 +1638,7 @@ const App = {
        partimos de um cache local antigo, que poderia vazar dados de outro login
        num navegador compartilhado até a primeira sincronização chegar. */
     this.data.exames = [];
+    this.data.hctp = [];
     if(!this.data.cocs || !this.data.cocs.length) this.data.cocs = DEFAULT_COCS.map(c=>({...c}));
     /* migração: registros antigos (nomes placeholder "COC…", sem lista de unidades) ganham os
        dados oficiais das SR, preservando o id para não perder exames já vinculados a ele */
@@ -1648,6 +1681,7 @@ const App = {
       msg.textContent="⚠ "+(aberto.updatedByNome||"Outra pessoa")+" alterou este exame depois que você o abriu. Se você salvar agora, a gravação será recusada — copie o que digitou e reabra o exame pela lista.";
     }
     if(document.getElementById("v-cal").classList.contains("on")) this.renderCalendario();
+    if(document.getElementById("v-hctp").classList.contains("on")) this.renderHctp();
   },
   /* trava a navegação conforme o perfil de login: DPP mantém acesso livre e
      irrestrito (painel geral por regional + qualquer Centro); os demais
@@ -1672,6 +1706,18 @@ const App = {
     /* Psicologia/Serviço Social da unidade só preenchem a própria seção — não cadastram exame */
     if(btnNovoReset && perfil && ["PSICOLOGIA","SOCIAL"].includes(perfil.perfil)) btnNovoReset.style.display="none";
     const btnCosReset=document.querySelector('#cfgTabs button[data-c="cos"]'); if(btnCosReset) btnCosReset.style.display="";
+
+    /* HCTP: só a aba de agendamentos (solicitações, agendados e calendário) — não acessa exames */
+    const ehHctp = !!perfil && perfil.perfil==="HCTP";
+    document.querySelectorAll("nav.tabs button").forEach(b=>{
+      if(b.dataset.v==="hctp") b.style.display = ehHctp ? "" : "none";
+      else if(["dash","lista","cal"].includes(b.dataset.v)) b.style.display = ehHctp ? "none" : "";
+      else if(ehHctp) b.style.display="none";
+    });
+    const selCocBox=document.getElementById("selCoc").closest(".coc-sel");
+    if(selCocBox) selCocBox.style.display = ehHctp ? "none" : "";
+    document.getElementById("v-novo").classList.toggle("so-psq", ehHctp);
+    if(ehHctp){ this.tab("hctp"); return; }
 
     /* Equipe examinadora (art. 5º) so e designada por quem tem alcada regional pra isso
        (SR) ou pelo DPP — DIR/CPEN/USUARIO so acompanham os nomes ja definidos. */
@@ -1729,6 +1775,7 @@ const App = {
     if(v==="lista") this.renderLista();
     if(v==="novo") this.renderEqBanner();
     if(v==="cal") this.renderCalendario();
+    if(v==="hctp") this.renderHctp();
   },
   novoTab(n){
     document.querySelectorAll("#novoTabs button").forEach(b=>b.classList.toggle("on", b.dataset.n===n));
@@ -1758,7 +1805,7 @@ const App = {
 
   /* ---------- calendário de entrevistas ---------- */
   CAL_TIPOS: {ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista c/ pessoa do convívio"},
-  CAL_TIPOS_CURTO: {ent1:"1ª", ent2:"2ª", entConv:"Convívio"},
+  CAL_TIPOS_CURTO: {ent1:"1ª", ent2:"2ª", entConv:"Convívio", hctp:"HCTP"},
   CAL_HORAS: (()=>{ const h=[]; for(let i=7;i<=19;i++) h.push(i); return h; })(),
   calEventos(){
     const geral = this.coc==="_cepen";
@@ -1782,6 +1829,13 @@ const App = {
           });
         }
       });
+      /* avaliação psiquiátrica agendada no HCTP (sem área: some quando o filtro de área está ligado) */
+      const h=this.hctpDoExame(ex.id);
+      if(h && (h.status==="agendado"||h.status==="realizado") && h.data && !this.calFiltroArea){
+        out.push({ data:h.data, hora:h.hora||"", dur:h.dur||"", tipo:"Avaliação psiquiátrica no HCTP", tipoK:"hctp", exId:ex.id, nome:ex.nome, mat:ex.mat||"",
+          done: h.status==="realizado", detalhe: h.local||"", regional: geral ? ((this.data.cocs.find(c=>c.id===this.cocIdDoExame(ex))||{}).nome||"") : "",
+          unid: ex.unid||"", area:"", video:false });
+      }
     });
     return out;
   },
@@ -1915,6 +1969,7 @@ const App = {
   },
   /* clique numa entrevista já marcada: abre o formulário de alteração dela, sem sair do calendário */
   calEditar(exId,k){
+    if(k==="hctp"){ this.abrir(exId); return; } /* agendamento do HCTP: muda-se pelo quadro no exame */
     this.calFormAberto={editar:true, exId, k};
     this.calRenderForm();
     this.calRolarForm();
@@ -2630,6 +2685,7 @@ Continuar mesmo assim (sem salvar)?`);
     this.novoTab("ident");
     this.syncRespNomes();
     this.atualizarEstadoExame(null);
+    this.renderHctpExame();
     document.getElementById("salvoMsg").textContent="";
     document.getElementById("verifInline").innerHTML="";
     this.triagem();
@@ -2921,6 +2977,8 @@ Continuar mesmo assim (sem salvar)?`);
     (ex.conds&&ex.conds.length?ex.conds:[{}]).forEach(c=>this.addCond(c));
     this.renderEtapas(ex.etapas||{});
     this.atualizarEstadoExame(ex);
+    this.renderHctpExame();
+    if(this.ehHctp()){ this.novoTab("quesitos"); this.relTab("psq"); } /* HCTP: direto na seção de Psiquiatria */
     document.getElementById("salvoMsg").textContent="";
     document.getElementById("verifInline").innerHTML="";
     this.triagem();
@@ -2947,7 +3005,7 @@ Continuar mesmo assim (sem salvar)?`);
     nome:"Nome do avaliado", mat:"Matrícula", unid:"Unidade prisional", proc:"Processo", sgpe:"SGPE", crimeSexual:"Crime sexual", tipo:"Finalidade do exame",
     dataDecisao:"Data da decisão judicial", dataProg:"Data prevista da progressão", dataBase:"Data-base", faltaNaoReab:"Falta grave não reabilitada", exameAnterior:"Exame anterior",
     modal:"Modalidade", filiacao:"Filiação", nasc:"Nascimento", regime:"Regime", juizo:"Juízo da execução", penaTotal:"Pena total",
-    beneficio:"Benefício pretendido", dataIni:"Início da avaliação", dataConcl:"Conclusão da avaliação", conds:"Condenações", obs:"Observações internas"
+    beneficio:"Benefício pretendido", hctpPedido:"Pedido ao HCTP (acesso do psiquiatra à seção de Psiquiatria)", dataIni:"Início da avaliação", dataConcl:"Conclusão da avaliação", conds:"Condenações", obs:"Observações internas"
   },
   ROTULO_SUB: {
     met:"Metodologia", coord:"Coordenação", direcao:"Direção", chefiaSeg:"Chefia de Segurança", execPenal:"Execução Penal",
@@ -3004,7 +3062,7 @@ Continuar mesmo assim (sem salvar)?`);
         if((ex.rel[f]||"")===(rel0[f]||"") || (ex.sup||{})[k]){ if(f in rel0) ex.rel[f]=rel0[f]; else delete ex.rel[f]; }
         else mudou=true;
       });
-      if(mudou && ok0[k] && ex.relOk[k] && !(ex.id===this.editId && this._relOkRemarcadas.has(k))){
+      if(mudou && ok0[k] && ex.relOk[k] && !(ex.id===this.editId && base===this._base && this._relOkRemarcadas.has(k))){
         ex.relOk[k]=false;
         if(ex.id===this.editId) this.desmarcarPorEdicao(k);
       }
@@ -3032,6 +3090,7 @@ Continuar mesmo assim (sem salvar)?`);
     if(!window.ExamesFS) return Promise.reject(new Error("sem conexão com o servidor."));
     if(this._gravando) return Promise.reject(new Error("aguarde a gravação anterior terminar."));
     const criando = o.acao==="criou";
+    const doFormulario = !o.base; /* base própria = gravação fora do formulário (calendário, acesso do HCTP) */
     const base = criando ? null : (o.base || (ex.id===this.editId && this._base) || this.baseDoServidor(ex));
     o={...o, base};
     const comConteudo=["criou","alterou","concluiu"].includes(o.acao);
@@ -3041,7 +3100,7 @@ Continuar mesmo assim (sem salvar)?`);
       if(o.acao==="alterou" && !d.alteracoes.length) return Promise.resolve({semMudanca:true});
       o.alteracoes=d.alteracoes; o.secoes=d.secoes;
       const r0=(base&&base.conteudo.relOk)||{}, r1=ex.relOk||{};
-      const remarcadas = ex.id===this.editId ? this._relOkRemarcadas : new Set();
+      const remarcadas = (doFormulario && ex.id===this.editId) ? this._relOkRemarcadas : new Set();
       o.relOkMarcadas=this.REL_OK_KEYS.filter(k=>r1[k]&&(!r0[k]||remarcadas.has(k)));
       o.relOkDesmarcadas=this.REL_OK_KEYS.filter(k=>!r1[k]&&r0[k]);
     }
@@ -3053,7 +3112,7 @@ Continuar mesmo assim (sem salvar)?`);
     const antes = cocNum ? window.ExamesFS.proximoExame(cocNum, ano).then(n=>{ ex.numCrim="CO"+String(cocNum).replace(/^coc/,"")+"-"+ano+"-"+String(n).padStart(4,"0"); }) : Promise.resolve();
     return antes.then(()=>window.ExamesFS.gravar(ex,o)).then(r=>{
       this._gravando=false;
-      if(ex.id===this.editId || (criando && o.doFormulario && o.formSeq===this._formSeq)) this._relOkRemarcadas=new Set();
+      if((doFormulario && ex.id===this.editId) || (criando && o.doFormulario && o.formSeq===this._formSeq)) this._relOkRemarcadas=new Set();
       if(criando && o.doFormulario && o.formSeq===this._formSeq) this.editId=ex.id;
       if(ex.id===this.editId){
         this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: (o.acao==="reabriu"||o.acao==="excluiu") ? base.conteudo : this.conteudoExame(ex) };
@@ -3091,7 +3150,7 @@ Continuar mesmo assim (sem salvar)?`);
      USUARIO/DIR/CPEN editam o resto, menos essas duas. Regionais e DPP editam tudo. */
   secaoExclusiva(){
     const p=(this._meuPerfil||{}).perfil;
-    return p==="PSICOLOGIA" ? "psi" : p==="SOCIAL" ? "soc" : null;
+    return p==="PSICOLOGIA" ? "psi" : p==="SOCIAL" ? "soc" : p==="HCTP" ? "psq" : null; /* HCTP: psiquiatra, só nos exames com pedido */
   },
   secoesBloqueadas(){
     return ["USUARIO","DIR","CPEN"].includes((this._meuPerfil||{}).perfil) ? ["psi","soc"] : [];
@@ -3372,6 +3431,233 @@ Continuar mesmo assim (sem salvar)?`);
   },
   fecharAviso(){ document.getElementById("avisoModal").style.display="none"; },
 
+  /* ---------- HCTP: agendamento da avaliação psiquiátrica ----------
+     O Centro pede (crime sexual, ou outra demanda como transtorno mental); o HCTP responde com data,
+     hora e local, ou recusa; depois de agendado, os dois lados podem remarcar e cancelar. O preso é
+     levado ao HCTP. O HCTP só vê a ficha da solicitação (nome, IPEN, unidade, Centro, prazo), nunca o
+     exame. novidadeParaHctp/novidadeParaCentro = aviso de "tem novidade" de cada lado (some com "Ciente"). */
+  HCTP_STATUS: {solicitado:"aguardando agendamento pelo HCTP", agendado:"agendado", recusado:"recusado pelo HCTP", cancelado:"cancelado", realizado:"realizado"},
+  HCTP_MOTIVO: {crimeSexual:"Crime sexual", transtorno:"Transtorno mental (suspeita ou registro)", outra:"Outra demanda"},
+  HCTP_ACAO: {solicitou:"pediu o agendamento", agendou:"agendou", remarcou:"remarcou", recusou:"recusou", cancelou:"cancelou", realizou:"registrou como realizada"},
+  HCTP_LOCAL: "HCTP — Hospital de Custódia e Tratamento Psiquiátrico (Florianópolis)",
+  ehHctp(){ return (this._meuPerfil||{}).perfil==="HCTP"; },
+  tsMs(t){ return t && typeof t.toMillis==="function" ? t.toMillis() : (t ? Date.parse(t)||0 : 0); },
+  hctpDoExame(exId){
+    const l=(this.data.hctp||[]).filter(h=>h.exameId===exId).sort((a,b)=>this.tsMs(b.solicitadoEm)-this.tsMs(a.solicitadoEm));
+    return l.find(h=>h.status!=="cancelado" && h.status!=="recusado") || l[0] || null;
+  },
+  hctpQuando(h){ return h.data ? fmt(h.data)+(h.hora?" às "+h.hora:"")+(h.dur?" ("+this.calDurMin(h.dur)+" min)":"") : "—"; },
+  hctpEventosHTML(h){
+    const ev=(h.eventos||[]).slice().reverse();
+    if(!ev.length) return "";
+    return `<details style="margin-top:6px;"><summary class="muted" style="cursor:pointer; font-size:12px;">Histórico (${ev.length})</summary><ul class="note" style="margin:4px 0 0 18px;">${ev.map(e=>
+      `<li>${esc(fmtTs(e.em))} — <b>${esc(e.lado)}</b> (${esc(e.por||"?")}) ${esc(this.HCTP_ACAO[e.acao]||e.acao)}${e.detalhe?": "+esc(e.detalhe):""}</li>`).join("")}</ul></details>`;
+  },
+  aoSincronizarHctp(){
+    this.renderHctpExame();
+    this.renderHctpAvisos();
+    if(document.getElementById("v-hctp").classList.contains("on")) this.renderHctp();
+    if(document.getElementById("v-cal").classList.contains("on")) this.renderCalendario();
+  },
+  /* ---- lado do Centro: quadro no exame ---- */
+  renderHctpExame(){
+    const box=document.getElementById("hctpExameBox"); if(!box) return;
+    if(this.ehHctp()){ box.innerHTML=""; return; }
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    const h=ex ? this.hctpDoExame(ex.id) : null;
+    const cs=document.getElementById("e_crimeSexual").checked;
+    const ativo = h && (h.status==="solicitado" || h.status==="agendado");
+    let corpo="";
+    if(h){
+      corpo+=`<p style="margin:6px 0;">Situação: <span class="badge ${h.status==="agendado"?"b-ok":h.status==="solicitado"?"b-warn":"b-mut"}">${esc(this.HCTP_STATUS[h.status]||h.status)}</span>
+        ${h.status==="agendado"||h.status==="realizado"?` — <b>${esc(this.hctpQuando(h))}</b>${h.local?" — "+esc(h.local):""}`:""}</p>
+        ${h.resposta?`<p class="note" style="margin:4px 0;">HCTP: ${esc(h.resposta)}</p>`:""}
+        ${h.motivoCancelamento?`<p class="note" style="margin:4px 0;">Motivo do cancelamento: ${esc(h.motivoCancelamento)}</p>`:""}`;
+      if(h.status==="agendado"){
+        corpo+=`<div class="btnrow" style="margin-top:6px;">
+          <input type="date" id="hctpRemData" value="${esc(h.data)}" style="width:auto;"> <input type="time" id="hctpRemHora" value="${esc(h.hora)}" style="width:auto;">
+          <button class="btn sm ghost" type="button" onclick="App.hctpRemarcar('${h.id}')">Remarcar</button>
+          <button class="btn sm ghost" type="button" onclick="App.hctpCancelar('${h.id}')">Cancelar agendamento</button></div>`;
+      } else if(h.status==="solicitado"){
+        corpo+=`<div class="btnrow" style="margin-top:6px;"><button class="btn sm ghost" type="button" onclick="App.hctpCancelar('${h.id}')">Cancelar pedido</button></div>`;
+      }
+      /* o psiquiatra do HCTP escreve a seção de Psiquiatria: ela não pode estar como "sem psiquiatra" ou "não se aplica" */
+      const semPsq=(document.getElementById("q_semPsq")||{}).checked, supPsq=(document.getElementById("sup_psq")||{}).checked;
+      if(h.status!=="cancelado" && h.status!=="recusado" && (semPsq||supPsq)) corpo+=`<p class="note" style="color:var(--warn); margin:4px 0;">⚠ Este exame está marcado como ${semPsq?"<b>sem psiquiatra</b> (aba Equipe examinadora)":"<b>não se aplica</b> na seção de Psiquiatria"} — desmarque, para o texto do psiquiatra do HCTP entrar no relatório.</p>`;
+      corpo+=`<p class="note" style="margin:4px 0;">Com o pedido ativo ou a avaliação realizada, o psiquiatra do HCTP preenche a <b>seção de Psiquiatria</b> deste exame (só ela). Para o nome dele sair como Psiquiatra no registro de autoria, coloque-o na equipe examinadora, com a matrícula.</p>`;
+      corpo+=this.hctpEventosHTML(h);
+    }
+    if(!ex){
+      corpo+=`<p class="note" style="margin:6px 0;">Salve o exame para poder pedir o agendamento no HCTP.</p>`;
+    } else if(!ativo && ex.status!=="concluido" && (!h || h.status!=="realizado")){
+      corpo+=`<p class="note" style="margin:6px 0;">${h?"Fazer um novo pedido":"Para crime sexual ou outra demanda (por exemplo, transtorno mental), peça aqui a avaliação psiquiátrica no HCTP — o HCTP responde com a data e a hora, e o preso é levado até lá"}:</p>
+        <div class="row c2"><div><label class="f">Motivo</label><select id="hctpMotivo">${Object.entries(this.HCTP_MOTIVO).map(([v,t])=>`<option value="${v}" ${v===(cs?"crimeSexual":"transtorno")?"selected":""}>${t}</option>`).join("")}</select></div>
+        <div><label class="f">Observação para o HCTP <span class="muted" style="font-weight:normal; text-transform:none;">(obrigatória se não for crime sexual)</span></label><input type="text" id="hctpObs" placeholder="ex.: registro de acompanhamento psiquiátrico"></div></div>
+        <div class="btnrow" style="margin-top:6px;"><button class="btn sm" type="button" onclick="App.hctpSolicitar()">Solicitar agendamento no HCTP</button></div>`;
+    }
+    box.innerHTML=`<div class="lawbox" style="background:#F6F1FA; border-color:#DCCDE8; border-left-color:#7A2E8E;"><b>Avaliação psiquiátrica no HCTP</b>${corpo}</div>`;
+  },
+  async hctpSolicitar(){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId); if(!ex) return;
+    const motivo=document.getElementById("hctpMotivo").value, obs=document.getElementById("hctpObs").value.trim();
+    if(motivo!=="crimeSexual" && !obs){ alert("Descreva a demanda na observação para o HCTP."); return; }
+    const coc=this.data.cocs.find(c=>c.id===this.cocIdDoExame(ex))||{};
+    const lim=this.prazoLimite(ex);
+    const d={exameId:ex.id, nome:ex.nome, ipen:ex.mat||"", unidade:ex.unidade||null, sr:ex.sr||null, coc:coc.id||null, cocNome:coc.nome||"",
+      prazo: lim ? lim.toISOString().slice(0,10) : "", motivo, obs};
+    try{ await window.HctpFS.solicitar(d, this.HCTP_MOTIVO[motivo]+(obs?" — "+obs:"")); }
+    catch(e){ alert("Não foi possível enviar o pedido: "+(e?.code||e?.message||e)); return; }
+    const ok=await this.hctpAtualizarAcesso(ex.id, true);
+    alert("Pedido enviado ao HCTP. A resposta aparece aqui, no calendário e no Painel."+(ok?"":"\n\nAtenção: não foi possível liberar a seção de Psiquiatria deste exame para o HCTP — salve o exame e tente de novo, ou peça a quem pode editá-lo."));
+  },
+  /* acesso do HCTP ao exame (só à seção de Psiquiatria — ver firestore.rules): ligado enquanto houver
+     pedido aguardando, agendado ou realizado; desligado quando o pedido é cancelado/recusado e não sobra
+     outro. Gravado no exame (com histórico) por quem pode editá-lo. */
+  async hctpAtualizarAcesso(exId, quer){
+    const ex=this.data.exames.find(x=>x.id===exId); if(!ex) return false;
+    if(quer===undefined) quer=(this.data.hctp||[]).some(h=>h.exameId===exId && ["solicitado","agendado","realizado"].includes(h.status));
+    if(!!ex.hctpPedido===quer || ex.status==="concluido") return true;
+    try{ await this.gravarExame({...ex, hctpPedido:quer},{acao:"alterou", base:this.baseDoServidor(ex)}); return true; }
+    catch(e){ console.error("Falha ao ajustar o acesso do HCTP:", e); return false; }
+  },
+  hctpAchar(id){ return (this.data.hctp||[]).find(h=>h.id===id); },
+  async hctpRemarcar(id){
+    const h=this.hctpAchar(id); if(!h) return;
+    const data=document.getElementById("hctpRemData").value, hora=document.getElementById("hctpRemHora").value;
+    if(!data || !hora){ alert("Informe a nova data e o horário."); return; }
+    if(data===h.data && hora===h.hora){ alert("A data e o horário são os mesmos de agora."); return; }
+    try{ await window.HctpFS.atualizar(h, {status:"agendado", data, hora, novidadeParaHctp:true}, "remarcou", "para "+fmt(data)+" às "+hora); }
+    catch(e){ alert("Não foi possível remarcar: "+(e?.code||e?.message||e)); }
+  },
+  async hctpCancelar(id){
+    const h=this.hctpAchar(id); if(!h) return;
+    const motivo=prompt("Motivo do cancelamento (vai para o "+(this.ehHctp()?"Centro":"HCTP")+"):"); if(motivo===null) return;
+    if(!motivo.trim()){ alert("Informe o motivo."); return; }
+    const aviso=this.ehHctp()?{novidadeParaCentro:true, novidadeParaHctp:false}:{novidadeParaHctp:true};
+    try{ await window.HctpFS.atualizar(h, {status:"cancelado", motivoCancelamento:motivo.trim(), ...aviso}, "cancelou", motivo.trim()); }
+    catch(e){ alert("Não foi possível cancelar: "+(e?.code||e?.message||e)); return; }
+    /* Centro cancelou: sem outro pedido ativo, o HCTP deixa de acessar a Psiquiatria do exame */
+    if(!this.ehHctp()) await this.hctpAtualizarAcesso(h.exameId, (this.data.hctp||[]).some(o=>o.id!==h.id && o.exameId===h.exameId && ["solicitado","agendado","realizado"].includes(o.status)));
+  },
+  async hctpCiente(id){
+    const h=this.hctpAchar(id); if(!h) return;
+    try{ await window.HctpFS.ciente(h); }catch(e){ alert("Não foi possível marcar como ciente: "+(e?.code||e?.message||e)); return; }
+    /* recusa ou cancelamento pelo HCTP: o Centro, ao tomar ciência, fecha o acesso do HCTP ao exame */
+    if(!this.ehHctp() && (h.status==="recusado"||h.status==="cancelado")) await this.hctpAtualizarAcesso(h.exameId);
+  },
+  /* ---- lado do Centro: avisos no Painel (respostas do HCTP) ---- */
+  renderHctpAvisos(){
+    const box=document.getElementById("hctpAvisosBox"); if(!box) return;
+    if(this.ehHctp()){ box.innerHTML=""; return; }
+    const novos=(this.data.hctp||[]).filter(h=>h.novidadeParaCentro && (this.coc==="_cepen" || h.coc===this.coc));
+    if(!novos.length){ box.innerHTML=""; return; }
+    box.innerHTML=`<div class="orient warn" style="margin-bottom:10px;"><b>HCTP — ${novos.length===1?"1 resposta nova":novos.length+" respostas novas"}</b>
+      <ul style="margin:6px 0;">${novos.map(h=>`<li><a href="#" onclick="App.abrir('${h.exameId}');return false;">${esc(h.nome)}</a>${h.ipen?" — IPEN "+esc(h.ipen):""}:
+        ${esc(this.HCTP_STATUS[h.status]||h.status)}${h.status==="agendado"?" para <b>"+esc(this.hctpQuando(h))+"</b>":""}${h.resposta&&h.status==="recusado"?" — "+esc(h.resposta):""}${h.motivoCancelamento&&h.status==="cancelado"?" — "+esc(h.motivoCancelamento):""}
+        <button class="btn sm ghost" type="button" onclick="App.hctpCiente('${h.id}')">Ciente</button></li>`).join("")}</ul></div>`;
+  },
+  /* ---- lado do HCTP ---- */
+  hctpCalAno:null, hctpCalMes:null,
+  hctpConflito(h, data, hora, dur){
+    const ini=this.calMinutos(hora); if(ini==null) return null;
+    const fim=ini+(this.calDurMin(dur)||this.CAL_DUR_PADRAO);
+    return (this.data.hctp||[]).find(o=>o.id!==h.id && o.status==="agendado" && o.data===data && (()=>{ const i2=this.calMinutos(o.hora); if(i2==null) return false; const f2=i2+(this.calDurMin(o.dur)||this.CAL_DUR_PADRAO); return ini<f2 && i2<fim; })());
+  },
+  hctpCampos(h){
+    return `<div class="row c3" style="margin-top:6px;">
+      <div><label class="f">Data</label><input type="date" id="hD_${h.id}" value="${esc(h.data||"")}"></div>
+      <div><label class="f">Horário</label><input type="time" id="hH_${h.id}" value="${esc(h.hora||"")}"></div>
+      <div><label class="f">Duração (minutos)</label><input type="number" min="5" step="5" id="hU_${h.id}" value="${esc(this.calDurMin(h.dur)||60)}"></div></div>
+      <div class="row c2"><div><label class="f">Local</label><input type="text" id="hL_${h.id}" value="${esc(h.local||this.HCTP_LOCAL)}"></div>
+      <div><label class="f">Observação para o Centro (opcional)</label><input type="text" id="hR_${h.id}" value="${esc(h.resposta||"")}"></div></div>`;
+  },
+  hctpFicha(h){
+    const pz=h.prazo?` · prazo do exame: <b>${fmt(h.prazo)}</b>`:"";
+    return `<b>${esc(h.nome)}</b>${h.ipen?" — IPEN "+esc(h.ipen):""}<br><span class="note" style="margin:0;">${esc(h.unidade||"—")} · ${esc(h.cocNome||"—")}${pz}<br>
+      Motivo: ${esc(this.HCTP_MOTIVO[h.motivo]||h.motivo||"—")}${h.obs?" — "+esc(h.obs):""} · pedido por ${esc(h.solicitadoPorNome||"—")} em ${esc(fmtTs(h.solicitadoEm))}</span>${this.hctpBotaoPsq(h)}`;
+  },
+  /* seção de Psiquiatria do exame: o HCTP só acessa exames com pedido ativo ou realizado */
+  hctpBotaoPsq(h){
+    const ex=this.data.exames.find(x=>x.id===h.exameId);
+    if(!ex) return "";
+    const feita=(ex.relOk||{}).psq;
+    return `<div style="margin-top:6px;"><button class="btn sm ${feita?"ghost":""}" type="button" onclick="App.abrir('${ex.id}')">Abrir a seção de Psiquiatria</button> <span class="badge ${feita?"b-ok":"b-warn"}">Psiquiatria ${feita?"concluída":"a preencher"}</span></div>`;
+  },
+  renderHctp(){
+    const todas=(this.data.hctp||[]);
+    const pend=todas.filter(h=>h.status==="solicitado").sort((a,b)=>String(a.prazo||"9").localeCompare(String(b.prazo||"9")));
+    const novidades=todas.filter(h=>h.novidadeParaHctp && h.status!=="solicitado");
+    const ag=todas.filter(h=>h.status==="agendado").sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora));
+    document.getElementById("hctpPendBox").innerHTML =
+      (novidades.length?`<div class="orient warn" style="margin-bottom:10px;"><b>Mudanças feitas pelos Centros</b><ul style="margin:6px 0;">${novidades.map(h=>
+        `<li>${esc(h.nome)} (${esc(h.cocNome||"—")}): ${esc(this.HCTP_STATUS[h.status]||h.status)}${h.status==="agendado"?" — "+esc(this.hctpQuando(h)):""}${h.motivoCancelamento&&h.status==="cancelado"?" — "+esc(h.motivoCancelamento):""}
+          <button class="btn sm ghost" type="button" onclick="App.hctpCiente('${h.id}')">Ciente</button></li>`).join("")}</ul></div>`:"")
+      +(pend.length ? pend.map(h=>`<div class="etapa" style="display:block;">${this.hctpFicha(h)}${this.hctpCampos(h)}
+          <div class="btnrow" style="margin-top:6px;"><button class="btn sm" type="button" onclick="App.hctpAgendar('${h.id}')">Agendar e avisar o Centro</button>
+          <button class="btn sm ghost" type="button" onclick="App.hctpRecusar('${h.id}')">Recusar</button></div>${this.hctpEventosHTML(h)}</div>`).join("")
+        : `<p class="note">Nenhuma solicitação aguardando agendamento. ✓</p>`);
+    document.getElementById("hctpAgBox").innerHTML = ag.length ? ag.map(h=>`<div class="etapa" style="display:block;">
+        <span class="badge b-ok">${esc(this.hctpQuando(h))}</span> ${this.hctpFicha(h)}
+        <details style="margin-top:6px;"><summary style="cursor:pointer; font-size:12.5px;">Remarcar, cancelar ou registrar como realizada</summary>${this.hctpCampos(h)}
+          <div class="btnrow" style="margin-top:6px;"><button class="btn sm" type="button" onclick="App.hctpAgendar('${h.id}')">Remarcar e avisar o Centro</button>
+          <button class="btn sm ghost" type="button" onclick="App.hctpCancelar('${h.id}')">Cancelar</button>
+          <button class="btn sm ghost" type="button" onclick="App.hctpRealizado('${h.id}')">Avaliação realizada</button></div></details>${this.hctpEventosHTML(h)}</div>`).join("")
+      : `<p class="note">Nenhuma avaliação agendada.</p>`;
+    const feitas=todas.filter(h=>h.status==="realizado").sort((a,b)=>(b.data+b.hora).localeCompare(a.data+a.hora));
+    if(feitas.length) document.getElementById("hctpAgBox").innerHTML += `<h3 style="margin-top:16px;">Realizadas — seção de Psiquiatria</h3>`+feitas.map(h=>`<div class="etapa" style="display:block;"><span class="badge b-mut">${esc(this.hctpQuando(h))}</span> ${this.hctpFicha(h)}</div>`).join("");
+    this.renderHctpCal();
+  },
+  async hctpAgendar(id){
+    const h=this.hctpAchar(id); if(!h) return;
+    const v=k=>document.getElementById(k+"_"+id).value.trim();
+    const data=v("hD"), hora=v("hH"), dur=v("hU"), local=v("hL"), resposta=v("hR");
+    if(!data || !hora){ alert("Informe a data e o horário."); return; }
+    if(!this.calDurMin(dur)){ alert("Informe a duração, em minutos."); return; }
+    const c=this.hctpConflito(h, data, hora, dur);
+    if(c && !confirm("Já existe avaliação agendada nesse horário:\n\n"+c.nome+" ("+(c.cocNome||"—")+") — "+this.hctpQuando(c)+"\n\nSalvar assim mesmo?")) return;
+    const remarcando=h.status==="agendado";
+    try{ await window.HctpFS.atualizar(h, {status:"agendado", data, hora, dur, local, resposta, novidadeParaCentro:true, novidadeParaHctp:false},
+      remarcando?"remarcou":"agendou", fmt(data)+" às "+hora+(local?" — "+local:"")); }
+    catch(e){ alert("Não foi possível salvar: "+(e?.code||e?.message||e)); }
+  },
+  async hctpRecusar(id){
+    const h=this.hctpAchar(id); if(!h) return;
+    const motivo=prompt("Motivo da recusa (vai para o Centro):"); if(motivo===null) return;
+    if(!motivo.trim()){ alert("Informe o motivo."); return; }
+    try{ await window.HctpFS.atualizar(h, {status:"recusado", resposta:motivo.trim(), novidadeParaCentro:true, novidadeParaHctp:false}, "recusou", motivo.trim()); }
+    catch(e){ alert("Não foi possível recusar: "+(e?.code||e?.message||e)); }
+  },
+  async hctpRealizado(id){
+    const h=this.hctpAchar(id); if(!h) return;
+    if(!confirm("Registrar a avaliação de "+h.nome+" ("+this.hctpQuando(h)+") como realizada?")) return;
+    try{ await window.HctpFS.atualizar(h, {status:"realizado", novidadeParaCentro:true, novidadeParaHctp:false}, "realizou", ""); }
+    catch(e){ alert("Não foi possível salvar: "+(e?.code||e?.message||e)); }
+  },
+  hctpMudarMes(d){ this.hctpCalMes+=d; if(this.hctpCalMes<0){this.hctpCalMes=11;this.hctpCalAno--;} if(this.hctpCalMes>11){this.hctpCalMes=0;this.hctpCalAno++;} this.renderHctpCal(); },
+  renderHctpCal(){
+    const hoje=new Date();
+    if(this.hctpCalAno==null){ this.hctpCalAno=hoje.getFullYear(); this.hctpCalMes=hoje.getMonth(); }
+    const ano=this.hctpCalAno, mes=this.hctpCalMes;
+    document.getElementById("hctpCalTitulo").textContent=new Date(ano,mes,1).toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    const ag=(this.data.hctp||[]).filter(h=>(h.status==="agendado"||h.status==="realizado") && h.data);
+    const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    const ini=new Date(ano,mes,1); ini.setDate(1-ini.getDay());
+    const hojeISO=iso(hoje);
+    let html=`<table style="table-layout:fixed; min-width:640px;"><tr>${["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map(d=>`<th>${d}</th>`).join("")}</tr>`;
+    for(let w=0; w<6; w++){
+      html+="<tr>";
+      for(let i=0;i<7;i++){
+        const d=new Date(ini); d.setDate(ini.getDate()+w*7+i);
+        const dISO=iso(d), doMes=d.getMonth()===mes;
+        const evs=ag.filter(h=>h.data===dISO).sort((a,b)=>(a.hora||"").localeCompare(b.hora||""));
+        html+=`<td style="vertical-align:top; height:84px; ${doMes?"":"opacity:.45;"} ${dISO===hojeISO?"background:#EEF5EE;":""}"><div style="font-size:11px; font-weight:700;">${d.getDate()}</div>${evs.map(h=>
+          `<div class="cal-evt ${h.status==="realizado"?"":"pend"}" title="${esc(h.nome)} — ${esc(h.cocNome||"")} — ${esc(this.hctpQuando(h))}">${esc(h.hora||"")} ${esc(h.nome.split(" ")[0])} · ${esc((h.cocNome||"").split(" — ")[0])}</div>`).join("")}</td>`;
+      }
+      html+="</tr>";
+    }
+    document.getElementById("hctpCalBox").innerHTML=html+"</table>";
+  },
+
   /* ---------- prazo/status ---------- */
   /* prazo para concluir o exame: 30 dias contados da decisão judicial (vale para qualquer finalidade) */
   prazoLimite(ex){
@@ -3412,6 +3698,7 @@ Continuar mesmo assim (sem salvar)?`);
     this.renderLista();
   },
   renderDash(){
+    this.renderHctpAvisos();
     if(this.coc==="_cepen"){ this.renderDashGeral(); return; }
     document.getElementById("acompCard").style.display="";
     this.renderParaVoce();
@@ -4196,7 +4483,7 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
-const PERFIL_LABEL = { USUARIO:"Usuário", PSICOLOGIA:"Usuário Psicologia", SOCIAL:"Usuário Assistente Social", CPEN:"CPEN", DIR:"Diretor(a)", SR:"Superintendente Regional", SR_PSICOLOGIA:"SR — Psicólogo(a) de cobertura regional", SR_SOCIAL:"SR — Assistente Social de cobertura regional", DPP:"DPP" };
+const PERFIL_LABEL = { USUARIO:"Usuário", PSICOLOGIA:"Usuário Psicologia", SOCIAL:"Usuário Assistente Social", CPEN:"CPEN", DIR:"Diretor(a)", SR:"Superintendente Regional", SR_PSICOLOGIA:"SR — Psicólogo(a) de cobertura regional", SR_SOCIAL:"SR — Assistente Social de cobertura regional", HCTP:"HCTP — agendamento psiquiátrico", DPP:"DPP" };
 window.PERFIL_LABEL = PERFIL_LABEL; /* usado no registro de autoria do relatório (script clássico) */
 const PERFIS_NIVEL_USUARIO = ["USUARIO","PSICOLOGIA","SOCIAL"];
 /* perfis com alcance de toda a SR (não de uma unidade só) mas sem alçada administrativa —
@@ -4275,6 +4562,7 @@ const AuthUI = {
         SR: "Contas de Superintendência só são liberadas diretamente pelo DPP.",
         SR_PSICOLOGIA: "Contas de cobertura regional só são liberadas diretamente pelo DPP.",
         SR_SOCIAL: "Contas de cobertura regional só são liberadas diretamente pelo DPP.",
+        HCTP: "Contas do HCTP (agendamento das avaliações psiquiátricas, todo o estado) só são liberadas diretamente pelo DPP.",
         DPP: "Contas de acesso total só são liberadas por quem já é DPP.",
       };
       document.getElementById("regAprovacaoNota").textContent = notas[f] || "";
@@ -4302,7 +4590,7 @@ const AuthUI = {
     const email = document.getElementById("regEmail").value.trim();
     const senha = document.getElementById("regSenha").value;
     const matricula = document.getElementById("regMatricula").value.trim();
-    if(!nome || !email || !senha || !matricula || (funcao!=="DPP" && !unidade && !sr)){
+    if(!nome || !email || !senha || !matricula || (!["DPP","HCTP"].includes(funcao) && !unidade && !sr)){
       this.erro("authRegistroErro","Preencha todos os campos."); return;
     }
     try{
@@ -4322,7 +4610,7 @@ const AuthUI = {
     const unidade = ([...PERFIS_NIVEL_USUARIO,"CPEN","DIR"].includes(funcao)) ? document.getElementById("compUnidade").value : null;
     const sr = (funcao==="SR"||PERFIS_SR_COBERTURA.includes(funcao)) ? document.getElementById("compSR").value : (unidade ? srDaUnidade(unidade) : null);
     const matricula = document.getElementById("compMatricula").value.trim();
-    if(!nome || !matricula || (funcao!=="DPP" && !unidade && !sr)){
+    if(!nome || !matricula || (!["DPP","HCTP"].includes(funcao) && !unidade && !sr)){
       this.erro("authCompletarErro","Preencha todos os campos."); return;
     }
     try{
@@ -4738,6 +5026,7 @@ const ExamesFS = {
     if(unsubscribeExames){ unsubscribeExames(); unsubscribeExames=null; }
     let q;
     if(perfil.perfil === "DPP") q = collection(db,"exames");
+    else if(perfil.perfil === "HCTP") q = query(collection(db,"exames"), where("hctpPedido","==", true)); /* só os exames com pedido ao HCTP (seção de Psiquiatria) */
     else if(perfil.perfil === "SR" || PERFIS_SR_COBERTURA.includes(perfil.perfil)) q = query(collection(db,"exames"), where("sr","==", perfil.sr));
     else q = query(collection(db,"exames"), where("unidade","==", perfil.unidade));
     unsubscribeExames = onSnapshot(q, (snap)=>{
@@ -4917,11 +5206,56 @@ const QuadroFS = {
 };
 window.QuadroFS = QuadroFS;
 
+/* ---------- HCTP: solicitações de agendamento da avaliação psiquiátrica (coleção hctp) ----------
+   Mesmo recorte dos exames: unidade vê as da unidade, regionais as da SR, DPP e HCTP todas.
+   Cada mudança acrescenta um item em "eventos" (quem, quando, o quê) — a regra do Firestore só
+   aceita acrescentar, nunca apagar ou reescrever os anteriores. */
+let unsubscribeHctp = null;
+const HctpFS = {
+  subscribe(perfil){
+    this.parar();
+    let q;
+    if(perfil.perfil === "DPP" || perfil.perfil === "HCTP") q = collection(db,"hctp");
+    else if(perfil.perfil === "SR" || PERFIS_SR_COBERTURA.includes(perfil.perfil)) q = query(collection(db,"hctp"), where("sr","==", perfil.sr));
+    else q = query(collection(db,"hctp"), where("unidade","==", perfil.unidade));
+    unsubscribeHctp = onSnapshot(q, (snap)=>{
+      window.App.data.hctp = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      window.App.aoSincronizarHctp();
+    }, (err)=>{ console.error("Falha ao sincronizar HCTP:", err); });
+  },
+  parar(){ if(unsubscribeHctp){ unsubscribeHctp(); unsubscribeHctp=null; } },
+  lado(){ return meuPerfilDoc?.perfil === "HCTP" ? "HCTP" : "Centro"; },
+  evento(acao, detalhe){ return { em: new Date().toISOString(), por: meuPerfilDoc?.nome || "", lado: this.lado(), acao, detalhe: detalhe || "" }; },
+  async solicitar(d, detalhe){
+    const ref = doc(collection(db, "hctp"));
+    const agora = serverTimestamp();
+    await setDoc(ref, {
+      ...d, status: "solicitado", data: "", hora: "", dur: "", local: "", resposta: "", motivoCancelamento: "",
+      novidadeParaHctp: true, novidadeParaCentro: false,
+      solicitadoPor: meuUid, solicitadoPorNome: meuPerfilDoc?.nome || "", solicitadoEm: agora,
+      atualizadoPor: meuUid, atualizadoPorNome: meuPerfilDoc?.nome || "", atualizadoEm: agora, atualizadoLado: "Centro",
+      eventos: [ this.evento("solicitou", detalhe) ],
+    });
+  },
+  async atualizar(h, campos, acao, detalhe){
+    await updateDoc(doc(db, "hctp", h.id), {
+      ...campos,
+      atualizadoPor: meuUid, atualizadoPorNome: meuPerfilDoc?.nome || "", atualizadoEm: serverTimestamp(), atualizadoLado: this.lado(),
+      eventos: [ ...(h.eventos || []), this.evento(acao, detalhe) ],
+    });
+  },
+  /* "Ciente": tira o aviso de novidade do próprio lado */
+  async ciente(h){
+    await updateDoc(doc(db, "hctp", h.id), this.lado() === "HCTP" ? { novidadeParaHctp: false } : { novidadeParaCentro: false });
+  },
+};
+window.HctpFS = HctpFS;
+
 /* ---------- Boot / roteamento por estado de autenticação ---------- */
 onAuthStateChanged(auth, async (usuarioFirebase) => {
   if(!usuarioFirebase){
     meuPerfilDoc = null; meuUid = null;
-    ExamesFS.parar();
+    ExamesFS.parar(); HctpFS.parar();
     window.App.quadro = null; // lista de servidores não fica na memória depois do logout
     document.getElementById("appShell").style.display = "none";
     document.getElementById("authShell").style.display = "block";
@@ -4965,6 +5299,7 @@ onAuthStateChanged(auth, async (usuarioFirebase) => {
   window.App.init();
   window.App.aplicarEscopoPerfil(meuPerfilDoc);
   ExamesFS.subscribe(meuPerfilDoc);
+  HctpFS.subscribe(meuPerfilDoc);
   CentrosFS.carregar();
   QuadroFS.carregar();
   AuthUI.atualizarBotaoUsuario(meuPerfilDoc);
