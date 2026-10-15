@@ -2216,9 +2216,7 @@ const App = {
       <div class="card kpi crit" onclick="App.filtrarPainel('andamento','b-crit')"><b>${totals.crit}</b><span>prazo crítico / vencido</span></div>
       <div class="card kpi warn" onclick="App.filtrarPainel('andamento','b-warn')"><b>${totals.warn}</b><span>atenção (≤ 15 dias)</span></div>
       <div class="card kpi ok" onclick="App.filtrarPainel('concluido','')"><b>${totals.conc}</b><span>concluídos</span></div>`;
-    document.getElementById("orientBox").innerHTML = totals.crit
-      ? `<div class="orient crit"><b>Priorize:</b> ${totals.crit} exame(s) com prazo crítico ou vencido no estado — veja abaixo em qual(is) regional(is).</div>`
-      : `<div class="orient ok"><b>Nenhum exame com prazo crítico no estado.</b> ✓</div>`;
+    document.getElementById("orientBox").innerHTML=""; /* sem a linha "Priorize": os números já estão nos indicadores acima */
     document.getElementById("prazosBox").innerHTML = `
       <table><tr><th>Regional</th><th>Em andamento</th><th>Prazo crítico</th><th>Atenção</th><th>Concluídos</th><th></th></tr>
       ${linhas.map(r=>`<tr onclick="App.abrirRegional('${r.c.id}')">
