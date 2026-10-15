@@ -3779,7 +3779,7 @@ Continuar mesmo assim (sem salvar)?`);
       <div class="card kpi crit" onclick="App.filtrarPainel('andamento','b-crit')"><b>${crit.length}</b><span>prazo crítico / vencido</span></div>
       <div class="card kpi warn" onclick="App.filtrarPainel('andamento','b-warn')"><b>${warn.length}</b><span>atenção (≤ 15 dias)</span></div>
       <div class="card kpi ok" onclick="App.filtrarPainel('concluido','')"><b>${exs.filter(e=>e.status==="concluido").length}</b><span>concluídos</span></div>`;
-    this.renderOrientacao(and, crit, warn);
+    document.getElementById("orientBox").innerHTML=""; /* sem o quadro "Priorize hoje": os números já estão nos indicadores acima */
 
     // acompanhamento seção a seção: os ainda não finalizados primeiro (menos prontos no topo), depois os concluídos
     document.getElementById("acompTitle").innerHTML = `Andamento dos exames${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— seções do relatório: <span class="sec ok">✓ concluída</span> <span class="sec na">✓ não se aplica</span> <span class="sec">pendente</span> · linha verde = exame com todas as seções prontas (passe o mouse numa seção para ver o responsável)</span>`;
@@ -3829,21 +3829,6 @@ Continuar mesmo assim (sem salvar)?`);
         </table>`;
     } else {
       painelCard.style.display="none";
-    }
-  },
-  renderOrientacao(and, crit, warn){
-    const box=document.getElementById("orientBox");
-    if(crit.length){
-      const top=crit.slice().sort((a,b)=>(a.dataDecisao||"9999")>(b.dataDecisao||"9999")?1:-1).slice(0,3);
-      box.innerHTML=`<div class="orient crit"><b>Priorize hoje:</b> ${crit.length} exame(s) com prazo crítico ou vencido neste centro.
-        <ul>${top.map(e=>`<li>${esc(e.nome)} — prazo do exame em ${(()=>{const d=this.prazoLimite(e);return d?d.toLocaleDateString("pt-BR"):"—";})()}</li>`).join("")}</ul>
-        A distribuição dos exames deve considerar as datas previstas e os prazos judiciais (art. 12, parágrafo único, da Portaria).</div>`;
-    } else if(warn.length){
-      box.innerHTML=`<div class="orient warn"><b>Atenção:</b> ${warn.length} exame(s) com prazo se aproximando (≤ 15 dias). Nenhum está vencido, mas vale antecipar a agenda da equipe.</div>`;
-    } else if(and.length){
-      box.innerHTML=`<div class="orient ok"><b>Situação sob controle:</b> ${and.length} exame(s) em andamento neste centro, nenhum com prazo crítico. ✓</div>`;
-    } else {
-      box.innerHTML=`<div class="orient ok"><b>Nenhum exame em andamento neste centro.</b> ✓</div>`;
     }
   },
   /* ---------- clique nos números do painel ("quantos são" → "quais são") ----------
