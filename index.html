@@ -1669,6 +1669,8 @@ const App = {
        do escopo (defensivo — no uso real isto roda uma vez só por sessão) */
     const btnConfigReset=document.querySelector('nav.tabs button[data-v="config"]'); if(btnConfigReset) btnConfigReset.style.display="";
     const btnNovoReset=document.querySelector('nav.tabs button[data-v="novo"]'); if(btnNovoReset) btnNovoReset.style.display="";
+    /* Psicologia/Serviço Social da unidade só preenchem a própria seção — não cadastram exame */
+    if(btnNovoReset && perfil && ["PSICOLOGIA","SOCIAL"].includes(perfil.perfil)) btnNovoReset.style.display="none";
     const btnCosReset=document.querySelector('#cfgTabs button[data-c="cos"]'); if(btnCosReset) btnCosReset.style.display="";
 
     /* Equipe examinadora (art. 5º) so e designada por quem tem alcada regional pra isso
@@ -2094,6 +2096,7 @@ const App = {
       .catch(e=>alert("Falhou ao salvar: "+e.message));
   },
   calSalvarAgendamento(){
+    if(this.secaoExclusiva()){ this.avisoSoSecao(); return; }
     const exId=document.getElementById("calfExame").value;
     const tipo=document.getElementById("calfTipo").value;
     const f=this.calLerForm(tipo);
@@ -2108,6 +2111,7 @@ const App = {
     this.calGravarEtapa(exServidor, tipo, Object.assign({ok:false}, atual, f), "Entrevista agendada para "+exServidor.nome+".");
   },
   calSalvarAlteracao(){
+    if(this.secaoExclusiva()){ this.avisoSoSecao(); return; }
     const {exId,k}=this.calFormAberto||{};
     const exServidor=this.data.exames.find(x=>x.id===exId); if(!exServidor) return;
     if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de alterar."); return; }
@@ -2120,6 +2124,7 @@ const App = {
     this.calGravarEtapa(exServidor, k, novo, "Entrevista de "+exServidor.nome+" alterada.");
   },
   calDesmarcar(){
+    if(this.secaoExclusiva()){ this.avisoSoSecao(); return; }
     const {exId,k}=this.calFormAberto||{};
     const exServidor=this.data.exames.find(x=>x.id===exId); if(!exServidor) return;
     if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de alterar."); return; }
@@ -2810,8 +2815,24 @@ Continuar mesmo assim (sem salvar)?`);
     const exServidor = this.editId ? this.data.exames.find(x=>x.id===this.editId) : null;
     if(this.editId && !exServidor){ alert("Este exame não está mais disponível (pode ter sido excluído por outra pessoa)."); return; }
     if(exServidor && exServidor.status==="concluido"){ alert("Este exame está concluído. Para alterar, a SR ou o DPP precisa reabri-lo."); return; }
-    const ex = exServidor ? {...exServidor} : {id:uid(), coc:(this.cocDaUnidade(unid)||{}).id||this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
-    Object.assign(ex, this.lerFormulario());
+    const sx=this.secaoExclusiva();
+    if(sx && !exServidor){ this.avisoSoSecao(); return; }
+    let ex = exServidor ? {...exServidor} : {id:uid(), coc:(this.cocDaUnidade(unid)||{}).id||this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
+    const form=this.lerFormulario();
+    if(sx){
+      /* Psicologia/Serviço Social da unidade: grava só a própria seção, sobre a versão do servidor */
+      ex.rel={...(exServidor.rel||{}), [sx]:form.rel[sx]};
+      ex.relOk={...(exServidor.relOk||{}), [sx]:form.relOk[sx]};
+    } else {
+      Object.assign(ex, form);
+      /* demais contas da unidade: as seções de Psicologia e Serviço Social ficam como estão no servidor */
+      this.secoesBloqueadas().forEach(k=>{
+        ["rel","relOk"].forEach(g=>{
+          const srv=(exServidor&&exServidor[g])||{};
+          if(k in srv) ex[g][k]=srv[k]; else delete ex[g][k];
+        });
+      });
+    }
     /* avisa se a entrevista cai em cima de outra já marcada no mesmo centro (a pessoa pode salvar assim mesmo) */
     for(const k of ["ent1","ent2","entConv"]){
       const et=(ex.etapas||{})[k]||{};
@@ -3010,6 +3031,33 @@ Continuar mesmo assim (sem salvar)?`);
     return p.perfil==="DPP" || (["SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil) && ex.sr===p.sr);
   },
   podeConcluir(ex){ return this.podeExcluir(ex); },
+  /* seções técnicas (mesma regra do firestore.rules, edicaoPorSecaoOk): na unidade, a conta de
+     Psicologia só edita a seção de Psicologia e a de Serviço Social só a de Serviço Social;
+     USUARIO/DIR/CPEN editam o resto, menos essas duas. Regionais e DPP editam tudo. */
+  secaoExclusiva(){
+    const p=(this._meuPerfil||{}).perfil;
+    return p==="PSICOLOGIA" ? "psi" : p==="SOCIAL" ? "soc" : null;
+  },
+  secoesBloqueadas(){
+    return ["USUARIO","DIR","CPEN"].includes((this._meuPerfil||{}).perfil) ? ["psi","soc"] : [];
+  },
+  avisoSoSecao(){
+    alert("Seu perfil edita somente a seção de "+this.SECAO_LABEL[this.secaoExclusiva()]+" do relatório. As outras partes do exame (identificação, equipe, entrevistas e demais seções) são preenchidas pela unidade, pela SR ou pelo DPP.");
+  },
+  aplicarPermSecoes(){
+    const sx=this.secaoExclusiva();
+    if(sx){
+      document.querySelectorAll("#v-novo input, #v-novo textarea, #v-novo select").forEach(el=>{
+        if(el.closest("#novoPreviewCol")) return;
+        if(el.id!=="r_"+sx && el.id!=="relok_"+sx) el.disabled=true;
+      });
+      const livres=/relTab|novoTab|salvar|imprimir\(|Historico|fecharAviso|avisarEquipe|toggleEditarPreview|irParaEtapas|copiarAviso/;
+      document.querySelectorAll("#v-novo button").forEach(b=>{ if(!livres.test(b.getAttribute("onclick")||"")) b.disabled=true; });
+    }
+    this.secoesBloqueadas().forEach(k=>{
+      ["r_"+k,"relok_"+k].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=true; });
+    });
+  },
   /* botões, modo somente leitura e resumo "criado por / alterado por" */
   atualizarEstadoExame(ex){
     const concl=!!ex && ex.status==="concluido";
@@ -3036,7 +3084,7 @@ Continuar mesmo assim (sem salvar)?`);
       if(on) el.disabled=true;
       else if(el.id!=="e_prazo") el.disabled=false;
     });
-    if(!on){ this.aplicarPermEquipe(); this.aplicarSuprimir(this.lerSuprimir()); }
+    if(!on){ this.aplicarPermEquipe(); this.aplicarSuprimir(this.lerSuprimir()); this.aplicarPermSecoes(); }
   },
   async concluir(){
     if(!this.editId){ alert("Salve o exame antes."); return; }

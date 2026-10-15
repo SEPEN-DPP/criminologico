@@ -177,6 +177,33 @@ service cloud.firestore {
             && n.excluidoAt == request.time)
         : false;
     }
+    // Secoes tecnicas (autoria e responsabilidade individual): na unidade, a conta de
+    // Psicologia so grava a secao de Psicologia do relatorio e a de Servico Social so a
+    // de Servico Social (texto, "Secao concluida" e quem marcou) — nao cadastram exame
+    // nem mexem no resto. As demais contas da unidade (USUARIO, DIR, CPEN) gravam o
+    // resto do exame, menos essas duas secoes. Perfis regionais da propria SR (SR,
+    // SR_PSICOLOGIA, SR_SOCIAL) e o DPP editam tudo.
+    function secaoDoPerfil(p) { return p == 'PSICOLOGIA' ? 'psi' : 'soc'; }
+    function mudouEm(n, a, campo) { return n.get(campo, {}).diff(a.get(campo, {})).affectedKeys(); }
+    function edicaoPorSecaoOk(n, a) {
+      let p = perfilAtual().perfil;
+      return ehRegionalOuDPPDo(a) ? true
+        : p in ['PSICOLOGIA','SOCIAL'] ? (
+            n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt'])
+            && mudouEm(n, a, 'rel').hasOnly([secaoDoPerfil(p)])
+            && mudouEm(n, a, 'relOk').hasOnly([secaoDoPerfil(p)])
+            && mudouEm(n, a, 'relOkPor').hasOnly([secaoDoPerfil(p)]))
+        : !mudouEm(n, a, 'rel').hasAny(['psi','soc'])
+          && !mudouEm(n, a, 'relOk').hasAny(['psi','soc'])
+          && !mudouEm(n, a, 'relOkPor').hasAny(['psi','soc']);
+    }
+    function criacaoPorSecaoOk(n) {
+      let p = perfilAtual().perfil;
+      return ehRegionalOuDPPDo(n) ? true
+        : p in ['PSICOLOGIA','SOCIAL'] ? false
+        : n.get('rel', {}).get('psi', '') == '' && n.get('rel', {}).get('soc', '') == ''
+          && n.get('relOk', {}).get('psi', false) == false && n.get('relOk', {}).get('soc', false) == false;
+    }
     // Contadores (numero do oficio de comunicacao ao Juizo, por Centro e ano):
     // so sobe de 1 em 1, nunca volta nem e apagado.
     match /contadores/{id} {
@@ -201,6 +228,7 @@ service cloud.firestore {
         && request.resource.data.get('status', 'andamento') == 'andamento'
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time
+        && criacaoPorSecaoOk(request.resource.data)
         && existsAfter(historicoDoc(examId, 1));
       allow update: if podeVer(resource.data)
         && podeVer(request.resource.data)
@@ -209,7 +237,8 @@ service cloud.firestore {
         && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && existsAfter(historicoDoc(examId, request.resource.data.rev))
-        && transicaoOk(examId);
+        && transicaoOk(examId)
+        && edicaoPorSecaoOk(request.resource.data, resource.data);
       allow delete: if false;
 
       match /historico/{rev} {

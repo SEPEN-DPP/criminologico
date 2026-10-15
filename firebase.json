@@ -9,6 +9,7 @@
       ".claude/**",
       "**/node_modules/**",
       "scripts/**",
+      "**/*.zip",
       "firestore.rules"
     ],
     "headers": [
