@@ -394,6 +394,7 @@
 <section class="view on" id="v-dash">
   <div id="paraVoceBox"></div>
   <div id="hctpAvisosBox"></div>
+  <div id="agendaAvisosBox"></div>
   <div id="painelUnidadeAtualBox"></div>
   <div class="grid g4" id="kpis"></div>
   <div id="orientBox" style="margin-top:16px;"></div>
@@ -471,10 +472,20 @@
 <section class="view" id="v-cal">
   <div class="card">
     <h3>Calendário de entrevistas <span class="muted" style="font-weight:normal; font-size:12.5px;">— agenda das etapas de entrevista dos exames em andamento</span></h3>
-    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique numa entrevista para alterar a data, o horário ou os dados dela (ou desmarcá-la) direto por aqui, sem precisar abrir o exame; clique num horário vazio para agendar uma nova. Se uma entrevista começar antes de outra do mesmo centro terminar (pelo horário e pela duração em minutos de cada uma), o sistema avisa e pergunta se quer salvar assim mesmo. Ele não deixa marcar de novo uma entrevista que já está agendada (para mudar, altere a que existe). Use os filtros abaixo para ver só a agenda de Psicologia ou de Serviço Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
+    <p class="note">Mostra as entrevistas (1ª, 2ª e com pessoa do convívio) marcadas nas etapas de cada exame em andamento neste centro. Clique numa entrevista para alterar a data, o horário ou os dados dela (ou desmarcá-la) direto por aqui, sem precisar abrir o exame; clique num horário vazio para agendar uma nova. Se uma entrevista começar antes de outra do mesmo centro terminar (pelo horário e pela duração em minutos de cada uma), o sistema avisa e pergunta se quer salvar assim mesmo. Ele não deixa marcar de novo uma entrevista que já está agendada (para mudar, altere a que existe). A psicóloga e a assistente social da unidade agendam aqui as entrevistas da própria área (ou da Equipe) — as que ainda não têm data aparecem na lista "Entrevistas a agendar", e o Painel do Centro avisa quando elas marcam. Use os filtros abaixo para ver só a agenda de Psicologia ou de Serviço Social — a área de cada entrevista é definida no campo "Área/profissional responsável", na aba Etapas do exame ou ao agendar por aqui.</p>
     <div class="btnrow" style="margin-top:0; margin-bottom:8px;">
       <button class="btn sm" id="calBtnSemana" type="button" onclick="App.calModo('semana')">Semana</button>
       <button class="btn sm ghost" id="calBtnMes" type="button" onclick="App.calModo('mes')">Mês</button>
+    </div>
+    <div id="calPendBox"></div>
+    <div id="emailModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; overflow:auto; padding:16px;">
+      <div class="card" style="max-width:720px; margin:24px auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h3 style="margin:0;" id="emailTitulo">Avisar por e-mail: entrevistas a agendar</h3>
+          <button class="btn sm ghost" type="button" onclick="document.getElementById('emailModal').style.display='none'">Fechar</button>
+        </div>
+        <div id="emailCorpo" style="margin-top:12px;"></div>
+      </div>
     </div>
     <div class="btnrow" style="margin-top:0; margin-bottom:10px;" id="calFiltroAreaBox">
       <button class="btn sm" data-area="" type="button" onclick="App.calFiltroAreaSet('')">Todas as áreas</button>
@@ -1809,6 +1820,168 @@ const App = {
     document.getElementById("btnEditarPreview").textContent=this._previewEditing?"✓ Concluir edição":"✎ Editar";
   },
 
+  /* ---------- agendamento pela psicóloga / assistente social ----------
+     Cada entrevista tem uma área ("Área/profissional responsável": Psicologia, Serviço Social ou
+     Equipe). As contas de Psicologia e Serviço Social da unidade agendam, alteram e desmarcam só as
+     entrevistas da própria área ou da Equipe, sem mudar a área (ver firestore.rules). Quando elas
+     agendam, a etapa guarda quem foi (agNome/agEm/agAcao) e agCiente=false, e o Painel do Centro avisa. */
+  AREA_DO_PERFIL: {PSICOLOGIA:"psi", SR_PSICOLOGIA:"psi", SOCIAL:"social", SR_SOCIAL:"social"},
+  EQ_DA_AREA: {psi:"psi", social:"as"},
+  minhaArea(){ return this.AREA_DO_PERFIL[(this._meuPerfil||{}).perfil]||null; },
+  agendaRestrita(){ return ["PSICOLOGIA","SOCIAL"].includes((this._meuPerfil||{}).perfil); },
+  podeAgendarEtapa(ex, k){
+    if(this.ehHctp()) return false;
+    if(!this.agendaRestrita()) return true;
+    const area=(((ex||{}).etapas||{})[k]||{}).area||"";
+    return area==="" || area===this.minhaArea();
+  },
+  avisoOutraArea(k){
+    alert("A "+this.CAL_TIPOS_LONGO[k].toLowerCase()+" deste exame é da área de "+(AREA_LABEL[this.minhaArea()==="psi"?"social":"psi"])+". Seu perfil agenda só as entrevistas de "+AREA_LABEL[this.minhaArea()]+" (ou da Equipe). Para mudar a área, fale com o Centro.");
+  },
+  /* entrevistas ainda sem data. Psicologia/Serviço Social da unidade: todas as da própria área (ou Equipe)
+     nos exames da unidade — quem agendar primeiro tira da lista de todas. Psicólogo(a)/assistente social
+     de cobertura regional: só nos exames em que está na equipe (matrícula). Demais: o recorte do calendário. */
+  calPendencias(){
+    const area=this.minhaArea(), p=this._meuPerfil||{};
+    let exs=this.data.exames.filter(e=>e.status!=="concluido");
+    /* cobertura regional (SR_PSICOLOGIA/SR_SOCIAL): exames em que está na equipe + os pedidos à SR da regional */
+    const cobertura = area && !this.agendaRestrita();
+    const naEquipe = e => !!p.matricula && matIgual(this.matDaEquipe(e.equipe||{}, this.EQ_DA_AREA[area]), p.matricula);
+    if(cobertura){
+      exs=exs.filter(e=>naEquipe(e) || ["ent1","ent2","entConv"].some(k=>((e.etapas||{})[k]||{}).srPedido));
+      if(!p.matricula && !exs.length) return {semMatricula:true, itens:[]};
+    } else {
+      const geral=this.coc==="_cepen";
+      if(!geral) exs=exs.filter(e=>this.cocIdDoExame(e)===this.coc);
+      if(!geral && this.calFiltroUnidade) exs=exs.filter(e=>e.unid===this.calFiltroUnidade);
+    }
+    const itens=[];
+    exs.forEach(e=>["ent1","ent2","entConv"].forEach(k=>{
+      const et=(e.etapas||{})[k]||{}, a=et.area||"";
+      if(et.data || et.ok) return;
+      if(this.agendaRestrita() && et.srPedido) return;            /* impedida: foi pedida à Superintendência */
+      if(cobertura && !et.srPedido && !naEquipe(e)) return;
+      if(area && a!=="" && a!==area) return;
+      if(!area && this.calFiltroArea && a!==this.calFiltroArea) return;
+      itens.push({e, k, area:a, sr:!!et.srPedido, srMotivo:et.srMotivo||"", pz:this.prazoInfo(e), lim:this.prazoLimite(e)});
+    }));
+    itens.sort((x,y)=>(x.lim?x.lim.getTime():9e15)-(y.lim?y.lim.getTime():9e15));
+    return {itens};
+  },
+  renderCalPendencias(){
+    const box=document.getElementById("calPendBox"); if(!box) return;
+    if(this.ehHctp()){ box.innerHTML=""; return; }
+    const {semMatricula, itens}=this.calPendencias();
+    const area=this.minhaArea();
+    if(semMatricula){ box.innerHTML=`<p class="note">Cadastre sua matrícula (aviso no Painel) para ver aqui as entrevistas que você tem a agendar.</p>`; return; }
+    if(!itens.length){ box.innerHTML=`<p class="note" style="margin:0 0 10px;">Entrevistas a agendar: nenhuma. ✓</p>`; return; }
+    const linha=i=>`<tr><td><b>${esc(i.e.nome)}</b>${i.e.mat?" — IPEN "+esc(i.e.mat):""}</td><td>${esc(i.e.unid||"—")}</td><td>${this.CAL_TIPOS[i.k]}</td><td>${AREA_LABEL[i.area]}${i.sr?` <span class="badge b-crime" title="${esc(i.srMotivo)}">pedido à SR</span>`:""}</td>
+      <td><span class="badge ${i.pz.cls}">${i.pz.txt}</span></td><td class="right" style="white-space:nowrap;"><button class="btn sm" type="button" onclick="App.calAgendarPendente('${i.e.id}','${i.k}')">Agendar</button>${this.agendaRestrita()?` <button class="btn sm ghost" type="button" title="Impedimento: a Superintendência (psicólogo(a)/assistente social de cobertura regional) agenda" onclick="App.calPedirSR('${i.e.id}','${i.k}')">Impedida — pedir à SR</button>`:""}</td></tr>`;
+    const tabela=`<table><tr><th>Avaliado</th><th>Unidade</th><th>Entrevista</th><th>Área</th><th>Prazo</th><th></th></tr>${itens.map(linha).join("")}</table>`;
+    const cont=a=>itens.filter(i=>i.area===a).length;
+    box.innerHTML = area
+      ? `<div class="orient warn" style="margin-bottom:12px;"><b>Entrevistas a agendar: ${itens.length}</b> — ${this.agendaRestrita()?"da sua área (ou da Equipe) nos exames da unidade; quem agendar primeiro tira da lista de todas":"exames em que você está na equipe examinadora"}; o prazo mais curto primeiro.<div style="overflow-x:auto; margin-top:8px;">${tabela}</div></div>`
+      : `<details style="margin-bottom:12px;"><summary style="cursor:pointer;"><b>Entrevistas a agendar: ${itens.length}</b> <span class="muted">— Psicologia ${cont("psi")} · Serviço Social ${cont("social")} · Equipe ${cont("")}</span></summary>
+        <div class="btnrow" style="margin:8px 0 0;"><button class="btn sm" type="button" onclick="App.avisarPendenciasEmail()">✉ Avisar por e-mail as psicólogas e assistentes sociais</button></div>
+        <div style="overflow-x:auto; margin-top:8px;">${tabela}</div></details>`;
+  },
+  /* e-mail (Gmail já preenchido) às psicólogas e assistentes sociais das unidades com entrevistas a agendar:
+     entrevista de Psicologia → psicólogos(as); de Serviço Social → assistentes sociais; da Equipe → os dois.
+     Destinatários pelos "contatos" (contas ativas com matrícula cadastrada, da própria unidade). */
+  async avisarPendenciasEmail(){
+    const itens=this.calPendencias().itens.filter(i=>!i.sr);
+    if(!itens.length){ alert("Nenhuma entrevista a agendar pela equipe da unidade."); return; }
+    const perfisDa={psi:["PSICOLOGIA"], social:["SOCIAL"], "":["PSICOLOGIA","SOCIAL"]};
+    const texto=["Prezados(as),","","Há entrevistas de exame criminológico ainda sem data. Qualquer psicólogo(a) ou assistente social da unidade, da área indicada, pode agendar pelo Calendário do sistema — quem agendar primeiro tira a entrevista da lista de todos. Em caso de impedimento, use \"Impedida — pedir à SR\".","",
+      ...itens.map(i=>"• "+i.e.nome+(i.e.mat?" (IPEN "+i.e.mat+")":"")+" — "+(i.e.unid||"—")+" — "+this.CAL_TIPOS_LONGO[i.k]+" — área: "+AREA_LABEL[i.area]+(i.lim?" — prazo do exame: "+i.lim.toLocaleDateString("pt-BR"):"")),
+      "","Acesse: https://criminologico.web.app (aba Calendário, lista \"Entrevistas a agendar\").","","Atenciosamente,",(this._meuPerfil&&this._meuPerfil.nome)||""].join("\n");
+    const lista=await this.abrirEmailModal("Avisar por e-mail: entrevistas a agendar",
+      c=>itens.some(i=>c.unidade===i.e.unid && perfisDa[i.area].includes(c.perfil)),
+      "Entrevistas a agendar — exame criminológico ("+itens.length+")", texto,
+      "Nenhuma psicóloga ou assistente social dessas unidades tem conta com matrícula cadastrada — não há para quem enviar.");
+    const unidades=[...new Set(itens.map(i=>i.e.unid||"—"))].filter(u=>!(lista||[]).some(c=>c.unidade===u));
+    if(lista && unidades.length) document.getElementById("emailCorpo").insertAdjacentHTML("afterbegin", `<p class="note" style="color:var(--warn);">Sem ninguém com e-mail no sistema em: ${unidades.map(esc).join(", ")} — avise por outro meio.</p>`);
+  },
+  /* impedimento da profissional da unidade: a entrevista vai para a cobertura regional da SR */
+  calPedirSR(exId, k){
+    const ex=this.data.exames.find(x=>x.id===exId); if(!ex) return;
+    if(!this.podeAgendarEtapa(ex, k)){ this.avisoOutraArea(k); return; }
+    const motivo=prompt("Motivo do impedimento (vai para a Superintendência e fica no histórico do exame):"); if(motivo===null) return;
+    if(!motivo.trim()){ alert("Informe o motivo."); return; }
+    const et=(ex.etapas||{})[k]||{};
+    const novo=this.marcaAgenda(Object.assign({}, et, {srPedido:true, srMotivo:motivo.trim(), srPor:(this._meuPerfil||{}).nome||"", srEm:new Date().toISOString()}), "pediu à Superintendência");
+    this.calGravarEtapa(ex, k, novo, "Pedido enviado à Superintendência: a entrevista saiu da lista da unidade e foi para a cobertura regional.")
+      .then(ok=>{ if(ok && confirm("Avisar por e-mail os profissionais de cobertura regional da Superintendência?")) this.avisarSREmail(ex, k, et.area||"", motivo.trim()); });
+  },
+  async avisarSREmail(ex, k, area, motivo){
+    const perfis={psi:["SR_PSICOLOGIA"], social:["SR_SOCIAL"], "":["SR_PSICOLOGIA","SR_SOCIAL"]}[area];
+    const lim=this.prazoLimite(ex);
+    await this.abrirEmailModal("Pedido de agendamento à Superintendência", c=>perfis.includes(c.perfil) && c.sr===ex.sr,
+      "Agendamento pela Superintendência — "+ex.nome+(ex.mat?" (IPEN "+ex.mat+")":""),
+      ["Prezados(as),","","Por impedimento da equipe da unidade, solicita-se à Superintendência o agendamento da entrevista abaixo:","",
+       "Avaliado: "+ex.nome+(ex.mat?" — IPEN "+ex.mat:""), "Unidade: "+(ex.unid||"—"), "Entrevista: "+this.CAL_TIPOS_LONGO[k]+" — área: "+AREA_LABEL[area],
+       lim?"Prazo do exame: "+lim.toLocaleDateString("pt-BR"):null, "Motivo do impedimento: "+motivo, "",
+       "Acesse: https://criminologico.web.app (aba Calendário, lista \"Entrevistas a agendar\").","","Atenciosamente,",(this._meuPerfil&&this._meuPerfil.nome)||""].filter(l=>l!==null).join("\n"),
+      "Nenhum(a) psicólogo(a) ou assistente social de cobertura regional desta Superintendência tem conta com matrícula cadastrada — avise por outro meio.");
+  },
+  /* janela de e-mail (Gmail já preenchido) da aba Calendário: filtra os "contatos" e mostra quem recebe */
+  async abrirEmailModal(titulo, filtro, assunto, texto, msgVazio){
+    const modal=document.getElementById("emailModal"), corpo=document.getElementById("emailCorpo");
+    document.getElementById("emailTitulo").textContent=titulo;
+    modal.style.display="block"; corpo.innerHTML=`<p class="note">Procurando os e-mails…</p>`;
+    let contatos=[];
+    try{ contatos=await window.ContaFS.contatos(); }
+    catch(e){ corpo.innerHTML=`<p class="note" style="color:var(--crit);">Não foi possível buscar os e-mails (${esc(e.message||e)}).</p>`; return []; }
+    const lista=[...new Map(contatos.filter(filtro).map(c=>[c.email,c])).values()];
+    const gmail="https://mail.google.com/mail/?view=cm&fs=1&to="+encodeURIComponent(lista.map(c=>c.email).join(","))+"&su="+encodeURIComponent(assunto)+"&body="+encodeURIComponent(texto);
+    corpo.innerHTML=(lista.length?`<p><b>Vai para:</b></p><ul>${lista.map(c=>`<li>${esc(c.nome)} <span class="muted">— ${esc((window.PERFIL_LABEL||{})[c.perfil]||c.perfil)} — ${esc(c.unidade||c.sr||"")} — ${esc(c.email)}</span></li>`).join("")}</ul>`
+        :`<p class="note" style="color:var(--warn);">${esc(msgVazio)}</p>`)
+      +(lista.length?`<label class="f" style="margin-top:10px;">Assunto</label><input type="text" readonly value="${esc(assunto)}">
+        <label class="f" style="margin-top:10px;">Texto</label><textarea readonly style="min-height:200px;">${esc(texto)}</textarea>
+        <div class="btnrow" style="margin-top:12px;"><a class="btn" href="${esc(gmail)}" target="_blank" rel="noopener" onclick="setTimeout(()=>document.getElementById('emailModal').style.display='none',500)">Abrir no Gmail</a></div>
+        <p class="note">"Abrir no Gmail" abre uma nova aba com a mensagem pronta — confira e clique em Enviar.</p>`:"");
+    return lista;
+  },
+  calAgendarPendente(exId, k){
+    const h=new Date(); const iso=h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");
+    this.calFormAberto={iso, hora:"08:00"};
+    this.calRenderForm();
+    const selEx=document.getElementById("calfExame"); if(!selEx) return;
+    selEx.value=exId; this.calRenderTipos();
+    const selT=document.getElementById("calfTipo");
+    const opt=selT && [...selT.options].find(o=>o.value===k);
+    if(opt && !opt.disabled){ selT.value=k; const et=((this.data.exames.find(x=>x.id===exId)||{}).etapas||{})[k]||{}; this.calRenderExtra(k, {area:et.area||"", modal:et.modal||""}); }
+    this.calRolarForm();
+  },
+  /* aviso ao Centro: entrevistas agendadas/alteradas/desmarcadas pela psicóloga ou assistente social */
+  renderAgendaAvisos(){
+    const box=document.getElementById("agendaAvisosBox"); if(!box) return;
+    if(this.ehHctp() || this.agendaRestrita()){ box.innerHTML=""; return; }
+    const geral=this.coc==="_cepen";
+    const itens=[];
+    this.data.exames.filter(e=>geral || this.cocIdDoExame(e)===this.coc).forEach(e=>["ent1","ent2","entConv"].forEach(k=>{
+      const et=(e.etapas||{})[k]||{};
+      if(et.agNome && et.agCiente===false) itens.push({e,k,et});
+    }));
+    if(!itens.length){ box.innerHTML=""; return; }
+    box.innerHTML=`<div class="orient" style="margin-bottom:10px;"><b>Entrevistas marcadas pela equipe técnica — ${itens.length}</b><ul style="margin:6px 0;">${itens.map(({e,k,et})=>
+      `<li>${esc(et.agNome)} ${esc(et.agAcao||"agendou")} a ${this.CAL_TIPOS_LONGO[k].toLowerCase()} de <a href="#" onclick="App.abrir('${e.id}');return false;">${esc(e.nome)}</a>${et.data?" — <b>"+fmt(et.data)+(et.hora?" às "+esc(et.hora):"")+"</b>":""} <span class="muted">(${esc(fmtTs(et.agEm))})</span>
+        <button class="btn sm ghost" type="button" onclick="App.agendaCiente('${e.id}','${k}')">Ciente</button></li>`).join("")}</ul></div>`;
+  },
+  agendaCiente(exId, k){
+    const ex=this.data.exames.find(x=>x.id===exId); if(!ex) return;
+    const ets=JSON.parse(JSON.stringify(ex.etapas||{}));
+    if(!ets[k]) return;
+    ets[k].agCiente=true;
+    this.gravarExame({...ex, etapas:ets},{acao:"alterou", base:this.baseDoServidor(ex)})
+      .catch(e=>alert("Não foi possível marcar como ciente: "+e.message));
+  },
+  /* marca na etapa quem da equipe técnica agendou/alterou/desmarcou (aviso ao Centro) */
+  marcaAgenda(novo, acao){
+    if(!this.agendaRestrita()) return novo;
+    return Object.assign(novo, {agNome:(this._meuPerfil||{}).nome||"", agEm:new Date().toISOString(), agAcao:acao, agCiente:false});
+  },
+
   /* ---------- calendário de entrevistas ---------- */
   CAL_TIPOS: {ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista c/ pessoa do convívio"},
   CAL_TIPOS_CURTO: {ent1:"1ª", ent2:"2ª", entConv:"Convívio", hctp:"HCTP"},
@@ -1887,6 +2060,7 @@ const App = {
     this.renderCalendario();
   },
   renderCalendario(){
+    this.renderCalPendencias();
     const hoje=new Date();
     const hojeISO=hoje.toISOString().slice(0,10);
     if(this.calModoAtual==null) this.calModoAtual="semana";
@@ -2030,8 +2204,8 @@ const App = {
     const ex=this.data.exames.find(x=>x.id===document.getElementById("calfExame").value)||{};
     const et=ex.etapas||{};
     const opts=["ent1","ent2","entConv"].map(k=>{
-      const v=et[k]||{}, marcada=!!v.data;
-      return {k, marcada, txt:this.CAL_TIPOS_LONGO[k]+(marcada?` — já marcada: ${fmt(v.data)}${v.hora?" às "+v.hora:""}`:"")};
+      const v=et[k]||{}, outra=!this.podeAgendarEtapa(ex,k), marcada=!!v.data || outra;
+      return {k, marcada, txt:this.CAL_TIPOS_LONGO[k]+(v.data?` — já marcada: ${fmt(v.data)}${v.hora?" às "+v.hora:""}`:(outra?` — área de ${AREA_LABEL[v.area||""]}`:""))};
     });
     const sel=document.getElementById("calfTipo");
     sel.innerHTML=opts.map(o=>`<option value="${o.k}" ${o.marcada?"disabled":""}>${esc(o.txt)}</option>`).join("");
@@ -2042,7 +2216,7 @@ const App = {
       ? `<div class="orient warn" style="margin:8px 0;">As três entrevistas deste exame já estão marcadas. Para mudar alguma, clique nela no calendário.</div>`
       : (algumaMarcada?`<p class="note" style="margin:4px 0 8px;">As entrevistas que já estão marcadas aparecem bloqueadas na lista. Para mudar uma delas, clique nela no calendário.</p>`:"");
     document.getElementById("calfBtnAgendar").disabled=!livre;
-    this.calRenderExtra();
+    this.calRenderExtra(sel.value, livre ? {area:(et[sel.value]||{}).area||"", modal:(et[sel.value]||{}).modal||ex.modal||""} : {});
   },
   calRenderFormEditar(box){
     const {exId,k}=this.calFormAberto;
@@ -2072,7 +2246,7 @@ const App = {
     v = v || {};
     const box=document.getElementById("calfExtra");
     const val=f=>`value="${esc(v[f]||"")}"`;
-    const areaSelect=`<select id="calfArea">${AREA_OPTS.map(o=>`<option value="${o.v}" ${(v.area||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`;
+    const areaSelect=`<select id="calfArea" ${this.agendaRestrita()?'disabled title="A área da entrevista é definida pelo Centro"':""}>${AREA_OPTS.map(o=>`<option value="${o.v}" ${(v.area||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`;
     const modalSelect=`<select id="calfModal">${MODAL_OPTS.map(o=>`<option value="${o.v}" ${(v.modal||"presencial")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`;
     const linhaAreaModal=`<div class="row c2"><div><label class="f">Área/profissional responsável</label>${areaSelect}</div><div><label class="f">Modalidade</label>${modalSelect.replace(/Modalidade: p/g,"P")}</div></div>`;
     if(tipo==="entConv"){
@@ -2153,13 +2327,15 @@ const App = {
         this.calFecharForm(true);
         this.renderCalendario();
         alert(msgOk);
+        return true;
       })
-      .catch(e=>alert("Falhou ao salvar: "+e.message));
+      .catch(e=>{ alert("Falhou ao salvar: "+e.message); return false; });
   },
   calSalvarAgendamento(){
-    if(this.secaoExclusiva()){ this.avisoSoSecao(); return; }
+    if(this.ehHctp()){ this.avisoSoSecao(); return; }
     const exId=document.getElementById("calfExame").value;
     const tipo=document.getElementById("calfTipo").value;
+    if(!this.podeAgendarEtapa(this.data.exames.find(x=>x.id===exId), tipo)){ this.avisoOutraArea(tipo); return; }
     const f=this.calLerForm(tipo);
     if(!f.data){ alert("Informe a data."); return; }
     if(!f.hora){ alert("Informe o horário — ele é necessário para o sistema conferir se já não há outra entrevista marcada no mesmo horário."); return; }
@@ -2169,12 +2345,13 @@ const App = {
     if(atual.data){ alert("A "+this.CAL_TIPOS_LONGO[tipo].toLowerCase()+" deste exame já está marcada para "+fmt(atual.data)+(atual.hora?" às "+atual.hora:"")+".\n\nPara mudar, clique nela no calendário e altere."); this.calRenderTipos(); return; }
     if(!this.calDurMin(f.dur)){ alert("Informe a duração da entrevista, em minutos — ela é necessária para o sistema conferir se não há choque com outra entrevista."); return; }
     if(!this.calConfirmaConflito(this.calConflito(exServidor, tipo, f, exServidor.etapas))) return;
-    this.calGravarEtapa(exServidor, tipo, Object.assign({ok:false}, atual, f), "Entrevista agendada para "+exServidor.nome+".");
+    this.calGravarEtapa(exServidor, tipo, this.marcaAgenda(Object.assign({ok:false}, atual, f), "agendou"), "Entrevista agendada para "+exServidor.nome+".");
   },
   calSalvarAlteracao(){
-    if(this.secaoExclusiva()){ this.avisoSoSecao(); return; }
+    if(this.ehHctp()){ this.avisoSoSecao(); return; }
     const {exId,k}=this.calFormAberto||{};
     const exServidor=this.data.exames.find(x=>x.id===exId); if(!exServidor) return;
+    if(!this.podeAgendarEtapa(exServidor, k)){ this.avisoOutraArea(k); return; }
     if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de alterar."); return; }
     const f=this.calLerForm(k);
     if(!f.data){ alert("Informe a data. Para tirar a entrevista do calendário, use Desmarcar entrevista."); return; }
@@ -2182,16 +2359,17 @@ const App = {
     if(!this.calDurMin(f.dur)){ alert("Informe a duração da entrevista, em minutos — ela é necessária para o sistema conferir se não há choque com outra entrevista."); return; }
     if(!this.calConfirmaConflito(this.calConflito(exServidor, k, f, exServidor.etapas))) return;
     const novo=Object.assign({}, (exServidor.etapas||{})[k]||{}, f, {ok:document.getElementById("calfOk").checked});
-    this.calGravarEtapa(exServidor, k, novo, "Entrevista de "+exServidor.nome+" alterada.");
+    this.calGravarEtapa(exServidor, k, this.marcaAgenda(novo, "alterou"), "Entrevista de "+exServidor.nome+" alterada.");
   },
   calDesmarcar(){
-    if(this.secaoExclusiva()){ this.avisoSoSecao(); return; }
+    if(this.ehHctp()){ this.avisoSoSecao(); return; }
     const {exId,k}=this.calFormAberto||{};
     const exServidor=this.data.exames.find(x=>x.id===exId); if(!exServidor) return;
+    if(!this.podeAgendarEtapa(exServidor, k)){ this.avisoOutraArea(k); return; }
     if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de alterar."); return; }
     const et=(exServidor.etapas||{})[k]||{};
     if(!confirm("Desmarcar a "+this.CAL_TIPOS_LONGO[k].toLowerCase()+" de "+exServidor.nome+" ("+fmt(et.data)+(et.hora?" às "+et.hora:"")+")?\n\nEla sai do calendário e o horário fica livre.")) return;
-    this.calGravarEtapa(exServidor, k, {ok:false, data:""}, "Entrevista desmarcada.");
+    this.calGravarEtapa(exServidor, k, this.marcaAgenda({ok:false, data:"", area:et.area||""}, "desmarcou"), "Entrevista desmarcada.");
   },
   renderDashGeral(){
     this.renderParaVoce();
@@ -3162,7 +3340,7 @@ Continuar mesmo assim (sem salvar)?`);
     return ["USUARIO","DIR","CPEN"].includes((this._meuPerfil||{}).perfil) ? ["psi","soc"] : [];
   },
   avisoSoSecao(){
-    alert("Seu perfil edita somente a seção de "+this.SECAO_LABEL[this.secaoExclusiva()]+" do relatório. As outras partes do exame (identificação, equipe, entrevistas e demais seções) são preenchidas pela unidade, pela SR ou pelo DPP.");
+    alert("Seu perfil edita somente a seção de "+this.SECAO_LABEL[this.secaoExclusiva()]+" do relatório"+(this.agendaRestrita()?" e agenda, pelo Calendário, as entrevistas da sua área":"")+". As outras partes do exame são preenchidas pela unidade, pela SR ou pelo DPP.");
   },
   aplicarPermSecoes(){
     const sx=this.secaoExclusiva();
@@ -3346,6 +3524,10 @@ Continuar mesmo assim (sem salvar)?`);
       html+=`<div class="card" style="margin-bottom:12px;"><h3 style="margin-top:0;">Minhas pendências <span class="muted" style="font-weight:normal;font-size:12.5px;">— seções do relatório em que você é o(a) responsável e que ainda não foram marcadas como concluídas</span></h3>
         <table><tr><th>Avaliado</th><th>Unidade</th><th>Seções a preencher</th><th>Prazo</th></tr>${pend.map(({e,secoes})=>{const pz=this.prazoInfo(e);
           return `<tr onclick="App.abrir('${e.id}')" style="cursor:pointer;"><td><b>${esc(e.nome)}</b></td><td>${esc(e.unid)||"—"}</td><td>${secoes.map(k=>this.SECAO_LABEL[k]).join(", ")}</td><td><span class="badge ${pz.cls}">${pz.txt}</span></td></tr>`;}).join("")}</table></div>`;
+    }
+    if(this.minhaArea() && (p.matricula || this.agendaRestrita())){
+      const n=this.calPendencias().itens.length;
+      if(n) html+=`<div class="orient warn" style="margin-bottom:10px;"><b>Entrevistas a agendar: ${n}</b> — <a href="#" onclick="App.tab('cal');return false;">abrir o Calendário</a> (a lista fica no topo, com o botão Agendar).</div>`;
     }
     if(p.matricula && !pend.length){
       html+=`<p class="note" style="margin-bottom:10px;">Minhas pendências: nenhuma seção do relatório em aberto com a sua matrícula (<b>${esc(p.matricula)}</b>) na equipe examinadora dos exames em andamento. <button class="btn sm ghost" type="button" onclick="ContaUI.abrirMatricula()">Corrigir matrícula</button></p>`;
@@ -3746,6 +3928,7 @@ Continuar mesmo assim (sem salvar)?`);
   },
   renderDash(){
     this.renderHctpAvisos();
+    this.renderAgendaAvisos();
     if(this.coc==="_cepen"){ this.renderDashGeral(); return; }
     document.getElementById("acompCard").style.display="";
     this.renderParaVoce();

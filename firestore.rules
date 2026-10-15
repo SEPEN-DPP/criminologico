@@ -93,7 +93,10 @@ service cloud.firestore {
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.matricula == perfilAtual().matricula
         && request.resource.data.nome == perfilAtual().nome
-        && request.resource.data.perfil == perfilAtual().perfil;
+        && request.resource.data.perfil == perfilAtual().perfil
+        // unidade e regional tambem copiadas do cadastro (o aviso por e-mail as usa para escolher os destinatarios)
+        && request.resource.data.get('unidade', null) == perfilAtual().get('unidade', null)
+        && request.resource.data.get('sr', null) == perfilAtual().get('sr', null);
       allow delete: if (autenticado() && request.auth.uid == uid) || ehDPP();
     }
     // Exames: USUARIO/DIR/CPEN so veem/editam da propria unidade; SR le E
@@ -201,11 +204,27 @@ service cloud.firestore {
             && eu.get('unidade', null) != null && eu.get('unidade', null) == d.get('unidade', null))
         || (eu.status == 'ATIVO' && eu.perfil == 'HCTP' && d.get('hctpPedido', false) == true);
     }
+    // Entrevistas (etapas ent1/ent2/entConv): as contas de Psicologia e Servico Social da unidade
+    // agendam, alteram e desmarcam so as da propria area ou da Equipe (area vazia), sem trocar a area.
+    // O HCTP nao mexe em entrevistas.
+    function areaDoPerfil(p) { return p == 'PSICOLOGIA' ? 'psi' : p == 'SOCIAL' ? 'social' : 'nenhuma'; }
+    function entrevistaOk(n, a, k, area) {
+      let antes = a.get('etapas', {}).get(k, {}).get('area', '');
+      return n.get('etapas', {}).get(k, {}).get('area', '') == antes && antes in [area, ''];
+    }
+    function entrevistasOk(n, a, area) {
+      let m = mudouEm(n, a, 'etapas');
+      return m.size() == 0 || (area != 'nenhuma' && m.hasOnly(['ent1','ent2','entConv'])
+        && (!('ent1' in m) || entrevistaOk(n, a, 'ent1', area))
+        && (!('ent2' in m) || entrevistaOk(n, a, 'ent2', area))
+        && (!('entConv' in m) || entrevistaOk(n, a, 'entConv', area)));
+    }
     function edicaoPorSecaoOk(n, a, eu) {
       let p = eu.perfil;
       return regionalOuDPP(a, eu) ? true
         : p in ['PSICOLOGIA','SOCIAL','HCTP'] ? (
-            n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt','numCrim'])
+            n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt','numCrim','etapas'])
+            && entrevistasOk(n, a, areaDoPerfil(p))
             && mudouEm(n, a, 'rel').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOk').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOkPor').hasOnly([secaoDoPerfil(p)]))
