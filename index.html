@@ -3791,6 +3791,10 @@ Continuar mesmo assim (sem salvar)?`);
   /* ---------- impressão / download ---------- */
   montarRelatorioHTML(){
     const escNl = t => esc(t).replace(/\n/g,"<br>");
+    /* texto de seção: cada parágrafo (linha) vira um <p> com recuo de 1,5 cm — antes as quebras viravam <br>
+       dentro de um parágrafo só, e só o primeiro saía com recuo */
+    const paras = t => { const ps=String(t||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+      return (ps.length?ps:["—"]).map(l=>`<p style="text-indent:1.5cm;">${esc(l)}</p>`).join(""); };
     const logoSrc=document.querySelector(".dpp-logo").src;
     const cocNome=(this.data.cocs.find(c=>c.id===this.coc)||{}).nome||"";
     const unidNome=this.getUnidadeValor();
@@ -3877,7 +3881,7 @@ Continuar mesmo assim (sem salvar)?`);
       })()}
 
       <h3>II — Delimitação da demanda, garantias e quesitos</h3>
-      <p style="text-indent:1.5cm;">${escNl(TEXTO_MODELO.delimitacao)}</p>
+      ${paras(TEXTO_MODELO.delimitacao)}
       <p>${document.getElementById("q_detOrigem").value.trim()?`<b>Determinação/documento de origem:</b> ${esc(document.getElementById("q_detOrigem").value.trim())}<br>`:""}
       <b>Defesa técnica presente:</b> ${defesaNome?esc(defesaNome)+(defesaOAB?" ("+esc(defesaOAB)+")":""):"não informada"}<br>
       <b>Ministério Público apresentou quesitos:</b> ${document.getElementById("q_mpQuesitos").value==="sim"?"Sim":"Não"} &nbsp; <b>Defesa apresentou quesitos:</b> ${document.getElementById("q_defQuesitos").value==="sim"?"Sim":"Não"}<br>
@@ -3886,7 +3890,7 @@ Continuar mesmo assim (sem salvar)?`);
       ${quesitos.length?quesitos.map((q,i)=>`<p><b>Quesito ${i+1} (${origemLabel[q.origem]||q.origem}):</b> ${esc(q.pergunta)||"—"}<br><b>Resposta:</b> ${q.resposta?escNl(q.resposta):"—"}</p>`).join(""):""}`;
 
     const pgMetodologia=`
-      <h3>III — Metodologia</h3><p style="text-indent:1.5cm;">${r_met.value?escNl(r_met.value):"—"}</p>
+      <h3>III — Metodologia</h3>${paras(r_met.value)}
       <p><b>Entrevistas realizadas em:</b> ${(()=>{
         /* cada entrevista pode ter a sua modalidade; vazio (exame antigo) = a do exame. Todas iguais: uma só menção no fim */
         const padrao=document.getElementById("e_modal").value||"presencial";
@@ -3908,17 +3912,17 @@ Continuar mesmo assim (sem salvar)?`);
     const nAtivLab=incluiAtivLab?++n:0, nEnsino=incluiEnsino?++n:0;
     const nPsq=incluiPsq?++n:0, nPsi=++n, nSoc=++n, nParecer=++n;
 
-    const pgDirecao=incluiDirecao?`<h3>${nDirecao} — Direção</h3><p style="text-indent:1.5cm;">${r_direcao.value?escNl(r_direcao.value):"—"}</p>`:"";
-    const pgChefiaSeg=incluiChefiaSeg?`<h3>${nChefiaSeg} — Chefia de Segurança</h3><p style="text-indent:1.5cm;">${r_chefiaSeg.value?escNl(r_chefiaSeg.value):"—"}</p>`:"";
-    const pgExecPenal=incluiExecPenal?`<h3>${nExecPenal} — Execução Penal</h3><p style="text-indent:1.5cm;">${r_execPenal.value?escNl(r_execPenal.value):"—"}</p>`:"";
-    const pgAtivLab=incluiAtivLab?`<h3>${nAtivLab} — Atividades Laborais</h3><p style="text-indent:1.5cm;">${r_ativLab.value?escNl(r_ativLab.value):"—"}</p>`:"";
-    const pgEnsino=incluiEnsino?`<h3>${nEnsino} — Ensino e Promoção Social</h3><p style="text-indent:1.5cm;">${r_ensino.value?escNl(r_ensino.value):"—"}</p>`:"";
-    const pgPsq=incluiPsq?(semPsq?`<h3>${nPsq} — Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:`<h3>${nPsq} — Psiquiatria</h3><p style="text-indent:1.5cm;">${escNl(r_psq.value)}</p>`):"";
-    const pgPsi=`<h3>${nPsi} — Psicologia</h3><p style="text-indent:1.5cm;">${r_psi.value?escNl(r_psi.value):"—"}</p>`;
-    const pgSoc=`<h3>${nSoc} — Serviço Social</h3><p style="text-indent:1.5cm;">${r_soc.value?escNl(r_soc.value):"—"}</p>`;
+    const pgDirecao=incluiDirecao?`<h3>${nDirecao} — Direção</h3>${paras(r_direcao.value)}`:"";
+    const pgChefiaSeg=incluiChefiaSeg?`<h3>${nChefiaSeg} — Chefia de Segurança</h3>${paras(r_chefiaSeg.value)}`:"";
+    const pgExecPenal=incluiExecPenal?`<h3>${nExecPenal} — Execução Penal</h3>${paras(r_execPenal.value)}`:"";
+    const pgAtivLab=incluiAtivLab?`<h3>${nAtivLab} — Atividades Laborais</h3>${paras(r_ativLab.value)}`:"";
+    const pgEnsino=incluiEnsino?`<h3>${nEnsino} — Ensino e Promoção Social</h3>${paras(r_ensino.value)}`:"";
+    const pgPsq=incluiPsq?(semPsq?`<h3>${nPsq} — Psiquiatria</h3><p><i>Observação:</i> exame realizado sem psiquiatra na equipe, nos termos do art. 5º, §5º, da Portaria; ausência registrada expressamente, sem prejuízo da validade do exame.</p>`:`<h3>${nPsq} — Psiquiatria</h3>${paras(r_psq.value)}`):"";
+    const pgPsi=`<h3>${nPsi} — Psicologia</h3>${paras(r_psi.value)}`;
+    const pgSoc=`<h3>${nSoc} — Serviço Social</h3>${paras(r_soc.value)}`;
 
     const pgSintese=`
-      <h3>${nParecer} — Síntese Conclusiva do Exame Criminológico</h3><p style="text-indent:1.5cm;">${r_sin.value?escNl(r_sin.value):"—"}</p>
+      <h3>${nParecer} — Síntese Conclusiva do Exame Criminológico</h3>${paras(r_sin.value)}
       ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${escNl(r_diverg.value)}</p>`:""}
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${escNl(r_limit.value)}</p>`:""}
       <p style="margin-top:16px;">${esc(cocNome)}, ${new Date().toLocaleDateString("pt-BR")}.</p>
