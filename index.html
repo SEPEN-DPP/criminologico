@@ -707,7 +707,7 @@
       <button data-r="psq" onclick="App.relTab('psq')">Psiquiatria</button>
       <button data-r="psi" onclick="App.relTab('psi')">Psicologia</button>
       <button data-r="soc" onclick="App.relTab('soc')">Serviço Social</button>
-      <button data-r="sin" onclick="App.relTab('sin')">Parecer</button>
+      <button data-r="sin" onclick="App.relTab('sin')">Síntese Conclusiva</button>
     </nav>
     <div class="relpanel on" id="rp-coord">
       <p class="note">Responsável: <span class="resp-tag" id="rp_coordNomes">—</span></p>
@@ -861,7 +861,7 @@
         <input type="checkbox" id="relok_sin" style="width:15px; height:15px;" onchange="App.marcarRelOk('sin')">
         <span>Seção concluída</span>
       </label>
-      <label class="f">9 — Parecer</label>
+      <label class="f">9 — Síntese Conclusiva do Exame Criminológico</label>
       <textarea id="r_sin"></textarea>
       <div class="orient-field">Redija uma síntese informativa e descritiva do conjunto do exame — não uma conclusão sobre o mérito da progressão; o relatório não vincula o Juízo da Execução (art. 10, parágrafo único). Não fundamente na gravidade abstrata do delito, nas circunstâncias do crime ou no tempo de pena (vedação V), nem utilize IA generativa ou tecnologia preditiva na redação (vedação VI).</div>
       <label class="f" style="margin-top:12px;">Divergências técnicas, se houver <span class="muted" style="font-weight:normal; text-transform:none;">(registrar com a justificativa do posicionamento discordante)</span></label>
@@ -1177,7 +1177,7 @@ const ETAPA_EXTRA = {
 /* parágrafos-modelo do Anexo II (modelo padrão DPP) — usados como texto inicial/sugestão
    nas abas de conteúdo do relatório; a equipe edita/substitui conforme o caso concreto */
 const TEXTO_MODELO = {
-  met:"A metodologia empregada compreendeu a realização de duas entrevistas individuais [presenciais/por videoconferência] com a pessoa examinada, ocorridas nos dias [data] e [data], além de entrevista com pessoa de seu convívio, realizada em [data]. Foram também analisados o Boletim Penal Informativo, os registros disciplinares, as informações relativas às atividades laborais e educacionais, os registros de atendimento e os demais documentos constantes do prontuário institucional. Após a conclusão das avaliações individuais, procedeu-se à integração multiprofissional em [data], ocasião em que os elementos obtidos pelos diferentes profissionais foram analisados de forma conjunta para elaboração do parecer final.",
+  met:"A metodologia empregada compreendeu a realização de duas entrevistas individuais [presenciais/por videoconferência] com a pessoa examinada, ocorridas nos dias [data] e [data], além de entrevista com pessoa de seu convívio, realizada em [data]. Foram também analisados o Boletim Penal Informativo, os registros disciplinares, as informações relativas às atividades laborais e educacionais, os registros de atendimento e os demais documentos constantes do prontuário institucional. Após a conclusão das avaliações individuais, procedeu-se à integração multiprofissional em [data], ocasião em que os elementos obtidos pelos diferentes profissionais foram analisados de forma conjunta para elaboração da Síntese Conclusiva do Exame Criminológico.",
   direcao:"Conforme os registros institucionais disponíveis, a pessoa examinada apresenta participação regular às rotinas da unidade, observando as orientações administrativas e mantendo comportamento compatível com as normas institucionais. A participação institucional do apenado revela-se adequada às exigências do regime atualmente cumprido.\nNão há registro de intercorrências relevantes no período analisado.",
   chefiaSeg:"Conforme o Boletim Penal Informativo e os registros institucionais consultados, a pessoa avaliada não possui registro de faltas disciplinares.\nDurante o período analisado, não foram identificadas intercorrências relevantes, envolvimento em conflitos internos ou comportamentos incompatíveis com as normas e rotinas estabelecidas pela unidade prisional.\nA pessoa avaliada mantém conduta institucional regular, com observância das normas regimentais e relacionamento compatível com o ambiente prisional.\nSob o aspecto da disciplina e da segurança institucional, não se verificam, na presente avaliação, elementos que demandem ressalva específica.",
   execPenal:"O apenado iniciou o cumprimento da pena em regime fechado em [data], tendo progredido ao regime semiaberto em [data].\nNo período de cumprimento da pena, usufruiu de [X] saídas temporárias, com retorno regular nas datas fixadas.\nA situação executória encontra-se atualizada, conforme os registros disponíveis, não sendo identificadas pendências documentais relevantes ou inconsistências formais a consignar no momento da presente avaliação.",
@@ -2734,7 +2734,7 @@ Continuar mesmo assim (sem salvar)?`);
     const ro=this.progressoRelOk(e.relOk, e.sup);
     return ro.feitas===ro.total;
   },
-  SECAO_CURTA: {coord:"Metod.", direcao:"Direção", chefiaSeg:"Seg.", execPenal:"Exec. Penal", ativLab:"Laboral", ensino:"Ensino", psq:"Psiq.", psi:"Psic.", soc:"Serv. Social", sin:"Parecer"},
+  SECAO_CURTA: {coord:"Metod.", direcao:"Direção", chefiaSeg:"Seg.", execPenal:"Exec. Penal", ativLab:"Laboral", ensino:"Ensino", psq:"Psiq.", psi:"Psic.", soc:"Serv. Social", sin:"Síntese"},
   chipsSecoes(e){
     const relOk=e.relOk||{}, sup=e.sup||{}, eq=e.equipe||{};
     return `<div class="secs">${this.REL_OK_KEYS.map(k=>{
@@ -2913,6 +2913,9 @@ Continuar mesmo assim (sem salvar)?`);
     r_execPenal.value=ex.rel?.execPenal||TEXTO_MODELO.execPenal; r_ativLab.value=ex.rel?.ativLab||TEXTO_MODELO.ativLab; r_ensino.value=ex.rel?.ensino||TEXTO_MODELO.ensino;
     r_soc.value=ex.rel?.soc||TEXTO_MODELO.soc; r_psi.value=ex.rel?.psi||TEXTO_MODELO.psi; r_psq.value=ex.rel?.psq||TEXTO_MODELO.psq;
     r_sin.value=ex.rel?.sin||""; r_diverg.value=ex.rel?.diverg||""; r_limit.value=ex.rel?.limit||"";
+    /* exames cadastrados antes de 15/10/2026 trazem o texto-modelo antigo da Metodologia ("parecer final"):
+       troca só a frase intacta do modelo, só em exame em andamento; vai junto no próximo salvamento (com histórico) */
+    if(ex.status!=="concluido") r_met.value=r_met.value.replace("foram analisados de forma conjunta para elaboração do parecer final.", "foram analisados de forma conjunta para elaboração da Síntese Conclusiva do Exame Criminológico.");
     document.getElementById("condBox").innerHTML="";
     (ex.conds&&ex.conds.length?ex.conds:[{}]).forEach(c=>this.addCond(c));
     this.renderEtapas(ex.etapas||{});
@@ -2948,7 +2951,7 @@ Continuar mesmo assim (sem salvar)?`);
   ROTULO_SUB: {
     met:"Metodologia", coord:"Coordenação", direcao:"Direção", chefiaSeg:"Chefia de Segurança", execPenal:"Execução Penal",
     ativLab:"Atividades Laborais", ensino:"Ensino e Promoção Social", semiab:"Ala de Semiaberto", psq:"Psiquiatria", psi:"Psicologia",
-    soc:"Serviço Social", as:"Assistente social", sin:"Parecer", diverg:"Divergências técnicas", limit:"Limitações",
+    soc:"Serviço Social", as:"Assistente social", sin:"Síntese Conclusiva", diverg:"Divergências técnicas", limit:"Limitações",
     chefesExtra:"Outros chefes de serviço", semPsq:"Sem psiquiatra", detOrigem:"Determinação de origem", impedimento:"Impedimento/suspeição",
     defesaNome:"Defesa — nome", defesaOAB:"Defesa — OAB", mpQuesitos:"Quesitos do MP", defQuesitos:"Quesitos da defesa", lista:"Quesitos",
     ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista com convivente",
@@ -3193,7 +3196,7 @@ Continuar mesmo assim (sem salvar)?`);
      "marcar como vistos" (usuarios/{uid}.avisosVistoEm). Pendências: seções cujo responsável na equipe
      examinadora tem a mesma matrícula da conta e que ainda não foram marcadas como concluídas. */
   SECAO_EQ: {coord:"coord", direcao:"direcao", chefiaSeg:"chefiaSeg", execPenal:"execPenal", ativLab:"ativLab", ensino:"ensino", psq:"psq", psi:"psi", soc:"as", sin:"coord"},
-  SECAO_LABEL: {coord:"Metodologia", direcao:"Direção", chefiaSeg:"Chefia de Segurança", execPenal:"Execução Penal", ativLab:"Atividades Laborais", ensino:"Ensino e Promoção Social", psq:"Psiquiatria", psi:"Psicologia", soc:"Serviço Social", sin:"Parecer"},
+  SECAO_LABEL: {coord:"Metodologia", direcao:"Direção", chefiaSeg:"Chefia de Segurança", execPenal:"Execução Penal", ativLab:"Atividades Laborais", ensino:"Ensino e Promoção Social", psq:"Psiquiatria", psi:"Psicologia", soc:"Serviço Social", sin:"Síntese Conclusiva do Exame Criminológico"},
   matDaEquipe(eq, k){
     return this.separarMatricula(eq[k], eq[k+"Mat"]).mat;
   },
@@ -3863,7 +3866,7 @@ Continuar mesmo assim (sem salvar)?`);
     const pgSoc=`<h3>${nSoc} — Serviço Social</h3><p style="text-indent:1.5cm;">${r_soc.value?escNl(r_soc.value):"—"}</p>`;
 
     const pgSintese=`
-      <h3>${nParecer} — Parecer</h3><p style="text-indent:1.5cm;">${r_sin.value?escNl(r_sin.value):"—"}</p>
+      <h3>${nParecer} — Síntese Conclusiva do Exame Criminológico</h3><p style="text-indent:1.5cm;">${r_sin.value?escNl(r_sin.value):"—"}</p>
       ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${escNl(r_diverg.value)}</p>`:""}
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${escNl(r_limit.value)}</p>`:""}
       <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução. Declara-se, nos termos do art. 10, VI, da Portaria, que não foi utilizada inteligência artificial generativa ou tecnologia preditiva em sua elaboração.</p>
