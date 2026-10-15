@@ -405,7 +405,7 @@
     <h3>Painel por unidade prisional <span class="muted" style="font-weight:normal; font-size:12.5px;">— os exames deste centro, separados pela unidade prisional onde são realizados; clique numa unidade para abrir o painel dela</span></h3>
     <div id="painelUnidadesBox" style="overflow-x:auto;"></div>
   </div>
-  <div class="card" style="margin-top:16px;">
+  <div class="card" style="margin-top:16px;" id="prazosCard">
     <h3 id="prazosTitle">Prazos críticos <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames devem estar concluídos em até 30 dias da decisão judicial</span></h3>
     <div id="prazosBox" style="overflow-x:auto;"></div>
   </div>
@@ -2194,6 +2194,7 @@ const App = {
     document.getElementById("painelUnidadeAtualBox").innerHTML="";
     document.getElementById("painelUnidadesCard").style.display="none";
     document.getElementById("acompCard").style.display="none";
+    document.getElementById("prazosCard").style.display="";
     document.getElementById("prazosTitle").innerHTML = `Painel geral por regional <span class="muted" style="font-weight:normal;font-size:12.5px;">— clique numa regional para abrir o painel operacional dela</span>`;
     const totals={and:0, crit:0, warn:0, conc:0};
     const linhas=this.data.cocs.map(c=>{
@@ -3748,7 +3749,9 @@ Continuar mesmo assim (sem salvar)?`);
     document.getElementById("painelUnidadeAtualBox").innerHTML = unidFiltro
       ? `<p class="note" style="margin-bottom:10px;">Unidade: <b>${esc(unidLabel)}</b> — <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ voltar ao painel do centro</button></p>`
       : "";
-    document.getElementById("prazosTitle").innerHTML = `Prazos críticos${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames devem estar concluídos em até 30 dias da decisão judicial</span>`;
+    /* sem o quadro "Prazos críticos": o "Andamento dos exames" (acima) já mostra o prazo de cada exame;
+       os críticos continuam no indicador "prazo crítico / vencido", que filtra a lista de Exames */
+    document.getElementById("prazosCard").style.display="none";
 
     const exsCentro=this.data.exames.filter(e=>this.cocIdDoExame(e)===this.coc);
     const exs=this.filtrarPorUnidade(exsCentro, unidFiltro, unidadesDoCentro);
@@ -3760,13 +3763,6 @@ Continuar mesmo assim (sem salvar)?`);
       <div class="card kpi crit" onclick="App.filtrarPainel('andamento','b-crit')"><b>${crit.length}</b><span>prazo crítico / vencido</span></div>
       <div class="card kpi warn" onclick="App.filtrarPainel('andamento','b-warn')"><b>${warn.length}</b><span>atenção (≤ 15 dias)</span></div>
       <div class="card kpi ok" onclick="App.filtrarPainel('concluido','')"><b>${exs.filter(e=>e.status==="concluido").length}</b><span>concluídos</span></div>`;
-    const urg=and.filter(e=>["b-crit","b-warn"].includes(this.prazoInfo(e).cls))
-      .sort((a,b)=>(a.dataDecisao||"9999")>(b.dataDecisao||"9999")?1:-1);
-    document.getElementById("prazosBox").innerHTML = urg.length ?
-      `<table><tr><th>Avaliado</th>${unidFiltro?"":"<th>Unidade</th>"}<th>Decisão judicial</th><th>Prazo do exame</th><th>Situação</th><th>Progresso</th></tr>`+
-      urg.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{});
-        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td>${unidFiltro?"":`<td>${esc(e.unid)||"—"}</td>`}<td>${fmt(e.dataDecisao)}</td><td>${(()=>{const d=this.prazoLimite(e);return d?d.toLocaleDateString("pt-BR"):"—";})()}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
-      : `<div class="empty">Nenhum exame com prazo crítico${unidFiltro?"":" neste centro"}. ✓</div>`;
     this.renderOrientacao(and, crit, warn);
 
     // acompanhamento seção a seção: os ainda não finalizados primeiro (menos prontos no topo), depois os concluídos
