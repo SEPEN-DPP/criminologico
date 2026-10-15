@@ -430,6 +430,7 @@
       <button class="btn sm ghost" type="button" onclick="App.hctpMudarMes(1)">Seguinte ›</button>
     </div>
     <div id="hctpCalBox" style="overflow-x:auto;"></div>
+    <div id="hctpDiaForm"></div>
   </div>
 </section>
 
@@ -3564,13 +3565,14 @@ Continuar mesmo assim (sem salvar)?`);
     const fim=ini+(this.calDurMin(dur)||this.CAL_DUR_PADRAO);
     return (this.data.hctp||[]).find(o=>o.id!==h.id && o.status==="agendado" && o.data===data && (()=>{ const i2=this.calMinutos(o.hora); if(i2==null) return false; const f2=i2+(this.calDurMin(o.dur)||this.CAL_DUR_PADRAO); return ini<f2 && i2<fim; })());
   },
-  hctpCampos(h){
+  hctpCampos(h, suf){
+    suf=suf||h.id;
     return `<div class="row c3" style="margin-top:6px;">
-      <div><label class="f">Data</label><input type="date" id="hD_${h.id}" value="${esc(h.data||"")}"></div>
-      <div><label class="f">Horário</label><input type="time" id="hH_${h.id}" value="${esc(h.hora||"")}"></div>
-      <div><label class="f">Duração (minutos)</label><input type="number" min="5" step="5" id="hU_${h.id}" value="${esc(this.calDurMin(h.dur)||60)}"></div></div>
-      <div class="row c2"><div><label class="f">Local</label><input type="text" id="hL_${h.id}" value="${esc(h.local||this.HCTP_LOCAL)}"></div>
-      <div><label class="f">Observação para o Centro (opcional)</label><input type="text" id="hR_${h.id}" value="${esc(h.resposta||"")}"></div></div>`;
+      <div><label class="f">Data</label><input type="date" id="hD_${suf}" value="${esc(h.data||"")}"></div>
+      <div><label class="f">Horário</label><input type="time" id="hH_${suf}" value="${esc(h.hora||"")}"></div>
+      <div><label class="f">Duração (minutos)</label><input type="number" min="5" step="5" id="hU_${suf}" value="${esc(this.calDurMin(h.dur)||60)}"></div></div>
+      <div class="row c2"><div><label class="f">Local</label><input type="text" id="hL_${suf}" value="${esc(h.local||this.HCTP_LOCAL)}"></div>
+      <div><label class="f">Observação para o Centro (opcional)</label><input type="text" id="hR_${suf}" value="${esc(h.resposta||"")}"></div></div>`;
   },
   hctpFicha(h){
     const pz=h.prazo?` · prazo do exame: <b>${fmt(h.prazo)}</b>`:"";
@@ -3615,9 +3617,11 @@ Continuar mesmo assim (sem salvar)?`);
     if(encerradas.length) document.getElementById("hctpAgBox").innerHTML += `<details style="margin-top:16px;"><summary style="cursor:pointer; font-weight:700;">Recusadas e canceladas (${encerradas.length})</summary>`+encerradas.map(h=>`<div class="etapa" style="display:block;"><span class="badge b-mut">${esc(this.HCTP_STATUS[h.status])}</span> ${this.hctpFicha(h)}${h.resposta||h.motivoCancelamento?`<p class="note" style="margin:4px 0;">Motivo: ${esc(h.status==="recusado"?h.resposta:h.motivoCancelamento)}</p>`:""}${this.hctpEventosHTML(h)}</div>`).join("")+`</details>`;
     this.renderHctpCal();
   },
-  async hctpAgendar(id){
-    const h=this.hctpAchar(id); if(!h) return;
-    const v=k=>document.getElementById(k+"_"+id).value.trim();
+  async hctpAgendar(id, suf){
+    if(id==="__dia") id=document.getElementById("hctpDiaPedido").value; /* formulário do calendário: o pedido vem da lista */
+    const h=this.hctpAchar(id); if(!h){ alert("Escolha o pedido."); return; }
+    suf=suf||id;
+    const v=k=>document.getElementById(k+"_"+suf).value.trim();
     const data=v("hD"), hora=v("hH"), dur=v("hU"), local=v("hL"), resposta=v("hR");
     if(!data || !hora){ alert("Informe a data e o horário."); return; }
     if(!this.calDurMin(dur)){ alert("Informe a duração, em minutos."); return; }
@@ -3641,6 +3645,31 @@ Continuar mesmo assim (sem salvar)?`);
     try{ await window.HctpFS.atualizar(h, {status:"realizado", novidadeParaCentro:true, novidadeParaHctp:false}, "realizou", ""); }
     catch(e){ alert("Não foi possível salvar: "+(e?.code||e?.message||e)); }
   },
+  /* calendário do HCTP: clicar num dia abre o agendamento de um pedido que está aguardando;
+     clicar numa avaliação agendada abre a remarcação dela */
+  hctpDiaClick(dISO){
+    const box=document.getElementById("hctpDiaForm");
+    const fechar=`<button class="btn sm ghost" type="button" onclick="document.getElementById('hctpDiaForm').innerHTML=''">Fechar</button>`;
+    const pend=(this.data.hctp||[]).filter(h=>h.status==="solicitado").sort((a,b)=>String(a.prazo||"9").localeCompare(String(b.prazo||"9")));
+    if(!pend.length){ box.innerHTML=`<div class="orient" style="margin-top:12px;">Nenhum pedido aguardando agendamento. ✓ ${fechar}</div>`; return; }
+    const hoje=new Date(); const hojeISO=hoje.getFullYear()+"-"+String(hoje.getMonth()+1).padStart(2,"0")+"-"+String(hoje.getDate()).padStart(2,"0");
+    box.innerHTML=`<div class="card" style="margin-top:12px; background:#FAFBFE;"><h3 style="font-size:14px;">Agendar em ${fmt(dISO)}</h3>
+      ${dISO<hojeISO?`<p class="note" style="color:var(--warn);">Atenção: esta data já passou.</p>`:""}
+      <label class="f">Pedido</label><select id="hctpDiaPedido">${pend.map(h=>`<option value="${h.id}">${esc(h.nome)}${h.ipen?" — IPEN "+esc(h.ipen):""} — ${esc(h.cocNome||"—")}${h.prazo?" — prazo "+fmt(h.prazo):""}</option>`).join("")}</select>
+      ${this.hctpCampos({id:"dia", data:dISO}, "dia")}
+      <div class="btnrow" style="margin-top:8px;"><button class="btn sm" type="button" onclick="App.hctpAgendar('__dia','dia')">Agendar e avisar o Centro</button> ${fechar}</div></div>`;
+    box.scrollIntoView({behavior:"smooth", block:"nearest"});
+  },
+  hctpEventoClick(id){
+    const h=this.hctpAchar(id); if(!h) return;
+    const box=document.getElementById("hctpDiaForm");
+    box.innerHTML=`<div class="card" style="margin-top:12px; background:#FAFBFE;"><h3 style="font-size:14px;">Remarcar — ${esc(h.nome)}</h3>${this.hctpFicha(h)}
+      ${this.hctpCampos(h, "cal")}
+      <div class="btnrow" style="margin-top:8px;"><button class="btn sm" type="button" onclick="App.hctpAgendar('${h.id}','cal')">Remarcar e avisar o Centro</button>
+      <button class="btn sm ghost" type="button" onclick="App.hctpCancelar('${h.id}')">Cancelar</button>
+      <button class="btn sm ghost" type="button" onclick="document.getElementById('hctpDiaForm').innerHTML=''">Fechar</button></div></div>`;
+    box.scrollIntoView({behavior:"smooth", block:"nearest"});
+  },
   hctpMudarMes(d){ this.hctpCalMes+=d; if(this.hctpCalMes<0){this.hctpCalMes=11;this.hctpCalAno--;} if(this.hctpCalMes>11){this.hctpCalMes=0;this.hctpCalAno++;} this.renderHctpCal(); },
   renderHctpCal(){
     const hoje=new Date();
@@ -3648,6 +3677,7 @@ Continuar mesmo assim (sem salvar)?`);
     const ano=this.hctpCalAno, mes=this.hctpCalMes;
     document.getElementById("hctpCalTitulo").textContent=new Date(ano,mes,1).toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
     const ag=(this.data.hctp||[]).filter(h=>(h.status==="agendado"||h.status==="realizado") && h.data);
+    const age=this.ehHctp();
     const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
     const ini=new Date(ano,mes,1); ini.setDate(1-ini.getDay());
     const hojeISO=iso(hoje);
@@ -3658,8 +3688,8 @@ Continuar mesmo assim (sem salvar)?`);
         const d=new Date(ini); d.setDate(ini.getDate()+w*7+i);
         const dISO=iso(d), doMes=d.getMonth()===mes;
         const evs=ag.filter(h=>h.data===dISO).sort((a,b)=>(a.hora||"").localeCompare(b.hora||""));
-        html+=`<td style="vertical-align:top; height:84px; ${doMes?"":"opacity:.45;"} ${dISO===hojeISO?"background:#EEF5EE;":""}"><div style="font-size:11px; font-weight:700;">${d.getDate()}</div>${evs.map(h=>
-          `<div class="cal-evt ${h.status==="realizado"?"":"pend"}" title="${esc(h.nome)} — ${esc(h.cocNome||"")} — ${esc(this.hctpQuando(h))}">${esc(h.hora||"")} ${esc(h.nome.split(" ")[0])} · ${esc((h.cocNome||"").split(" — ")[0])}</div>`).join("")}</td>`;
+        html+=`<td style="vertical-align:top; height:84px; ${doMes?"":"opacity:.45;"} ${dISO===hojeISO?"background:#EEF5EE;":""} ${age?"cursor:pointer;":""}" ${age?`onclick="App.hctpDiaClick('${dISO}')" title="Clique para agendar neste dia"`:""}><div style="font-size:11px; font-weight:700;">${d.getDate()}</div>${evs.map(h=>
+          `<div class="cal-evt ${h.status==="realizado"?"":"pend"}" ${age&&h.status==="agendado"?`onclick="event.stopPropagation();App.hctpEventoClick('${h.id}')"`:""} title="${esc(h.nome)} — ${esc(h.cocNome||"")} — ${esc(this.hctpQuando(h))}${age&&h.status==="agendado"?" — clique para remarcar":""}">${esc(h.hora||"")} ${esc(h.nome.split(" ")[0])} · ${esc((h.cocNome||"").split(" — ")[0])}</div>`).join("")}</td>`;
       }
       html+="</tr>";
     }
