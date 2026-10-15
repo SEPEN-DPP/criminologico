@@ -3763,9 +3763,9 @@ Continuar mesmo assim (sem salvar)?`);
     const urg=and.filter(e=>["b-crit","b-warn"].includes(this.prazoInfo(e).cls))
       .sort((a,b)=>(a.dataDecisao||"9999")>(b.dataDecisao||"9999")?1:-1);
     document.getElementById("prazosBox").innerHTML = urg.length ?
-      `<table><tr><th>Avaliado</th><th>Unidade</th><th>Decisão judicial</th><th>Prazo do exame</th><th>Situação</th><th>Progresso</th></tr>`+
+      `<table><tr><th>Avaliado</th>${unidFiltro?"":"<th>Unidade</th>"}<th>Decisão judicial</th><th>Prazo do exame</th><th>Situação</th><th>Progresso</th></tr>`+
       urg.map(e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{});
-        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td><td>${esc(e.unid)||"—"}</td><td>${fmt(e.dataDecisao)}</td><td>${(()=>{const d=this.prazoLimite(e);return d?d.toLocaleDateString("pt-BR"):"—";})()}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
+        return `<tr onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b></td>${unidFiltro?"":`<td>${esc(e.unid)||"—"}</td>`}<td>${fmt(e.dataDecisao)}</td><td>${(()=>{const d=this.prazoLimite(e);return d?d.toLocaleDateString("pt-BR"):"—";})()}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td><div class="prog"><i style="width:${pr}%"></i></div></td></tr>`;}).join("")+`</table>`
       : `<div class="empty">Nenhum exame com prazo crítico${unidFiltro?"":" neste centro"}. ✓</div>`;
     this.renderOrientacao(and, crit, warn);
 
@@ -3874,6 +3874,8 @@ Continuar mesmo assim (sem salvar)?`);
     if(mTipo) exs=exs.filter(e=>agend(e)[mTipo[2]]===(mTipo[1]==="tem"));
     if(this.dashPrazoFiltro) exs=exs.filter(e=>this.prazoInfo(e).cls===this.dashPrazoFiltro);
     if(q) exs=exs.filter(e=>(e.nome+" "+(e.mat||"")+" "+(e.proc||"")).toLowerCase().includes(q));
+    /* concluídos no fim (dentro de cada unidade, já que os grupos mantêm a ordem); o resto na ordem de antes */
+    exs=exs.map((e,i)=>({e,i})).sort((x,y)=>(x.e.status==="concluido")-(y.e.status==="concluido") || x.i-y.i).map(x=>x.e);
     const nomeRegional = id => (this.data.cocs.find(c=>c.id===id)||{}).nome || "—";
     const chips=[];
     if(unidFiltro) chips.push(`Unidade: <b>${esc(unidLabel)}</b> <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ ver todas as unidades</button>`);
