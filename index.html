@@ -3921,7 +3921,6 @@ Continuar mesmo assim (sem salvar)?`);
       <h3>${nParecer} — Síntese Conclusiva do Exame Criminológico</h3><p style="text-indent:1.5cm;">${r_sin.value?escNl(r_sin.value):"—"}</p>
       ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${escNl(r_diverg.value)}</p>`:""}
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${escNl(r_limit.value)}</p>`:""}
-      <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução. Declara-se, nos termos do art. 10, VI, da Portaria, que não foi utilizada inteligência artificial generativa ou tecnologia preditiva em sua elaboração.</p>
       <p style="margin-top:16px;">${esc(cocNome)}, ${new Date().toLocaleDateString("pt-BR")}.</p>
       <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}${x[2]?"<br>Matrícula "+esc(x[2]):""}<br><i>${x[0]}</i></p>`).join("")}</div>
       ${this.blocoAutoriaHTML()}`;
