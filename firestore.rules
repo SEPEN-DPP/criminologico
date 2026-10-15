@@ -185,11 +185,23 @@ service cloud.firestore {
     // SR_PSICOLOGIA, SR_SOCIAL) e o DPP editam tudo.
     function secaoDoPerfil(p) { return p == 'PSICOLOGIA' ? 'psi' : 'soc'; }
     function mudouEm(n, a, campo) { return n.get(campo, {}).diff(a.get(campo, {})).affectedKeys(); }
-    function edicaoPorSecaoOk(n, a) {
-      let p = perfilAtual().perfil;
-      return ehRegionalOuDPPDo(a) ? true
+    // Versoes das checagens de perfil que recebem o perfil ja lido (eu = perfilAtual()), para
+    // a gravacao de exame ler o cadastro uma vez so — o Firestore limita cada verificacao a
+    // 1000 operacoes. Mesmo alcance de podeVer / ehRegionalOuDPPDo acima.
+    function regionalOuDPP(d, eu) {
+      return eu.status == 'ATIVO' && (eu.perfil == 'DPP'
+        || (eu.perfil in ['SR','SR_PSICOLOGIA','SR_SOCIAL'] && eu.get('sr', null) != null && eu.get('sr', null) == d.get('sr', null)));
+    }
+    function podeVerComo(d, eu) {
+      return regionalOuDPP(d, eu)
+        || (eu.status == 'ATIVO' && eu.perfil in ['USUARIO','PSICOLOGIA','SOCIAL','DIR','CPEN']
+            && eu.get('unidade', null) != null && eu.get('unidade', null) == d.get('unidade', null));
+    }
+    function edicaoPorSecaoOk(n, a, eu) {
+      let p = eu.perfil;
+      return regionalOuDPP(a, eu) ? true
         : p in ['PSICOLOGIA','SOCIAL'] ? (
-            n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt'])
+            n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt','numCrim'])
             && mudouEm(n, a, 'rel').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOk').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOkPor').hasOnly([secaoDoPerfil(p)]))
@@ -197,9 +209,51 @@ service cloud.firestore {
           && !mudouEm(n, a, 'relOk').hasAny(['psi','soc'])
           && !mudouEm(n, a, 'relOkPor').hasAny(['psi','soc']);
     }
-    function criacaoPorSecaoOk(n) {
-      let p = perfilAtual().perfil;
-      return ehRegionalOuDPPDo(n) ? true
+    // Registro eletronico de autoria e conclusao (vale para todos os perfis):
+    //  - quem grava "Secao concluida" (relOkPor.<secao>) so registra a si mesmo: uid e nome da
+    //    propria conta, matricula da propria conta (quando enviada) e hora do servidor;
+    //  - o texto de uma secao concluida so muda junto com um novo registro de conclusao
+    //    (nova versao da secao); sem isso, a marca de concluida tem de cair na mesma gravacao;
+    //  - o numero do exame (numCrim) e atribuido uma vez e nao muda mais.
+    // (as comparacoes sao calculadas uma vez so em autoriaOk e passadas adiante: o Firestore
+    // limita cada verificacao a 1000 operacoes)
+    function porOk(k, mudou, por, nome, mat) {
+      return !(k in mudou) || por.get(k, null) == null || (
+        por[k].uid == request.auth.uid
+        && por[k].em == request.time
+        && por[k].get('nome', '') == nome
+        && por[k].get('mat', mat) == mat);
+    }
+    // secoes concluidas (relOk == true): a diferenca contra um mapa todo "false" da so as marcadas
+    function concluidas(n) {
+      return n.get('relOk', {}).diff({'coord': false, 'direcao': false, 'chefiaSeg': false, 'execPenal': false,
+        'ativLab': false, 'ensino': false, 'psq': false, 'psi': false, 'soc': false, 'sin': false}).changedKeys();
+    }
+    // secoes cujo texto mudou: o campo tem o nome da secao, menos Metodologia (met -> coord)
+    // e Sintese (sin, diverg, limit -> sin)
+    function secoesComTextoMudado(relMudou) {
+      return relMudou
+        .union(relMudou.hasAny(['met']) ? ['coord'].toSet() : [].toSet())
+        .union(relMudou.hasAny(['diverg', 'limit']) ? ['sin'].toSet() : [].toSet());
+    }
+    function registrosOk(mudou, por, nome, mat) {
+      return porOk('coord', mudou, por, nome, mat) && porOk('direcao', mudou, por, nome, mat)
+        && porOk('chefiaSeg', mudou, por, nome, mat) && porOk('execPenal', mudou, por, nome, mat)
+        && porOk('ativLab', mudou, por, nome, mat) && porOk('ensino', mudou, por, nome, mat)
+        && porOk('psq', mudou, por, nome, mat) && porOk('psi', mudou, por, nome, mat)
+        && porOk('soc', mudou, por, nome, mat) && porOk('sin', mudou, por, nome, mat);
+    }
+    function autoriaOk(n, a, eu) {
+      let porMudou = mudouEm(n, a, 'relOkPor');
+      let relMudou = mudouEm(n, a, 'rel');
+      return (porMudou.size() == 0
+          || registrosOk(porMudou, n.get('relOkPor', {}), eu.get('nome', ''), eu.get('matricula', '')))
+        && (relMudou.size() == 0 || !secoesComTextoMudado(relMudou).hasAny(concluidas(n).difference(porMudou)))
+        && (a.get('numCrim', null) == null || n.get('numCrim', null) == a.get('numCrim', null));
+    }
+    function criacaoPorSecaoOk(n, eu) {
+      let p = eu.perfil;
+      return regionalOuDPP(n, eu) ? true
         : p in ['PSICOLOGIA','SOCIAL'] ? false
         : n.get('rel', {}).get('psi', '') == '' && n.get('rel', {}).get('soc', '') == ''
           && n.get('relOk', {}).get('psi', false) == false && n.get('relOk', {}).get('soc', false) == false;
@@ -208,7 +262,7 @@ service cloud.firestore {
     // so sobe de 1 em 1, nunca volta nem e apagado.
     match /contadores/{id} {
       allow read: if ativo();
-      allow create: if ativo() && id.matches('oficio-.+')
+      allow create: if ativo() && (id.matches('oficio-.+') || id.matches('crim-.+'))
         && request.resource.data.keys().hasOnly(['n','por','em'])
         && request.resource.data.n == 1
         && request.resource.data.por == request.auth.uid
@@ -220,25 +274,36 @@ service cloud.firestore {
         && request.resource.data.em == request.time;
       allow delete: if false;
     }
+    function criacaoOk(examId, eu) {
+      let n = request.resource.data;
+      return podeVerComo(n, eu)
+        && metaOk()
+        && n.rev == 1
+        && n.get('status', 'andamento') == 'andamento'
+        && n.createdBy == request.auth.uid
+        && n.createdAt == request.time
+        && criacaoPorSecaoOk(n, eu)
+        && autoriaOk(n, {}, eu)
+        && existsAfter(historicoDoc(examId, 1));
+    }
+    function atualizacaoOk(examId, eu) {
+      let n = request.resource.data;
+      let a = resource.data;
+      return podeVerComo(a, eu)
+        && podeVerComo(n, eu)
+        && metaOk()
+        && n.rev == a.get('rev', 0) + 1
+        && n.get('createdBy', null) == a.get('createdBy', null)
+        && n.get('createdAt', null) == a.get('createdAt', null)
+        && existsAfter(historicoDoc(examId, n.rev))
+        && transicaoOk(examId)
+        && edicaoPorSecaoOk(n, a, eu)
+        && autoriaOk(n, a, eu);
+    }
     match /exames/{examId} {
       allow read: if podeVer(resource.data);
-      allow create: if podeVer(request.resource.data)
-        && metaOk()
-        && request.resource.data.rev == 1
-        && request.resource.data.get('status', 'andamento') == 'andamento'
-        && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.createdAt == request.time
-        && criacaoPorSecaoOk(request.resource.data)
-        && existsAfter(historicoDoc(examId, 1));
-      allow update: if podeVer(resource.data)
-        && podeVer(request.resource.data)
-        && metaOk()
-        && request.resource.data.rev == resource.data.get('rev', 0) + 1
-        && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
-        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
-        && existsAfter(historicoDoc(examId, request.resource.data.rev))
-        && transicaoOk(examId)
-        && edicaoPorSecaoOk(request.resource.data, resource.data);
+      allow create: if autenticado() && criacaoOk(examId, perfilAtual());
+      allow update: if autenticado() && atualizacaoOk(examId, perfilAtual());
       allow delete: if false;
 
       match /historico/{rev} {

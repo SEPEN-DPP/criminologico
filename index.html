@@ -2592,7 +2592,7 @@ Continuar mesmo assim (sem salvar)?`);
     if(this._previewEditing) this.toggleEditarPreview();
   },
   novo(){
-    this.editId=null; this._base=null; this._avisoConflito=null; this._formSeq=(this._formSeq||0)+1;
+    this.editId=null; this._base=null; this._avisoConflito=null; this._formSeq=(this._formSeq||0)+1; this._relOkRemarcadas=new Set();
     this.sairDaEdicaoDaPrevia();
     this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
@@ -2691,7 +2691,8 @@ Continuar mesmo assim (sem salvar)?`);
     this.toggleRelOk(k);
     const chk=document.getElementById("relok_"+k), por=this.relOkPorEl(chk);
     por.style.color="";
-    if(!chk.checked){ por.textContent=""; return; }
+    if(!chk.checked){ por.textContent=""; this._relOkRemarcadas.delete(k); return; }
+    this._relOkRemarcadas.add(k); /* conclusão feita agora: registra (nova versão, se já tinha sido concluída) */
     const seq=this._formSeq, p=this.salvar();
     if(!p){ por.style.color="#B4232B"; por.textContent=" — ⚠ ainda não foi salvo: clique em \"Salvar exame\""; return; }
     por.textContent=" — salvando…";
@@ -2866,7 +2867,7 @@ Continuar mesmo assim (sem salvar)?`);
     this.sairDaEdicaoDaPrevia();
     const cocEx=this.cocIdDoExame(ex);
     if(cocEx && cocEx!==this.coc && this.data.cocs.some(c=>c.id===cocEx) && (!this._meuCocId || cocEx===this._meuCocId)){ this.coc=cocEx; document.getElementById("selCoc").value=cocEx; }
-    this.editId=id; this._base=this.baseDoServidor(ex); this._avisoConflito=null; this.tab("novo");
+    this.editId=id; this._base=this.baseDoServidor(ex); this._avisoConflito=null; this._relOkRemarcadas=new Set(); this.tab("novo");
     this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(ex.status==="concluido"?" (concluído)":"");
     e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_proc.value=ex.proc||""; document.getElementById("e_sgpe").value=ex.sgpe||"";
@@ -2915,7 +2916,7 @@ Continuar mesmo assim (sem salvar)?`);
     r_sin.value=ex.rel?.sin||""; r_diverg.value=ex.rel?.diverg||""; r_limit.value=ex.rel?.limit||"";
     /* exames cadastrados antes de 15/10/2026 trazem o texto-modelo antigo da Metodologia ("parecer final"):
        troca só a frase intacta do modelo, só em exame em andamento; vai junto no próximo salvamento (com histórico) */
-    if(ex.status!=="concluido") r_met.value=r_met.value.replace("foram analisados de forma conjunta para elaboração do parecer final.", "foram analisados de forma conjunta para elaboração da Síntese Conclusiva do Exame Criminológico.");
+    if(ex.status!=="concluido" && !(ex.relOk||{}).coord) r_met.value=r_met.value.replace( /* Metodologia já concluída não muda sozinha */"foram analisados de forma conjunta para elaboração do parecer final.", "foram analisados de forma conjunta para elaboração da Síntese Conclusiva do Exame Criminológico.");
     document.getElementById("condBox").innerHTML="";
     (ex.conds&&ex.conds.length?ex.conds:[{}]).forEach(c=>this.addCond(c));
     this.renderEtapas(ex.etapas||{});
@@ -2933,7 +2934,7 @@ Continuar mesmo assim (sem salvar)?`);
      exigem). _base guarda a versão do servidor em que o formulário aberto se
      apoia: é contra ela que se calcula o "antes/depois" e o número da versão. */
   META_EXAME: ["id","coc","status","criadoEm","unidade","sr","rev","createdBy","createdByNome","createdAt","updatedBy","updatedByNome","updatedAt",
-    "finalizedBy","finalizedByNome","finalizedAt","versaoFinal","excluidoBy","excluidoByNome","excluidoAt","motivoExclusao","relOkPor"],
+    "finalizedBy","finalizedByNome","finalizedAt","versaoFinal","excluidoBy","excluidoByNome","excluidoAt","motivoExclusao","relOkPor","numCrim"],
   conteudoExame(ex){
     const out={};
     Object.keys(ex||{}).forEach(k=>{ if(!this.META_EXAME.includes(k) && ex[k]!==undefined) out[k]=ex[k]; });
@@ -2985,23 +2986,74 @@ Continuar mesmo assim (sem salvar)?`);
     });
     return { alteracoes, secoes:[...secoes] };
   },
+  /* texto de cada seção do relatório (Metodologia = met; Síntese = texto + divergências + limitações) */
+  SECAO_TEXTOS: {coord:["met"], sin:["sin","diverg","limit"]},
+  textosDaSecao(k){ return this.SECAO_TEXTOS[k]||[k]; },
+  /* seção concluída não muda de texto sem nova conclusão (a regra do Firestore recusa):
+     - "" e campo ausente contam como iguais (não é alteração);
+     - seção suprimida ("não se aplica") mantém o texto do servidor;
+     - texto alterado sem a pessoa marcar de novo "Seção concluída" → a marca cai */
+  protegerSecoesConcluidas(ex, base){
+    const rel0=base.conteudo.rel||{}, ok0=base.conteudo.relOk||{};
+    if(!ex.rel) return;
+    if(!ex.relOk) ex.relOk={};
+    this.REL_OK_KEYS.forEach(k=>{
+      const campos=this.textosDaSecao(k);
+      let mudou=false;
+      campos.forEach(f=>{
+        if((ex.rel[f]||"")===(rel0[f]||"") || (ex.sup||{})[k]){ if(f in rel0) ex.rel[f]=rel0[f]; else delete ex.rel[f]; }
+        else mudou=true;
+      });
+      if(mudou && ok0[k] && ex.relOk[k] && !(ex.id===this.editId && this._relOkRemarcadas.has(k))){
+        ex.relOk[k]=false;
+        if(ex.id===this.editId) this.desmarcarPorEdicao(k);
+      }
+    });
+  },
+  /* seção concluída cujo texto foi alterado: desmarca na tela e avisa que precisa concluir de novo (nova versão) */
+  desmarcarPorEdicao(k){
+    const chk=document.getElementById("relok_"+k);
+    if(!chk || !chk.checked) return;
+    chk.checked=false; this.toggleRelOk(k);
+    const por=this.relOkPorEl(chk);
+    por.style.color="#B4232B";
+    por.textContent=" — texto alterado depois da conclusão: marque de novo para registrar a nova versão";
+  },
+  /* digitou numa seção já concluída → a marca cai na hora */
+  aoDigitarNoRelatorio(e){
+    const id=(e.target&&e.target.id)||"";
+    if(!/^r_/.test(id) || !this.editId) return;
+    const campo=id.slice(2);
+    const k=this.REL_OK_KEYS.find(s=>this.textosDaSecao(s).includes(campo));
+    if(k){ this._relOkRemarcadas.delete(k); this.desmarcarPorEdicao(k); }
+  },
+  _relOkRemarcadas: new Set(),
   gravarExame(ex, o){
     if(!window.ExamesFS) return Promise.reject(new Error("sem conexão com o servidor."));
     if(this._gravando) return Promise.reject(new Error("aguarde a gravação anterior terminar."));
     const criando = o.acao==="criou";
     const base = criando ? null : (o.base || (ex.id===this.editId && this._base) || this.baseDoServidor(ex));
     o={...o, base};
-    if(["criou","alterou","concluiu"].includes(o.acao)){
+    const comConteudo=["criou","alterou","concluiu"].includes(o.acao);
+    if(comConteudo){
+      if(base) this.protegerSecoesConcluidas(ex, base);
       const d=this.diffExame(base?base.conteudo:{}, this.conteudoExame(ex));
       if(o.acao==="alterou" && !d.alteracoes.length) return Promise.resolve({semMudanca:true});
       o.alteracoes=d.alteracoes; o.secoes=d.secoes;
       const r0=(base&&base.conteudo.relOk)||{}, r1=ex.relOk||{};
-      o.relOkMarcadas=this.REL_OK_KEYS.filter(k=>r1[k]&&!r0[k]);
+      const remarcadas = ex.id===this.editId ? this._relOkRemarcadas : new Set();
+      o.relOkMarcadas=this.REL_OK_KEYS.filter(k=>r1[k]&&(!r0[k]||remarcadas.has(k)));
       o.relOkDesmarcadas=this.REL_OK_KEYS.filter(k=>!r1[k]&&r0[k]);
     }
+    /* número do exame para o registro de autoria (CO1-2026-0041): sequência por Centro e ano,
+       atribuído uma vez só — na criação, ou no primeiro salvamento dos exames antigos */
+    const cocNum = comConteudo && !ex.numCrim && this.cocIdDoExame(ex);
     this._gravando=true;
-    return window.ExamesFS.gravar(ex,o).then(r=>{
+    const ano=new Date().getFullYear();
+    const antes = cocNum ? window.ExamesFS.proximoExame(cocNum, ano).then(n=>{ ex.numCrim="CO"+String(cocNum).replace(/^coc/,"")+"-"+ano+"-"+String(n).padStart(4,"0"); }) : Promise.resolve();
+    return antes.then(()=>window.ExamesFS.gravar(ex,o)).then(r=>{
       this._gravando=false;
+      if(ex.id===this.editId || (criando && o.doFormulario && o.formSeq===this._formSeq)) this._relOkRemarcadas=new Set();
       if(criando && o.doFormulario && o.formSeq===this._formSeq) this.editId=ex.id;
       if(ex.id===this.editId){
         this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: (o.acao==="reabriu"||o.acao==="excluiu") ? base.conteudo : this.conteudoExame(ex) };
@@ -3871,10 +3923,46 @@ Continuar mesmo assim (sem salvar)?`);
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${escNl(r_limit.value)}</p>`:""}
       <p style="margin-top:10px;">O presente relatório tem caráter informativo, circunstanciado e descritivo, elaborado em conformidade com a Resolução CNPCP n. 36/2024, e não vincula o Juízo da Execução. Declara-se, nos termos do art. 10, VI, da Portaria, que não foi utilizada inteligência artificial generativa ou tecnologia preditiva em sua elaboração.</p>
       <p style="margin-top:16px;">${esc(cocNome)}, ${new Date().toLocaleDateString("pt-BR")}.</p>
-      <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}${x[2]?"<br>Matrícula "+esc(x[2]):""}<br><i>${x[0]}</i></p>`).join("")}</div>`;
+      <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}${x[2]?"<br>Matrícula "+esc(x[2]):""}<br><i>${x[0]}</i></p>`).join("")}</div>
+      ${this.blocoAutoriaHTML()}`;
 
     const paginas=[pgCapa,pgIdent,pgMetodologia,pgDirecao,pgChefiaSeg,pgExecPenal,pgAtivLab,pgEnsino,pgPsq,pgPsi,pgSoc,pgSintese].filter(Boolean);
     return paginas.map((corpo,i)=>`<div class="pageBox" style="page-break-after:${i===paginas.length-1?"auto":"always"};"><div class="pgHead">${headerHtml}</div><div class="pgBody">${corpo}</div><div class="pgFoot">${footerHtml}</div></div>`).join("");
+  },
+  /* ---------- registro eletrônico de autoria e conclusão ----------
+     um registro por seção concluída (e não suprimida), com quem marcou "Seção concluída" (nome e
+     matrícula da conta, hora do servidor), a função no exame e o identificador
+     CRIM-<Centro>-<ano>-<nº do exame>-<seção>-V<versão da seção>. Vai junto na versão fechada,
+     cujo código SHA-256 sai no rodapé dela. */
+  SECAO_SIGLA: {coord:"MET", direcao:"DIR", chefiaSeg:"SEG", execPenal:"EXP", ativLab:"LAB", ensino:"ENS", psq:"PSQ", psi:"PSI", soc:"SOC", sin:"SIN"},
+  FUNCAO_EQ: {direcao:"Diretor(a) da Unidade", chefiaSeg:"Chefe de Segurança", execPenal:"Coordenador(a) de Execução Penal", ativLab:"Coordenador(a) de Atividades Laborais", ensino:"Coordenador(a) de Ensino e Promoção Social", psq:"Psiquiatra", psi:"Psicólogo(a)", as:"Assistente social", coord:"Coordenação do exame"},
+  fmtBrasilia(ts){
+    const d = ts && typeof ts.toDate==="function" ? ts.toDate() : (ts ? new Date(ts) : null);
+    if(!d || isNaN(d)) return "—";
+    const o={timeZone:"America/Sao_Paulo"};
+    return d.toLocaleDateString("pt-BR",o)+" — "+d.toLocaleTimeString("pt-BR",{...o, hour:"2-digit", minute:"2-digit"}).replace(":","h")+" (Brasília)";
+  },
+  blocoAutoriaHTML(){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    const ok=this.lerRelOk(), sup=this.lerSuprimir(), por=(ex&&ex.relOkPor)||{}, eqForm=this.lerEquipeCampos();
+    const itens=this.REL_OK_KEYS.filter(k=>ok[k] && !sup[k] && por[k] && !por[k].desmarcado).map(k=>{
+      const p=por[k], kEq=this.SECAO_EQ[k];
+      const membro=this.separarMatricula(eqForm[kEq], eqForm[kEq+"Mat"]);
+      /* conclusões registradas antes de 15/10/2026 não guardaram a matrícula: compara pelo nome */
+      const norm=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").trim().toLowerCase();
+      const daEquipe = p.mat ? matIgual(membro.mat, p.mat) : (membro.nome && norm(membro.nome)===norm(p.nome));
+      const funcao = daEquipe ? this.FUNCAO_EQ[kEq] : (p.perfil ? "conclusão registrada por conta de perfil "+((window.PERFIL_LABEL||{})[p.perfil]||p.perfil) : "conclusão registrada por conta fora da equipe examinadora");
+      const mat = p.mat || (daEquipe && membro.mat) || "não registrada";
+      const ident = ex&&ex.numCrim ? "CRIM-"+ex.numCrim+"-"+this.SECAO_SIGLA[k]+"-V"+(p.v||1) : "atribuído no próximo salvamento do exame";
+      return `<p style="margin:8px 0;"><b>${esc(this.SECAO_LABEL[k])}</b> — elaborada e concluída eletronicamente por:<br>
+        Nome: ${esc(p.nome||"—")}<br>Cargo/função: ${esc(funcao)}<br>Matrícula: ${esc(mat)}<br>
+        Data e hora: ${this.fmtBrasilia(p.em)}<br>Identificador: ${esc(ident)}</p>`;
+    });
+    return `<div style="border:1px solid #999; padding:10px 12px; margin-top:28px; font-size:9.5pt; page-break-inside:avoid;">
+      <p style="margin:0 0 6px;"><b>REGISTRO ELETRÔNICO DE AUTORIA E CONCLUSÃO</b></p>
+      ${itens.length ? itens.join("") : `<p style="margin:6px 0;"><i>Nenhuma seção concluída até o momento.</i></p>`}
+      <p style="margin:8px 0 0;">Integridade: SHA-256 vinculado à versão final (código no rodapé da versão fechada, gerado na conclusão do exame).<br>Registro eletrônico interno de autoria e conclusão.</p>
+    </div>`;
   },
   checarAntesDeExportar(acao){
     const flags=this.verificarRelatorio();
@@ -4021,6 +4109,7 @@ Continuar mesmo assim (sem salvar)?`);
 /* expostos p/ o script type="module" do Firebase (modulos nao compartilham o
    escopo lexico de let/const dos scripts classicos, so o objeto window) */
 window.App = App;
+document.addEventListener("input", e=>App.aoDigitarNoRelatorio(e));
 
 /* botões de escolha do texto-modelo (MODELO_OPCOES) acima dos campos do relatório; se o texto já foi
    editado (difere de todas as versões do modelo), pergunta antes de substituir */
@@ -4105,6 +4194,7 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
 const PERFIL_LABEL = { USUARIO:"Usuário", PSICOLOGIA:"Usuário Psicologia", SOCIAL:"Usuário Assistente Social", CPEN:"CPEN", DIR:"Diretor(a)", SR:"Superintendente Regional", SR_PSICOLOGIA:"SR — Psicólogo(a) de cobertura regional", SR_SOCIAL:"SR — Assistente Social de cobertura regional", DPP:"DPP" };
+window.PERFIL_LABEL = PERFIL_LABEL; /* usado no registro de autoria do relatório (script clássico) */
 const PERFIS_NIVEL_USUARIO = ["USUARIO","PSICOLOGIA","SOCIAL"];
 /* perfis com alcance de toda a SR (não de uma unidade só) mas sem alçada administrativa —
    cobertura móvel de psicólogo(a)/assistente social que circula entre as unidades da regional;
@@ -4672,9 +4762,14 @@ const ExamesFS = {
     }else{
       payload = { ...ex, ...meta, unidade: ex.unid || null, sr: srDaUnidade(ex.unid) || meuPerfilDoc?.sr || null };
       if(!o.base){ Object.assign(payload, { createdBy: quem.uid, createdByNome: quem.nome, createdAt: agora, status: "andamento" }); }
+      /* registro eletrônico de autoria: quem concluiu cada seção (matrícula da conta, hora do servidor)
+         e a versão da seção — cada nova conclusão depois de uma alteração gera V2, V3...; ao desmarcar,
+         fica o registro de quem desmarcou, guardando o número da última versão */
       const relOkPor = { ...(ex.relOkPor || {}) };
-      (o.relOkMarcadas || []).forEach(k=>{ relOkPor[k] = { uid: quem.uid, nome: quem.nome, em: agora }; });
-      (o.relOkDesmarcadas || []).forEach(k=>{ relOkPor[k] = null; });
+      const mat = meuPerfilDoc?.matricula || "";
+      const vAnt = k => { const p = relOkPor[k]; return p ? (p.v || 1) : 0; };
+      (o.relOkMarcadas || []).forEach(k=>{ relOkPor[k] = { uid: quem.uid, nome: quem.nome, mat, perfil: quem.perfil, em: agora, v: vAnt(k) + 1 }; });
+      (o.relOkDesmarcadas || []).forEach(k=>{ relOkPor[k] = { uid: quem.uid, nome: quem.nome, mat, perfil: quem.perfil, em: agora, v: vAnt(k), desmarcado: true }; });
       payload.relOkPor = relOkPor;
       if(o.acao === "concluiu"){
         Object.assign(payload, { status: "concluido", finalizedBy: quem.uid, finalizedByNome: quem.nome, finalizedAt: agora, versaoFinal: o.versao.n });
@@ -4697,8 +4792,11 @@ const ExamesFS = {
     await lote.commit();
     return { rev, versaoFinal: o.acao === "concluiu" ? o.versao.n : (o.base ? o.base.versaoFinal : 0) };
   },
-  async proximoOficio(cocId, ano){
-    const ref = doc(db, "contadores", "oficio-"+cocId+"-"+ano);
+  async proximoOficio(cocId, ano){ return this.proximoContador("oficio-"+cocId+"-"+ano); },
+  /* número do exame (identificador do registro de autoria), sequência por Centro de Observação e ano */
+  async proximoExame(cocId, ano){ return this.proximoContador("crim-"+cocId+"-"+ano); },
+  async proximoContador(id){
+    const ref = doc(db, "contadores", id);
     return runTransaction(db, async (t)=>{
       const snap = await t.get(ref);
       const n = (snap.exists() ? (snap.data().n || 0) : 0) + 1;
