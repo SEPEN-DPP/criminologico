@@ -416,6 +416,7 @@
   <div class="card">
     <h3>Solicitações de agendamento <span class="muted" style="font-weight:normal; font-size:12.5px;">— avaliação psiquiátrica no HCTP pedida pelos Centros de Observação</span></h3>
     <p class="note">O preso é levado ao HCTP na data e hora que vocês informarem aqui; o Centro que pediu vê a resposta no exame, no calendário e no Painel. Nos exames com pedido ativo ou avaliação realizada, o psiquiatra preenche a <b>seção de Psiquiatria</b> pelo botão "Abrir a seção de Psiquiatria" — só ela pode ser editada pelo HCTP.</p>
+    <div id="hctpModoNota"></div>
     <div id="hctpPendBox"></div>
   </div>
   <div class="card">
@@ -1710,7 +1711,7 @@ const App = {
     /* HCTP: só a aba de agendamentos (solicitações, agendados e calendário) — não acessa exames */
     const ehHctp = !!perfil && perfil.perfil==="HCTP";
     document.querySelectorAll("nav.tabs button").forEach(b=>{
-      if(b.dataset.v==="hctp") b.style.display = ehHctp ? "" : "none";
+      if(b.dataset.v==="hctp") b.style.display = (ehHctp || !perfil || perfil.perfil==="DPP") ? "" : "none"; /* DPP/CEPEN: consulta */
       else if(["dash","lista","cal"].includes(b.dataset.v)) b.style.display = ehHctp ? "none" : "";
       else if(ehHctp) b.style.display="none";
     });
@@ -3581,30 +3582,37 @@ Continuar mesmo assim (sem salvar)?`);
     const ex=this.data.exames.find(x=>x.id===h.exameId);
     if(!ex) return "";
     const feita=(ex.relOk||{}).psq;
-    return `<div style="margin-top:6px;"><button class="btn sm ${feita?"ghost":""}" type="button" onclick="App.abrir('${ex.id}')">Abrir a seção de Psiquiatria</button> <span class="badge ${feita?"b-ok":"b-warn"}">Psiquiatria ${feita?"concluída":"a preencher"}</span></div>`;
+    return `<div style="margin-top:6px;"><button class="btn sm ${feita?"ghost":""}" type="button" onclick="App.abrir('${ex.id}')">${this.ehHctp()?"Abrir a seção de Psiquiatria":"Abrir o exame"}</button> <span class="badge ${feita?"b-ok":"b-warn"}">Psiquiatria ${feita?"concluída":"a preencher"}</span></div>`;
   },
+  /* conta HCTP: age (agenda, recusa, remarca...). DPP/CEPEN: mesmo quadro em modo consulta (sem esses
+     botões — agendar é do HCTP), com acesso ao exame e um resumo dos recusados/cancelados */
   renderHctp(){
+    const age=this.ehHctp();
     const todas=(this.data.hctp||[]);
     const pend=todas.filter(h=>h.status==="solicitado").sort((a,b)=>String(a.prazo||"9").localeCompare(String(b.prazo||"9")));
-    const novidades=todas.filter(h=>h.novidadeParaHctp && h.status!=="solicitado");
+    const novidades=age ? todas.filter(h=>h.novidadeParaHctp && h.status!=="solicitado") : [];
     const ag=todas.filter(h=>h.status==="agendado").sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora));
+    document.getElementById("hctpModoNota").innerHTML = age ? "" :
+      `<div class="orient" style="margin-bottom:10px;"><b>Modo consulta (DPP/CEPEN):</b> ${pend.length} aguardando o HCTP · ${ag.length} agendada(s) · ${todas.filter(h=>h.status==="realizado").length} realizada(s). Agendar, recusar e remarcar ficam com as contas do HCTP; o Centro remarca e cancela pelo próprio exame.</div>`;
     document.getElementById("hctpPendBox").innerHTML =
       (novidades.length?`<div class="orient warn" style="margin-bottom:10px;"><b>Mudanças feitas pelos Centros</b><ul style="margin:6px 0;">${novidades.map(h=>
         `<li>${esc(h.nome)} (${esc(h.cocNome||"—")}): ${esc(this.HCTP_STATUS[h.status]||h.status)}${h.status==="agendado"?" — "+esc(this.hctpQuando(h)):""}${h.motivoCancelamento&&h.status==="cancelado"?" — "+esc(h.motivoCancelamento):""}
           <button class="btn sm ghost" type="button" onclick="App.hctpCiente('${h.id}')">Ciente</button></li>`).join("")}</ul></div>`:"")
-      +(pend.length ? pend.map(h=>`<div class="etapa" style="display:block;">${this.hctpFicha(h)}${this.hctpCampos(h)}
+      +(pend.length ? pend.map(h=>`<div class="etapa" style="display:block;">${this.hctpFicha(h)}${age?this.hctpCampos(h)+`
           <div class="btnrow" style="margin-top:6px;"><button class="btn sm" type="button" onclick="App.hctpAgendar('${h.id}')">Agendar e avisar o Centro</button>
-          <button class="btn sm ghost" type="button" onclick="App.hctpRecusar('${h.id}')">Recusar</button></div>${this.hctpEventosHTML(h)}</div>`).join("")
+          <button class="btn sm ghost" type="button" onclick="App.hctpRecusar('${h.id}')">Recusar</button></div>`:""}${this.hctpEventosHTML(h)}</div>`).join("")
         : `<p class="note">Nenhuma solicitação aguardando agendamento. ✓</p>`);
     document.getElementById("hctpAgBox").innerHTML = ag.length ? ag.map(h=>`<div class="etapa" style="display:block;">
         <span class="badge b-ok">${esc(this.hctpQuando(h))}</span> ${this.hctpFicha(h)}
-        <details style="margin-top:6px;"><summary style="cursor:pointer; font-size:12.5px;">Remarcar, cancelar ou registrar como realizada</summary>${this.hctpCampos(h)}
+        ${age?`<details style="margin-top:6px;"><summary style="cursor:pointer; font-size:12.5px;">Remarcar, cancelar ou registrar como realizada</summary>${this.hctpCampos(h)}
           <div class="btnrow" style="margin-top:6px;"><button class="btn sm" type="button" onclick="App.hctpAgendar('${h.id}')">Remarcar e avisar o Centro</button>
           <button class="btn sm ghost" type="button" onclick="App.hctpCancelar('${h.id}')">Cancelar</button>
-          <button class="btn sm ghost" type="button" onclick="App.hctpRealizado('${h.id}')">Avaliação realizada</button></div></details>${this.hctpEventosHTML(h)}</div>`).join("")
+          <button class="btn sm ghost" type="button" onclick="App.hctpRealizado('${h.id}')">Avaliação realizada</button></div></details>`:""}${this.hctpEventosHTML(h)}</div>`).join("")
       : `<p class="note">Nenhuma avaliação agendada.</p>`;
     const feitas=todas.filter(h=>h.status==="realizado").sort((a,b)=>(b.data+b.hora).localeCompare(a.data+a.hora));
-    if(feitas.length) document.getElementById("hctpAgBox").innerHTML += `<h3 style="margin-top:16px;">Realizadas — seção de Psiquiatria</h3>`+feitas.map(h=>`<div class="etapa" style="display:block;"><span class="badge b-mut">${esc(this.hctpQuando(h))}</span> ${this.hctpFicha(h)}</div>`).join("");
+    if(feitas.length) document.getElementById("hctpAgBox").innerHTML += `<h3 style="margin-top:16px;">Realizadas — seção de Psiquiatria</h3>`+feitas.map(h=>`<div class="etapa" style="display:block;"><span class="badge b-mut">${esc(this.hctpQuando(h))}</span> ${this.hctpFicha(h)}${this.hctpEventosHTML(h)}</div>`).join("");
+    const encerradas=age ? [] : todas.filter(h=>h.status==="recusado"||h.status==="cancelado").sort((a,b)=>this.tsMs(b.atualizadoEm)-this.tsMs(a.atualizadoEm));
+    if(encerradas.length) document.getElementById("hctpAgBox").innerHTML += `<details style="margin-top:16px;"><summary style="cursor:pointer; font-weight:700;">Recusadas e canceladas (${encerradas.length})</summary>`+encerradas.map(h=>`<div class="etapa" style="display:block;"><span class="badge b-mut">${esc(this.HCTP_STATUS[h.status])}</span> ${this.hctpFicha(h)}${h.resposta||h.motivoCancelamento?`<p class="note" style="margin:4px 0;">Motivo: ${esc(h.status==="recusado"?h.resposta:h.motivoCancelamento)}</p>`:""}${this.hctpEventosHTML(h)}</div>`).join("")+`</details>`;
     this.renderHctpCal();
   },
   async hctpAgendar(id){
