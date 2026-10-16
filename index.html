@@ -2426,14 +2426,15 @@ const App = {
         <td>${r.conc}</td>
         <td class="right"><span class="badge b-navy">abrir painel →</span></td>
       </tr>`).join("")}
-      <tr style="border-top:2px solid var(--navy); cursor:default;"><td><b>Todos os centros</b> <span class="muted" style="font-size:12px;">(lista completa abaixo)</span></td><td><b>${totals.and}</b></td>
-        <td>${totals.crit?`<span class="badge b-crit">${totals.crit}</span>`:"0"}</td><td>${totals.warn?`<span class="badge b-warn">${totals.warn}</span>`:"0"}</td><td>${totals.conc}</td><td></td></tr>
+      <tr style="border-top:2px solid var(--navy);" onclick="App.alternarListaPainel()"><td><b>Todos os centros</b></td><td><b>${totals.and}</b></td>
+        <td>${totals.crit?`<span class="badge b-crit">${totals.crit}</span>`:"0"}</td><td>${totals.warn?`<span class="badge b-warn">${totals.warn}</span>`:"0"}</td><td>${totals.conc}</td><td class="right"><span class="badge b-navy">${this.dashVerTodos?"ocultar lista ↑":"ver lista ↓"}</span></td></tr>
       </table>`;
-    /* abaixo das regionais, a lista de todos os exames do estado (andamento e concluídos) */
-    this.renderListasExames(this.data.exames.slice(), "", "", " no estado");
+    /* a lista de todos os exames do estado (andamento e concluídos) só aparece ao clicar em "Todos os centros" */
+    if(this.dashVerTodos) this.renderListasExames(this.data.exames.slice(), "", "", " no estado");
+    else { document.getElementById("acompCard").style.display="none"; document.getElementById("conclCard").style.display="none"; }
   },
   abrirRegional(cocId){
-    this.coc=cocId; this.dashUnidadeFiltro=""; this.dashPrazoFiltro="";
+    this.coc=cocId; this.dashUnidadeFiltro=""; this.dashVerTodos=false; this.dashPrazoFiltro="";
     document.getElementById("selCoc").value=cocId;
     this.renderUnidadeSel(this.getUnidadeValor());
     this.renderDash();
@@ -2457,7 +2458,7 @@ const App = {
     box.innerHTML = titulo+"<br>"+origem;
   },
   setCoc(id){
-    this.coc=id; this.calFiltroUnidade=""; this.dashUnidadeFiltro=""; this.dashPrazoFiltro="";
+    this.coc=id; this.calFiltroUnidade=""; this.dashUnidadeFiltro=""; this.dashVerTodos=false; this.dashPrazoFiltro="";
     this.renderDash(); this.renderLista(); this.renderUnidadeSel(this.getUnidadeValor());
     if(document.getElementById("v-cal").classList.contains("on")) this.renderCalendario();
   },
@@ -3931,7 +3932,7 @@ Continuar mesmo assim (sem salvar)?`);
     return exs.filter(e=>(e.unid||"")===unidFiltro);
   },
   abrirUnidadePainel(u){
-    this.dashUnidadeFiltro=u;
+    this.dashUnidadeFiltro=u; this.dashVerTodos=false;
     this.renderDash();
     this.renderLista();
   },
@@ -3941,8 +3942,13 @@ Continuar mesmo assim (sem salvar)?`);
     if(u==null) return;
     this.abrirUnidadePainel(u);
   },
+  alternarListaPainel(){
+    this.dashVerTodos=!this.dashVerTodos;
+    this.renderDash();
+    if(this.dashVerTodos) document.getElementById("acompCard").scrollIntoView({behavior:"smooth", block:"start"});
+  },
   limparFiltroUnidadePainel(){
-    this.dashUnidadeFiltro="";
+    this.dashUnidadeFiltro=""; this.dashVerTodos=false;
     this.renderDash();
     this.renderLista();
   },
@@ -3979,7 +3985,9 @@ Continuar mesmo assim (sem salvar)?`);
     document.getElementById("orientBox").innerHTML=""; /* sem o quadro "Priorize hoje": os números já estão nos indicadores acima */
 
     // acompanhamento seção a seção: os ainda não finalizados primeiro (menos prontos no topo), depois os concluídos
-    this.renderListasExames(exs, unidFiltro, unidLabel, " neste centro");
+    /* a lista aparece ao clicar numa unidade ou em "Total do centro"; conta de unidade (só a própria) e centro sem unidades: direto */
+    if(unidFiltro || this.dashVerTodos || !unidadesDoCentro.length || (this._meuPerfil && this._meuPerfil.unidade)) this.renderListasExames(exs, unidFiltro, unidLabel, " neste centro");
+    else { document.getElementById("acompCard").style.display="none"; document.getElementById("conclCard").style.display="none"; }
 
     const painelCard=document.getElementById("painelUnidadesCard");
     if(!unidFiltro && unidadesDoCentro.length){
@@ -4003,7 +4011,7 @@ Continuar mesmo assim (sem salvar)?`);
           <td class="right"><span class="badge b-navy">abrir painel →</span></td>
         </tr>`).join("")}
         ${(()=>{ const and=exsCentro.filter(e=>e.status!=="concluido"); const t=c=>and.filter(e=>this.prazoInfo(e).cls===c).length;
-          return `<tr style="border-top:2px solid var(--navy); cursor:default;"><td><b>Total do centro</b> <span class="muted" style="font-size:12px;">(lista completa abaixo)</span></td><td><b>${and.length}</b></td><td>${t("b-crit")?`<span class="badge b-crit">${t("b-crit")}</span>`:"0"}</td><td>${t("b-warn")?`<span class="badge b-warn">${t("b-warn")}</span>`:"0"}</td><td>${exsCentro.length-and.length}</td><td></td></tr>`; })()}
+          return `<tr style="border-top:2px solid var(--navy);" onclick="App.alternarListaPainel()"><td><b>Total do centro</b></td><td><b>${and.length}</b></td><td>${t("b-crit")?`<span class="badge b-crit">${t("b-crit")}</span>`:"0"}</td><td>${t("b-warn")?`<span class="badge b-warn">${t("b-warn")}</span>`:"0"}</td><td>${exsCentro.length-and.length}</td><td class="right"><span class="badge b-navy">${this.dashVerTodos?"ocultar lista ↑":"ver lista ↓"}</span></td></tr>`; })()}
         ${semUnidade.length?`<tr onclick="App.abrirUnidadePainel('_semunidade')"><td><i>Sem unidade definida</i></td><td>${semUnidade.filter(e=>e.status!=="concluido").length}</td><td colspan="2">—</td><td>${semUnidade.filter(e=>e.status==="concluido").length}</td><td class="right"><span class="badge b-navy">abrir →</span></td></tr>`:""}
         </table>`;
     } else {
