@@ -389,6 +389,16 @@
 </div>
 
 <main>
+<!-- janela de aviso por e-mail (Gmail já preenchido), usada no Calendário e no exame -->
+    <div id="emailModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; overflow:auto; padding:16px;">
+      <div class="card" style="max-width:720px; margin:24px auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h3 style="margin:0;" id="emailTitulo">Avisar por e-mail: entrevistas a agendar</h3>
+          <button class="btn sm ghost" type="button" onclick="document.getElementById('emailModal').style.display='none'">Fechar</button>
+        </div>
+        <div id="emailCorpo" style="margin-top:12px;"></div>
+      </div>
+    </div>
 
 <!-- ============ PAINEL ============ -->
 <section class="view on" id="v-dash">
@@ -478,15 +488,6 @@
       <button class="btn sm ghost" id="calBtnMes" type="button" onclick="App.calModo('mes')">Mês</button>
     </div>
     <div id="calPendBox"></div>
-    <div id="emailModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; overflow:auto; padding:16px;">
-      <div class="card" style="max-width:720px; margin:24px auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-          <h3 style="margin:0;" id="emailTitulo">Avisar por e-mail: entrevistas a agendar</h3>
-          <button class="btn sm ghost" type="button" onclick="document.getElementById('emailModal').style.display='none'">Fechar</button>
-        </div>
-        <div id="emailCorpo" style="margin-top:12px;"></div>
-      </div>
-    </div>
     <div class="btnrow" style="margin-top:0; margin-bottom:10px;" id="calFiltroAreaBox">
       <button class="btn sm" data-area="" type="button" onclick="App.calFiltroAreaSet('')">Todas as áreas</button>
       <button class="btn sm ghost" data-area="psi" type="button" onclick="App.calFiltroAreaSet('psi')">Psicologia</button>
@@ -550,6 +551,7 @@
       <div id="extResult" style="margin-top:8px;"></div>
       <div id="bpiResult" style="margin-top:8px;"></div>
     </div>
+    <div id="anexosBox" class="lawbox" style="margin-top:10px;"></div>
 
     <div class="row c2">
       <div><label class="f">Nome do avaliado</label><input type="text" id="e_nome"></div>
@@ -924,8 +926,8 @@
 
     <!-- aparece quando todas as seções do relatório estão concluídas (ou não se aplicam) -->
     <div id="assinaturaBox" class="orient ok" style="display:none; margin-top:14px;">
-      <b>Todas as seções do relatório estão concluídas.</b> Depois de solicitar a assinatura no SGPE, avise a equipe examinadora:
-      <div class="btnrow" style="margin-top:8px;"><button class="btn sm" type="button" onclick="App.avisarEquipe('assinatura')">✉ Avisar a equipe: assinatura solicitada no SGPE</button></div>
+      <b>Todas as seções do relatório estão concluídas.</b> A conclusão é feita no próprio sistema, pela SR ou pelo DPP ("Marcar como concluído"): gera a versão fechada, com o registro eletrônico de autoria e o código SHA-256.
+      <div class="btnrow" style="margin-top:8px;"><button class="btn sm" type="button" onclick="App.avisarCentroEmail('pronto')">✉ Avisar o Centro: relatório pronto para conclusão</button></div>
     </div>
 
     <div class="btnrow">
@@ -1309,6 +1311,7 @@ const Extractor = {
   },
 
   processarArquivo(f){
+    window.App._arquivoImportado=f; window.App.renderAnexos(); /* vira anexo do exame ao salvar */
     const out=document.getElementById("extResult");
     if(/\.txt$/i.test(f.name)){
       const r=new FileReader();
@@ -2896,6 +2899,7 @@ Continuar mesmo assim (sem salvar)?`);
     this.syncRespNomes();
     this.atualizarEstadoExame(null);
     this.renderHctpExame();
+    this._arquivoImportado=null; this.renderAnexos();
     document.getElementById("salvoMsg").textContent="";
     document.getElementById("verifInline").innerHTML="";
     this.triagem();
@@ -3116,7 +3120,11 @@ Continuar mesmo assim (sem salvar)?`);
       this.marcarFormularioLimpo(foto);
       msg.style.color="var(--ok)";
       msg.textContent = r.semMudanca ? "Nenhuma alteração para salvar." : "✓ Exame salvo ("+new Date().toLocaleTimeString("pt-BR")+")";
-      if(!exServidor && !r.semMudanca) msg.innerHTML += ' — <button class="btn sm" type="button" onclick="App.avisarEquipe()">✉ Avisar a equipe por e-mail</button>';
+      if(!exServidor && !r.semMudanca){
+        msg.innerHTML += ' — <button class="btn sm" type="button" onclick="App.avisarCentroEmail(\'novo\')">✉ Avisar o Centro por e-mail</button> <button class="btn sm ghost" type="button" onclick="App.avisarEquipe()">✉ Avisar a equipe por e-mail</button>';
+        if(this._arquivoImportado && this.podeAnexar()) this.anexarArquivos([this._arquivoImportado]);
+        else this.renderAnexos();
+      }
       this.renderDash();
       return true;
     }).catch(e=>{
@@ -3188,6 +3196,7 @@ Continuar mesmo assim (sem salvar)?`);
     this.renderEtapas(ex.etapas||{});
     this.atualizarEstadoExame(ex);
     this.renderHctpExame();
+    this._arquivoImportado=null; this.renderAnexos();
     if(this.ehHctp()){ this.novoTab("quesitos"); this.relTab("psq"); } /* HCTP: direto na seção de Psiquiatria */
     document.getElementById("salvoMsg").textContent="";
     document.getElementById("verifInline").innerHTML="";
@@ -3375,7 +3384,7 @@ Continuar mesmo assim (sem salvar)?`);
         if(el.closest("#novoPreviewCol")) return;
         if(el.id!=="r_"+sx && el.id!=="relok_"+sx) el.disabled=true;
       });
-      const livres=/relTab|novoTab|salvar|imprimir\(|Historico|fecharAviso|avisarEquipe|toggleEditarPreview|irParaEtapas|copiarAviso/;
+      const livres=/relTab|novoTab|salvar|imprimir\(|Historico|fecharAviso|avisarEquipe|toggleEditarPreview|irParaEtapas|copiarAviso|baixarAnexo/;
       document.querySelectorAll("#v-novo button").forEach(b=>{ if(!livres.test(b.getAttribute("onclick")||"")) b.disabled=true; });
     }
     this.secoesBloqueadas().forEach(k=>{
@@ -3524,13 +3533,16 @@ Continuar mesmo assim (sem salvar)?`);
   exameNovoPara(e, p){
     const criado = e.createdAt && typeof e.createdAt.toMillis==="function" ? e.createdAt.toMillis() : (e.criadoEm ? Date.parse(e.criadoEm) : 0);
     const visto = p.avisosVistoEm && typeof p.avisosVistoEm.toMillis==="function" ? p.avisosVistoEm.toMillis() : (+p.avisosVistoEm||0);
-    return e.status==="andamento" && e.unidade===p.unidade && e.createdBy!==p.uid && criado>visto;
+    const daMinhaArea = ["SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil) ? (!!p.sr && e.sr===p.sr) : e.unidade===p.unidade;
+    /* Centro passou a receber o aviso em 16/10/2026: exames abertos antes disso não contam como novos */
+    const desde = ["SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil) ? Math.max(visto, Date.parse("2026-10-16T00:00:00-03:00")) : visto;
+    return e.status==="andamento" && daMinhaArea && e.createdBy!==p.uid && criado>desde;
   },
   renderParaVoce(){
     const box=document.getElementById("paraVoceBox"); if(!box) return;
     const p=this._meuPerfil;
     if(!p){ box.innerHTML=""; return; }
-    const deUnidade=["USUARIO","PSICOLOGIA","SOCIAL","CPEN","DIR"].includes(p.perfil);
+    const deUnidade=["USUARIO","PSICOLOGIA","SOCIAL","CPEN","DIR","SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil); /* Centro: exames novos da regional */
     const novos = deUnidade && p.avisosVistoEm ? this.data.exames.filter(e=>this.exameNovoPara(e,p)) : [];
     const pend=[];
     if(p.matricula){
@@ -3542,7 +3554,7 @@ Continuar mesmo assim (sem salvar)?`);
     }
     let html="";
     if(novos.length){
-      html+=`<div class="orient warn" style="margin-bottom:10px;"><b>${novos.length===1?"Novo exame cadastrado":novos.length+" novos exames cadastrados"} na sua unidade</b> desde o seu último acesso:
+      html+=`<div class="orient warn" style="margin-bottom:10px;"><b>${novos.length===1?"Novo exame cadastrado":novos.length+" novos exames cadastrados"} ${["SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil)?"na sua regional":"na sua unidade"}</b> desde o seu último acesso:
         <ul style="margin:6px 0;">${novos.map(e=>`<li><a href="#" onclick="App.abrir('${e.id}');return false;">${esc(e.nome)}</a>${e.mat?" — IPEN "+esc(e.mat):""} <span class="muted">(cadastrado por ${esc(e.createdByNome||"—")})</span></li>`).join("")}</ul>
         <button class="btn sm ghost" type="button" onclick="ContaUI.marcarVistos()">Marcar como vistos</button></div>`;
     }
@@ -3644,6 +3656,90 @@ Continuar mesmo assim (sem salvar)?`);
       .catch(()=>{ document.getElementById("avisoCopiado").textContent="Não foi possível copiar — selecione e copie manualmente."; });
   },
   fecharAviso(){ document.getElementById("avisoModal").style.display="none"; },
+
+  /* ---------- anexos do exame (decisão judicial, BPI etc.) ----------
+     Guardados no próprio banco (plano gratuito sem armazenamento de arquivos): exames/{id}/anexos/{a}
+     (nome, tipo, tamanho, nº de partes, quem/quando) e .../partes/{i} com o arquivo em base64, em pedaços.
+     Veem quem vê o exame (menos o HCTP); anexam/removem quem edita o exame (menos Psicologia/Serviço
+     Social da unidade e HCTP). Remoção é lógica (o arquivo fica, marcado como removido). Ver firestore.rules. */
+  ANEXO_MAX: 10*1024*1024,
+  podeAnexar(){ const p=(this._meuPerfil||{}).perfil; return !!p && !["PSICOLOGIA","SOCIAL","HCTP"].includes(p); },
+  async renderAnexos(){
+    const box=document.getElementById("anexosBox"); if(!box) return;
+    if(this.ehHctp()){ box.innerHTML=""; return; }
+    const exId=this.editId, seq=this._formSeq;
+    const ex=exId && this.data.exames.find(x=>x.id===exId);
+    const concl=ex && ex.status==="concluido";
+    const imp=this._arquivoImportado;
+    const cab=`<b>Anexos do exame</b> <span class="muted" style="font-size:12px;">— decisão judicial, BPI e outros documentos (PDF ou imagem, até 10 MB cada)</span>`;
+    if(!exId){
+      box.innerHTML=`${cab}<p class="note" style="margin:6px 0 0;">${imp?`O documento importado (<b>${esc(imp.name)}</b>) será anexado automaticamente quando você salvar o exame.`:"Salve o exame para poder anexar documentos."}</p>`;
+      return;
+    }
+    box.innerHTML=`${cab}<p class="note" style="margin:6px 0 0;">Carregando…</p>`;
+    let lista=[];
+    try{ lista=await window.AnexosFS.listar(exId); }
+    catch(e){ if(seq===this._formSeq) box.innerHTML=`${cab}<p class="note" style="color:var(--crit);">Não foi possível carregar os anexos (${esc(e.code||e.message||e)}).</p>`; return; }
+    if(seq!==this._formSeq) return;
+    const kb=n=>n>=1048576?(n/1048576).toFixed(1).replace(".",",")+" MB":Math.max(1,Math.round(n/1024))+" KB";
+    const pode=this.podeAnexar() && !concl;
+    box.innerHTML=`${cab}
+      ${lista.length?`<table style="margin-top:8px;"><tr><th>Arquivo</th><th>Tamanho</th><th>Enviado por</th><th></th></tr>${lista.map(a=>`<tr style="cursor:default;">
+        <td>${esc(a.nome)}</td><td>${kb(a.tamanho||0)}</td><td>${esc(a.enviadoPorNome||"—")} <span class="muted">${esc(fmtTs(a.enviadoEm))}</span></td>
+        <td class="right" style="white-space:nowrap;"><button class="btn sm ghost" type="button" onclick="App.baixarAnexo('${a.id}')">Baixar</button>${pode?` <button class="btn sm ghost" type="button" onclick="App.removerAnexo('${a.id}')">Remover</button>`:""}</td></tr>`).join("")}</table>`
+        :`<p class="note" style="margin:6px 0 0;">Nenhum documento anexado.</p>`}
+      ${pode?`<div class="btnrow" style="margin-top:8px;"><button class="btn sm" type="button" onclick="document.getElementById('anexoFile').click()">+ Anexar arquivo</button>
+        <input type="file" id="anexoFile" multiple accept=".pdf,image/*" style="display:none;" onchange="App.anexarArquivos(this.files); this.value=''">
+        ${imp && !lista.some(a=>a.nome===imp.name)?`<button class="btn sm ghost" type="button" onclick="App.anexarArquivos([App._arquivoImportado])">Anexar o documento importado (${esc(imp.name)})</button>`:""}</div>
+        <div id="anexoStatus" class="note" style="margin-top:4px;"></div>`:""}`;
+    this._anexosLista=lista;
+  },
+  async anexarArquivos(files){
+    const exId=this.editId; if(!exId){ alert("Salve o exame antes de anexar."); return; }
+    const st=()=>document.getElementById("anexoStatus");
+    for(const f of [...files]){
+      if(!f) continue;
+      if(f.size>this.ANEXO_MAX){ alert("O arquivo \""+f.name+"\" tem mais de 10 MB e não pode ser anexado. Se for um PDF escaneado, tente gerar uma versão menor."); continue; }
+      try{
+        if(st()) st().textContent="Enviando "+f.name+"…";
+        await window.AnexosFS.enviar(exId, f, (i,n)=>{ if(st()) st().textContent="Enviando "+f.name+"… "+Math.round(100*i/n)+"%"; });
+        if(this._arquivoImportado===f) this._arquivoImportado=null;
+      }catch(e){ alert("Não foi possível anexar \""+f.name+"\": "+(e.code||e.message||e)); }
+    }
+    if(exId===this.editId) this.renderAnexos();
+  },
+  async baixarAnexo(id){
+    const a=(this._anexosLista||[]).find(x=>x.id===id); if(!a || !this.editId) return;
+    try{ await window.AnexosFS.baixar(this.editId, a); }
+    catch(e){ alert("Não foi possível baixar: "+(e.code||e.message||e)); }
+  },
+  async removerAnexo(id){
+    const a=(this._anexosLista||[]).find(x=>x.id===id); if(!a || !this.editId) return;
+    if(!confirm("Remover o anexo \""+a.nome+"\" deste exame?\n\nEle deixa de aparecer na lista (a remoção fica registrada).")) return;
+    try{ await window.AnexosFS.remover(this.editId, id); this.renderAnexos(); }
+    catch(e){ alert("Não foi possível remover: "+(e.code||e.message||e)); }
+  },
+  /* aviso por e-mail ao Centro (contas SR e cobertura regional da SR da unidade): exame novo aberto pela
+     unidade, ou relatório com todas as seções prontas para a conclusão */
+  async avisarCentroEmail(tipo){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    if(!ex){ alert("Salve o exame antes."); return; }
+    const sr=ex.sr || srDaUnidade(ex.unid);
+    const lim=this.prazoLimite(ex);
+    let nAnexos=0; try{ nAnexos=(await window.AnexosFS.listar(ex.id)).length; }catch(e){}
+    const pronto = tipo==="pronto";
+    const assunto=(pronto?"Relatório pronto para conclusão — ":"Novo exame criminológico — ")+ex.nome+(ex.mat?" (IPEN "+ex.mat+")":"");
+    const texto=["Prezados(as),","",
+      pronto ? "Todas as seções do relatório do exame criminológico abaixo estão concluídas. A conclusão (versão fechada, com o registro eletrônico de autoria) pode ser feita no sistema pela SR."
+             : "Foi aberto no Sistema do Centro de Observação um novo exame criminológico:","",
+      "Avaliado: "+ex.nome, ex.mat?"IPEN/Matrícula: "+ex.mat:null, "Unidade: "+(ex.unid||"—"),
+      ex.dataDecisao?"Data da decisão judicial: "+fmt(ex.dataDecisao):null, "Prazo para conclusão: "+(lim?lim.toLocaleDateString("pt-BR"):"—"),
+      pronto?null:"Documentos anexados no sistema: "+nAnexos, "",
+      "Acesse: https://criminologico.web.app","","Atenciosamente,",(this._meuPerfil&&this._meuPerfil.nome)||""].filter(l=>l!==null).join("\n");
+    await this.abrirEmailModal(pronto?"Avisar o Centro: relatório pronto":"Avisar o Centro: exame novo",
+      c=>["SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(c.perfil) && c.sr===sr, assunto, texto,
+      "Ninguém do Centro (SR ou cobertura regional) desta regional tem conta com matrícula cadastrada — avise por outro meio.");
+  },
 
   /* ---------- HCTP: agendamento da avaliação psiquiátrica ----------
      O Centro pede (crime sexual, ou outra demanda como transtorno mental); o HCTP responde com data,
@@ -5436,6 +5532,44 @@ const QuadroFS = {
   },
 };
 window.QuadroFS = QuadroFS;
+
+/* ---------- Anexos do exame: arquivo em pedaços (base64) dentro do banco ----------
+   exames/{id}/anexos/{a} = dados do arquivo; exames/{id}/anexos/{a}/partes/{i} = pedaço i.
+   As partes vão primeiro e o registro do anexo por último: anexo listado = arquivo completo. */
+const ANEXO_PARTE = 700000; /* bytes por pedaço (~933 KB em base64, abaixo do limite de 1 MB por documento) */
+const AnexosFS = {
+  async listar(exId){
+    const snap = await getDocs(collection(db, "exames", exId, "anexos"));
+    return snap.docs.map(d=>({ id:d.id, ...d.data() })).filter(a=>!a.removido)
+      .sort((a,b)=>(a.enviadoEm?.toMillis?.()||0)-(b.enviadoEm?.toMillis?.()||0));
+  },
+  async enviar(exId, file, progresso){
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const ref = doc(collection(db, "exames", exId, "anexos"));
+    const n = Math.max(1, Math.ceil(bytes.length / ANEXO_PARTE));
+    for(let i=0; i<n; i++){
+      const pedaco = bytes.subarray(i*ANEXO_PARTE, (i+1)*ANEXO_PARTE);
+      let bin = ""; for(let j=0; j<pedaco.length; j+=0x8000) bin += String.fromCharCode.apply(null, pedaco.subarray(j, j+0x8000));
+      await setDoc(doc(ref, "partes", String(i)), { i, dados: btoa(bin) });
+      if(progresso) progresso(i+1, n);
+    }
+    await setDoc(ref, { nome: file.name.slice(0,200), tipo: file.type || "application/octet-stream", tamanho: bytes.length, partes: n,
+      enviadoPor: meuUid, enviadoPorNome: meuPerfilDoc?.nome || "", enviadoEm: serverTimestamp(), removido: false });
+  },
+  async baixar(exId, a){
+    const snap = await getDocs(collection(db, "exames", exId, "anexos", a.id, "partes"));
+    const partes = snap.docs.map(d=>d.data()).sort((x,y)=>x.i-y.i);
+    const blocos = partes.map(p=>{ const bin=atob(p.dados); const u=new Uint8Array(bin.length); for(let k=0;k<bin.length;k++) u[k]=bin.charCodeAt(k); return u; });
+    const url = URL.createObjectURL(new Blob(blocos, { type: a.tipo || "application/octet-stream" }));
+    const link = document.createElement("a"); link.href = url; link.download = a.nome || "anexo";
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  },
+  async remover(exId, id){
+    await updateDoc(doc(db, "exames", exId, "anexos", id), { removido: true, removidoPor: meuUid, removidoPorNome: meuPerfilDoc?.nome || "", removidoEm: serverTimestamp() });
+  },
+};
+window.AnexosFS = AnexosFS;
 
 /* ---------- HCTP: solicitações de agendamento da avaliação psiquiátrica (coleção hctp) ----------
    Mesmo recorte dos exames: unidade vê as da unidade, regionais as da SR, DPP e HCTP todas.

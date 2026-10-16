@@ -374,6 +374,17 @@ service cloud.firestore {
       allow update: if autenticado() && hctpAtualizacaoOk(perfilAtual());
       allow delete: if false;
     }
+    // Anexos do exame (decisao judicial, BPI...): arquivo em pedacos dentro do banco.
+    // Leem quem ve o exame, menos o HCTP; anexam/removem quem edita o exame (menos Psicologia/Servico
+    // Social da unidade e HCTP), so com o exame em andamento. Nada e apagado: remover marca "removido".
+    function anexoLeitura(examId) {
+      return autenticado() && perfilAtual().perfil != 'HCTP' && podeVer(get(exameDoc(examId)).data);
+    }
+    function anexoEscrita(examId) {
+      let eu = perfilAtual();
+      let ex = get(exameDoc(examId)).data;
+      return !(eu.perfil in ['PSICOLOGIA','SOCIAL','HCTP']) && podeVerComo(ex, eu) && ex.get('status', 'andamento') == 'andamento';
+    }
     match /exames/{examId} {
       allow read: if podeVer(resource.data)
         || (ativo() && perfilAtual().perfil == 'HCTP' && resource.data.hctpPedido == true);
@@ -390,6 +401,28 @@ service cloud.firestore {
           && getAfter(exameDoc(examId)).data.updatedAt == request.time
           && podeVer(getAfter(exameDoc(examId)).data);
         allow update, delete: if false;
+      }
+      match /anexos/{anexoId} {
+        allow read: if anexoLeitura(examId);
+        allow create: if autenticado() && anexoEscrita(examId)
+          && request.resource.data.keys().hasOnly(['nome','tipo','tamanho','partes','enviadoPor','enviadoPorNome','enviadoEm','removido'])
+          && request.resource.data.enviadoPor == request.auth.uid && request.resource.data.enviadoEm == request.time
+          && request.resource.data.removido == false
+          && request.resource.data.nome is string && request.resource.data.nome.size() <= 200
+          && request.resource.data.tamanho is int && request.resource.data.tamanho <= 10485760
+          && request.resource.data.partes is int && request.resource.data.partes <= 20;
+        allow update: if autenticado() && anexoEscrita(examId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['removido','removidoPor','removidoPorNome','removidoEm'])
+          && request.resource.data.removido == true && request.resource.data.removidoPor == request.auth.uid
+          && request.resource.data.removidoEm == request.time;
+        allow delete: if false;
+        match /partes/{i} {
+          allow read: if anexoLeitura(examId);
+          allow create: if autenticado() && anexoEscrita(examId)
+            && request.resource.data.keys().hasOnly(['i','dados'])
+            && request.resource.data.dados is string && request.resource.data.dados.size() <= 1000000;
+          allow update, delete: if false;
+        }
       }
       match /versoes/{n} {
         allow read: if podeVer(get(exameDoc(examId)).data);
