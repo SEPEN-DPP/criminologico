@@ -398,14 +398,6 @@
   <div id="painelUnidadeAtualBox"></div>
   <div class="grid g4" id="kpis"></div>
   <div id="orientBox" style="margin-top:16px;"></div>
-  <div class="card" style="margin-top:16px;" id="acompCard">
-    <h3 id="acompTitle">Andamento dos exames</h3>
-    <div id="acompBox" style="overflow-x:auto;"></div>
-  </div>
-  <div class="card" style="margin-top:16px; display:none;" id="conclCard">
-    <h3 id="conclTitle">Exames concluídos</h3>
-    <div id="conclBox" style="overflow-x:auto;"></div>
-  </div>
   <div class="card" style="margin-top:16px; display:none;" id="painelUnidadesCard">
     <h3>Painel por unidade prisional <span class="muted" style="font-weight:normal; font-size:12.5px;">— os exames deste centro, separados pela unidade prisional onde são realizados; clique numa unidade para abrir o painel dela</span></h3>
     <div id="painelUnidadesBox" style="overflow-x:auto;"></div>
@@ -413,6 +405,14 @@
   <div class="card" style="margin-top:16px;" id="prazosCard">
     <h3 id="prazosTitle">Prazos críticos <span class="muted" style="font-weight:normal;font-size:12.5px;">— exames devem estar concluídos em até 30 dias da decisão judicial</span></h3>
     <div id="prazosBox" style="overflow-x:auto;"></div>
+  </div>
+  <div class="card" style="margin-top:16px;" id="acompCard">
+    <h3 id="acompTitle">Andamento dos exames</h3>
+    <div id="acompBox" style="overflow-x:auto;"></div>
+  </div>
+  <div class="card" style="margin-top:16px; display:none;" id="conclCard">
+    <h3 id="conclTitle">Exames concluídos</h3>
+    <div id="conclBox" style="overflow-x:auto;"></div>
   </div>
 </section>
 
@@ -2371,12 +2371,33 @@ const App = {
     if(!confirm("Desmarcar a "+this.CAL_TIPOS_LONGO[k].toLowerCase()+" de "+exServidor.nome+" ("+fmt(et.data)+(et.hora?" às "+et.hora:"")+")?\n\nEla sai do calendário e o horário fica livre.")) return;
     this.calGravarEtapa(exServidor, k, this.marcaAgenda({ok:false, data:"", area:et.area||""}, "desmarcou"), "Entrevista desmarcada.");
   },
+  /* listas do Painel: "Andamento dos exames" (em andamento, menos prontos no topo) e "Exames concluídos"
+     (mais recente primeiro). Usadas no Painel do Centro (todas as unidades ou uma) e no Painel geral (estado). */
+  renderListasExames(exs, unidFiltro, unidLabel, onde){
+    document.getElementById("acompTitle").innerHTML = `Andamento dos exames${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— seções do relatório: <span class="sec ok">✓ concluída</span> <span class="sec na">✓ não se aplica</span> <span class="sec">pendente</span> · linha verde = exame com todas as seções prontas (passe o mouse numa seção para ver o responsável)</span>`;
+    /* em andamento aqui (menos prontos no topo); os concluídos ficam numa lista própria, logo abaixo */
+    const acomp=exs.filter(e=>e.status!=="concluido").sort((a,b)=>this.progressoRelOk(a.relOk,a.sup).feitas - this.progressoRelOk(b.relOk,b.sup).feitas);
+    const concl=exs.filter(e=>e.status==="concluido").sort((a,b)=>this.tsMs(b.finalizedAt)-this.tsMs(a.finalizedAt));
+    document.getElementById("acompCard").style.display = "";
+    document.getElementById("conclCard").style.display = "";
+    document.getElementById("conclTitle").innerHTML=`Exames concluídos${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— ${concl.length} exame(s), o mais recente primeiro</span>`;
+    document.getElementById("conclBox").innerHTML = concl.length ?
+      `<table><tr><th>Avaliado</th>${unidFiltro?"":"<th>Unidade</th>"}<th>Concluído em</th><th>Concluído por</th><th>Versão</th></tr>`+
+      concl.map(e=>`<tr class="ex-pronto" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td>${unidFiltro?"":`<td>${esc(e.unid)||"—"}</td>`}<td>${e.finalizedAt?fmtTs(e.finalizedAt):"—"}</td><td>${esc(e.finalizedByNome||"—")}</td><td>${e.versaoFinal?"nº "+e.versaoFinal:"—"}</td></tr>`).join("")+`</table>`
+      : `<div class="empty">Nenhum exame concluído${unidFiltro?" nesta unidade":onde} ainda.</div>`;
+    document.getElementById("acompBox").innerHTML = acomp.length ?
+      `<table><tr><th>Avaliado</th>${unidFiltro?"":"<th>Unidade</th>"}<th>Prazo</th><th>Seções do relatório</th><th>Situação</th></tr>`+
+      acomp.map(e=>{const p=this.prazoInfo(e); const ro=this.progressoRelOk(e.relOk,e.sup); const pronto=this.examePronto(e);
+        const situ = e.status==="concluido" ? `<span class="badge b-ok">✓ exame concluído</span>`
+          : pronto ? `<span class="badge b-ok">✓ seções prontas — falta finalizar</span>`
+          : `<span class="badge b-warn">${ro.feitas}/${ro.total} seções</span>`;
+        return `<tr class="${pronto?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td>${unidFiltro?"":`<td>${esc(e.unid)||"—"}</td>`}<td>${e.status==="concluido"?"—":`<span class="badge ${p.cls}">${p.txt}</span>`}</td><td>${this.chipsSecoes(e)}</td><td>${situ}</td></tr>`;}).join("")+`</table>`
+      : `<div class="empty">Nenhum exame em andamento${unidFiltro?" nesta unidade":onde}.</div>`;
+  },
   renderDashGeral(){
     this.renderParaVoce();
     document.getElementById("painelUnidadeAtualBox").innerHTML="";
     document.getElementById("painelUnidadesCard").style.display="none";
-    document.getElementById("acompCard").style.display="none";
-    document.getElementById("conclCard").style.display="none";
     document.getElementById("prazosCard").style.display="";
     document.getElementById("prazosTitle").innerHTML = `Painel geral por regional <span class="muted" style="font-weight:normal;font-size:12.5px;">— clique numa regional para abrir o painel operacional dela</span>`;
     const totals={and:0, crit:0, warn:0, conc:0};
@@ -2405,10 +2426,14 @@ const App = {
         <td>${r.conc}</td>
         <td class="right"><span class="badge b-navy">abrir painel →</span></td>
       </tr>`).join("")}
+      <tr style="border-top:2px solid var(--navy); cursor:default;"><td><b>Todos os centros</b> <span class="muted" style="font-size:12px;">(lista completa abaixo)</span></td><td><b>${totals.and}</b></td>
+        <td>${totals.crit?`<span class="badge b-crit">${totals.crit}</span>`:"0"}</td><td>${totals.warn?`<span class="badge b-warn">${totals.warn}</span>`:"0"}</td><td>${totals.conc}</td><td></td></tr>
       </table>`;
+    /* abaixo das regionais, a lista de todos os exames do estado (andamento e concluídos) */
+    this.renderListasExames(this.data.exames.slice(), "", "", " no estado");
   },
   abrirRegional(cocId){
-    this.coc=cocId; this.dashUnidadeFiltro=""; this.dashVerTodos=false; this.dashPrazoFiltro="";
+    this.coc=cocId; this.dashUnidadeFiltro=""; this.dashPrazoFiltro="";
     document.getElementById("selCoc").value=cocId;
     this.renderUnidadeSel(this.getUnidadeValor());
     this.renderDash();
@@ -2432,7 +2457,7 @@ const App = {
     box.innerHTML = titulo+"<br>"+origem;
   },
   setCoc(id){
-    this.coc=id; this.calFiltroUnidade=""; this.dashUnidadeFiltro=""; this.dashVerTodos=false; this.dashPrazoFiltro="";
+    this.coc=id; this.calFiltroUnidade=""; this.dashUnidadeFiltro=""; this.dashPrazoFiltro="";
     this.renderDash(); this.renderLista(); this.renderUnidadeSel(this.getUnidadeValor());
     if(document.getElementById("v-cal").classList.contains("on")) this.renderCalendario();
   },
@@ -3906,7 +3931,7 @@ Continuar mesmo assim (sem salvar)?`);
     return exs.filter(e=>(e.unid||"")===unidFiltro);
   },
   abrirUnidadePainel(u){
-    this.dashUnidadeFiltro=u; this.dashVerTodos=false;
+    this.dashUnidadeFiltro=u;
     this.renderDash();
     this.renderLista();
   },
@@ -3916,13 +3941,8 @@ Continuar mesmo assim (sem salvar)?`);
     if(u==null) return;
     this.abrirUnidadePainel(u);
   },
-  verTodosPainel(){
-    this.dashUnidadeFiltro=""; this.dashVerTodos=true;
-    this.renderDash();
-    this.renderLista();
-  },
   limparFiltroUnidadePainel(){
-    this.dashUnidadeFiltro=""; this.dashVerTodos=false;
+    this.dashUnidadeFiltro="";
     this.renderDash();
     this.renderLista();
   },
@@ -3937,14 +3957,10 @@ Continuar mesmo assim (sem salvar)?`);
     const unidFiltro=this.dashUnidadeFiltro||"";
     const unidLabel = unidFiltro==="_semunidade" ? "sem unidade definida" : unidFiltro;
 
-    /* sem unidade escolhida, o painel mostra só o resumo por unidade; a lista de exames (andamento e
-       concluídos) aparece ao abrir uma unidade ou "Todos os exames do centro" (ou se o centro não tem unidades) */
-    const verTodos = !unidFiltro && !!this.dashVerTodos;
-    /* conta de unidade só vê a própria unidade: a lista aparece direto, como antes */
-    const mostrarLista = !!unidFiltro || verTodos || !unidadesDoCentro.length || !!(this._meuPerfil && this._meuPerfil.unidade);
+    /* sem unidade escolhida: resumo por unidade em cima e, abaixo, a lista de todos os exames do centro
+       (andamento e concluídos); clicar numa unidade filtra só ela */
     document.getElementById("painelUnidadeAtualBox").innerHTML = unidFiltro
       ? `<p class="note" style="margin-bottom:10px;">Unidade: <b>${esc(unidLabel)}</b> — <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ voltar ao painel do centro</button></p>`
-      : verTodos ? `<p class="note" style="margin-bottom:10px;"><b>Todos os exames do centro</b> — <button class="btn sm ghost" type="button" onclick="App.limparFiltroUnidadePainel()">✕ voltar ao painel por unidade</button></p>`
       : "";
     /* sem o quadro "Prazos críticos": o "Andamento dos exames" (acima) já mostra o prazo de cada exame;
        os críticos continuam no indicador "prazo crítico / vencido", que filtra a lista de Exames */
@@ -3963,28 +3979,10 @@ Continuar mesmo assim (sem salvar)?`);
     document.getElementById("orientBox").innerHTML=""; /* sem o quadro "Priorize hoje": os números já estão nos indicadores acima */
 
     // acompanhamento seção a seção: os ainda não finalizados primeiro (menos prontos no topo), depois os concluídos
-    document.getElementById("acompTitle").innerHTML = `Andamento dos exames${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— seções do relatório: <span class="sec ok">✓ concluída</span> <span class="sec na">✓ não se aplica</span> <span class="sec">pendente</span> · linha verde = exame com todas as seções prontas (passe o mouse numa seção para ver o responsável)</span>`;
-    /* em andamento aqui (menos prontos no topo); os concluídos ficam numa lista própria, logo abaixo */
-    const acomp=exs.filter(e=>e.status!=="concluido").sort((a,b)=>this.progressoRelOk(a.relOk,a.sup).feitas - this.progressoRelOk(b.relOk,b.sup).feitas);
-    const concl=exs.filter(e=>e.status==="concluido").sort((a,b)=>this.tsMs(b.finalizedAt)-this.tsMs(a.finalizedAt));
-    document.getElementById("acompCard").style.display = mostrarLista ? "" : "none";
-    document.getElementById("conclCard").style.display = mostrarLista ? "" : "none";
-    document.getElementById("conclTitle").innerHTML=`Exames concluídos${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— ${concl.length} exame(s), o mais recente primeiro</span>`;
-    document.getElementById("conclBox").innerHTML = concl.length ?
-      `<table><tr><th>Avaliado</th>${unidFiltro?"":"<th>Unidade</th>"}<th>Concluído em</th><th>Concluído por</th><th>Versão</th></tr>`+
-      concl.map(e=>`<tr class="ex-pronto" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td>${unidFiltro?"":`<td>${esc(e.unid)||"—"}</td>`}<td>${e.finalizedAt?fmtTs(e.finalizedAt):"—"}</td><td>${esc(e.finalizedByNome||"—")}</td><td>${e.versaoFinal?"nº "+e.versaoFinal:"—"}</td></tr>`).join("")+`</table>`
-      : `<div class="empty">Nenhum exame concluído${unidFiltro?" nesta unidade":" neste centro"} ainda.</div>`;
-    document.getElementById("acompBox").innerHTML = acomp.length ?
-      `<table><tr><th>Avaliado</th>${unidFiltro?"":"<th>Unidade</th>"}<th>Prazo</th><th>Seções do relatório</th><th>Situação</th></tr>`+
-      acomp.map(e=>{const p=this.prazoInfo(e); const ro=this.progressoRelOk(e.relOk,e.sup); const pronto=this.examePronto(e);
-        const situ = e.status==="concluido" ? `<span class="badge b-ok">✓ exame concluído</span>`
-          : pronto ? `<span class="badge b-ok">✓ seções prontas — falta finalizar</span>`
-          : `<span class="badge b-warn">${ro.feitas}/${ro.total} seções</span>`;
-        return `<tr class="${pronto?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td>${unidFiltro?"":`<td>${esc(e.unid)||"—"}</td>`}<td>${e.status==="concluido"?"—":`<span class="badge ${p.cls}">${p.txt}</span>`}</td><td>${this.chipsSecoes(e)}</td><td>${situ}</td></tr>`;}).join("")+`</table>`
-      : `<div class="empty">Nenhum exame em andamento${unidFiltro?" nesta unidade":" neste centro"}.</div>`;
+    this.renderListasExames(exs, unidFiltro, unidLabel, " neste centro");
 
     const painelCard=document.getElementById("painelUnidadesCard");
-    if(!unidFiltro && !verTodos && unidadesDoCentro.length){
+    if(!unidFiltro && unidadesDoCentro.length){
       painelCard.style.display="";
       const linhas=unidadesDoCentro.map(u=>{
         const eu=this.filtrarPorUnidade(exsCentro, u, unidadesDoCentro);
@@ -4005,7 +4003,7 @@ Continuar mesmo assim (sem salvar)?`);
           <td class="right"><span class="badge b-navy">abrir painel →</span></td>
         </tr>`).join("")}
         ${(()=>{ const and=exsCentro.filter(e=>e.status!=="concluido"); const t=c=>and.filter(e=>this.prazoInfo(e).cls===c).length;
-          return `<tr onclick="App.verTodosPainel()" style="border-top:2px solid var(--navy);"><td><b>Todos os exames do centro</b></td><td><b>${and.length}</b></td><td>${t("b-crit")?`<span class="badge b-crit">${t("b-crit")}</span>`:"0"}</td><td>${t("b-warn")?`<span class="badge b-warn">${t("b-warn")}</span>`:"0"}</td><td>${exsCentro.length-and.length}</td><td class="right"><span class="badge b-navy">ver todos →</span></td></tr>`; })()}
+          return `<tr style="border-top:2px solid var(--navy); cursor:default;"><td><b>Total do centro</b> <span class="muted" style="font-size:12px;">(lista completa abaixo)</span></td><td><b>${and.length}</b></td><td>${t("b-crit")?`<span class="badge b-crit">${t("b-crit")}</span>`:"0"}</td><td>${t("b-warn")?`<span class="badge b-warn">${t("b-warn")}</span>`:"0"}</td><td>${exsCentro.length-and.length}</td><td></td></tr>`; })()}
         ${semUnidade.length?`<tr onclick="App.abrirUnidadePainel('_semunidade')"><td><i>Sem unidade definida</i></td><td>${semUnidade.filter(e=>e.status!=="concluido").length}</td><td colspan="2">—</td><td>${semUnidade.filter(e=>e.status==="concluido").length}</td><td class="right"><span class="badge b-navy">abrir →</span></td></tr>`:""}
         </table>`;
     } else {
