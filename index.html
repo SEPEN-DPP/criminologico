@@ -533,7 +533,7 @@
       <button class="on" data-n="ident" onclick="App.novoTab('ident')">Identificação</button>
       <button data-n="equipe" onclick="App.novoTab('equipe')">Equipe examinadora</button>
       <button data-n="comunicacao" onclick="App.novoTab('comunicacao')">Comunicação ao Juízo</button>
-      <button data-n="quesitos" onclick="App.novoTab('quesitos')">Quesitos e Relatório</button>
+      <button data-n="quesitos" onclick="App.novoTab('quesitos')">Etapas e Relatório</button>
     </nav>
 
     <div class="novopanel on" id="np-ident">
@@ -714,6 +714,9 @@
     </div>
 
     <div class="novopanel" id="np-quesitos">
+    <!-- quesitos e garantias: nunca usados, saíram da tela (20/10/2026); os campos ficam escondidos
+         para os exames antigos que tenham algo preenchido não perderem o dado ao salvar -->
+    <div id="quesitosBloco" style="display:none;">
     <h3>Quesitos e garantias processuais <span class="muted" style="font-size:12px; font-weight:normal;">(art. 9º, I, da Portaria; Res. CNPCP 36/2024)</span></h3>
     <div class="row c2">
       <div><label class="f">Determinação judicial / documento de origem</label><input type="text" id="q_detOrigem" placeholder="ex.: decisão do evento n. 211"></div>
@@ -735,6 +738,7 @@
     <div id="quesitosBox" style="margin-top:8px;"></div>
 
     <hr class="sep">
+    </div>
     <h3>Etapas do exame <span class="muted" style="font-size:12px; font-weight:normal;">(Res. CNPCP 36/2024)</span></h3>
     <!-- modalidade antiga, do exame todo: hoje cada entrevista tem a sua; fica guardada só para os exames
          antigos, em que a entrevista sem modalidade própria usa esta -->
@@ -4549,8 +4553,9 @@ Continuar mesmo assim (sem salvar)?`);
       <h3>II — Delimitação da demanda, garantias e quesitos</h3>
       ${paras(TEXTO_MODELO.delimitacao)}
       <p>${document.getElementById("q_detOrigem").value.trim()?`<b>Determinação/documento de origem:</b> ${esc(document.getElementById("q_detOrigem").value.trim())}<br>`:""}
-      <b>Defesa técnica presente:</b> ${defesaNome?esc(defesaNome)+(defesaOAB?" ("+esc(defesaOAB)+")":""):"não informada"}<br>
-      <b>Ministério Público apresentou quesitos:</b> ${document.getElementById("q_mpQuesitos").value==="sim"?"Sim":"Não"} &nbsp; <b>Defesa apresentou quesitos:</b> ${document.getElementById("q_defQuesitos").value==="sim"?"Sim":"Não"}<br>
+      ${defesaNome?`<b>Defesa técnica presente:</b> ${esc(defesaNome)+(defesaOAB?" ("+esc(defesaOAB)+")":"")}<br>`:""}
+      ${document.getElementById("q_mpQuesitos").value==="sim"?`<b>Ministério Público apresentou quesitos:</b> Sim<br>`:""}
+      ${document.getElementById("q_defQuesitos").value==="sim"?`<b>Defesa apresentou quesitos:</b> Sim<br>`:""}
       ${document.getElementById("q_impedimento").value.trim()?`<b>Impedimento/suspeição arguido:</b> ${esc(document.getElementById("q_impedimento").value.trim())}<br>`:""}
       Assegurados os direitos ao silêncio e à afirmação de inocência, sem valoração desfavorável.</p>
       ${quesitos.length?quesitos.map((q,i)=>`<p><b>Quesito ${i+1} (${origemLabel[q.origem]||q.origem}):</b> ${esc(q.pergunta)||"—"}<br><b>Resposta:</b> ${q.resposta?escNl(q.resposta):"—"}</p>`).join(""):""}`;
