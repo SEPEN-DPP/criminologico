@@ -5482,7 +5482,8 @@ const ExamesFS = {
       const relOkPor = { ...(ex.relOkPor || {}) };
       const mat = meuPerfilDoc?.matricula || "";
       const vAnt = k => { const p = relOkPor[k]; return p ? (p.v || 1) : 0; };
-      (o.relOkMarcadas || []).forEach(k=>{ relOkPor[k] = { uid: quem.uid, nome: quem.nome, mat, perfil: quem.perfil, em: agora, v: vAnt(k) + 1 }; });
+      /* desmarcado:false explícito: a gravação é com merge, e sem ele ficava o "desmarcado" da vez anterior */
+      (o.relOkMarcadas || []).forEach(k=>{ relOkPor[k] = { uid: quem.uid, nome: quem.nome, mat, perfil: quem.perfil, em: agora, v: vAnt(k) + 1, desmarcado: false }; });
       (o.relOkDesmarcadas || []).forEach(k=>{ relOkPor[k] = { uid: quem.uid, nome: quem.nome, mat, perfil: quem.perfil, em: agora, v: vAnt(k), desmarcado: true }; });
       payload.relOkPor = relOkPor;
       if(o.acao === "concluiu"){
