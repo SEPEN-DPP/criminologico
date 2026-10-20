@@ -4474,8 +4474,6 @@ Continuar mesmo assim (sem salvar)?`);
     const origemLabel={mp:"Ministério Público",defesa:"Defesa",juizo:"Juízo"};
     const defesaNome=document.getElementById("q_defesaNome").value.trim();
     const defesaOAB=document.getElementById("q_defesaOAB").value.trim();
-    const assinExtra=[];
-    if(defesaNome) assinExtra.push(["Defesa técnica — ciência", defesaNome+(defesaOAB?" ("+defesaOAB+")":"")]);
     /* a pessoa examinada não assina o relatório em si (não está presente no momento da emissão) —
        a ciência dela é só registrada no texto, não como linha de assinatura */
 
@@ -4587,7 +4585,6 @@ Continuar mesmo assim (sem salvar)?`);
       ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${escNl(r_diverg.value)}</p>`:""}
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${escNl(r_limit.value)}</p>`:""}
       <p style="margin-top:16px;">${esc(cocNome)}, ${new Date().toLocaleDateString("pt-BR")}.</p>
-      ${assinExtra.length?`<div class="assin">${assinExtra.map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}<br><i>${x[0]}</i></p>`).join("")}</div>`:""}
       ${this.blocoAutoriaHTML()}`;
 
     const paginas=[pgCapa,pgIdent,pgMetodologia,pgDirecao,pgChefiaSeg,pgExecPenal,pgAtivLab,pgEnsino,pgPsq,pgPsi,pgSoc,pgSintese].filter(Boolean);
