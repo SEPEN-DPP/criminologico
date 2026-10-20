@@ -4474,6 +4474,13 @@ Continuar mesmo assim (sem salvar)?`);
     const origemLabel={mp:"Ministério Público",defesa:"Defesa",juizo:"Juízo"};
     const defesaNome=document.getElementById("q_defesaNome").value.trim();
     const defesaOAB=document.getElementById("q_defesaOAB").value.trim();
+    const coordNome=document.getElementById("q_coord").value.trim();
+    const funcaoRotulo=(base,funcao)=> funcao?(base+" — "+esc(funcao)):base;
+    const eqv=k=>[document.getElementById("q_"+k).value.trim(), (document.getElementById("q_"+k+"_mat")||{value:""}).value.trim()];
+    const eq=[["Diretor(a) da Unidade",...eqv("direcao")],["Chefe de Segurança",...eqv("chefiaSeg")],["Coordenador(a) de Execução Penal",...eqv("execPenal")],["Coordenador(a) de Atividades Laborais",...eqv("ativLab")],["Coordenador(a) de Ensino e Promoção Social",...eqv("ensino")],...this.lerChefesExtra().map(c=>[funcaoRotulo("Chefe de serviço",c.funcao),c.nome,c.mat]),["Psiquiatra",...eqv("psq")],["Psicólogo(a)",...eqv("psi")],["Assistente social",...eqv("as")]].filter(x=>x[1]);
+    if(coordNome) eq.push(["Técnico(a) responsável do Centro de Observação", coordNome, (document.getElementById("q_coord_mat")||{value:""}).value.trim()]);
+    const assinExtra=[];
+    if(defesaNome) assinExtra.push(["Defesa técnica — ciência", defesaNome+(defesaOAB?" ("+defesaOAB+")":"")]);
     /* a pessoa examinada não assina o relatório em si (não está presente no momento da emissão) —
        a ciência dela é só registrada no texto, não como linha de assinatura */
 
@@ -4585,6 +4592,7 @@ Continuar mesmo assim (sem salvar)?`);
       ${r_diverg.value.trim()?`<p><b>Divergências técnicas:</b> ${escNl(r_diverg.value)}</p>`:""}
       ${r_limit.value.trim()?`<p><b>Limitações do exame:</b> ${escNl(r_limit.value)}</p>`:""}
       <p style="margin-top:16px;">${esc(cocNome)}, ${new Date().toLocaleDateString("pt-BR")}.</p>
+      <div class="assin">${[...eq,...assinExtra].map(x=>`<p style="margin-top:34px;">_______________________________________<br>${esc(x[1])}${x[2]?"<br>Matrícula "+esc(x[2]):""}<br><i>${x[0]}</i></p>`).join("")}</div>
       ${this.blocoAutoriaHTML()}`;
 
     const paginas=[pgCapa,pgIdent,pgMetodologia,pgDirecao,pgChefiaSeg,pgExecPenal,pgAtivLab,pgEnsino,pgPsq,pgPsi,pgSoc,pgSintese].filter(Boolean);
