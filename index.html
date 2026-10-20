@@ -1823,6 +1823,41 @@ const App = {
     document.getElementById("btnEditarPreview").textContent=this._previewEditing?"✓ Concluir edição":"✎ Editar";
   },
 
+  /* ---------- novidades para o sininho 🔔, o título da aba e o aviso do computador ----------
+     Junta o que já aparece espalhado pelo Painel/Calendário: exames novos (unidade ou regional),
+     respostas/pedidos do HCTP, entrevistas marcadas pela equipe técnica e entrevistas a agendar.
+     Cada item tem uma "chave" para o aviso do computador saber o que é novidade. */
+  notificacoes(){
+    const p=this._meuPerfil; if(!p || !this.data) return [];
+    const it=[];
+    const quando=h=>h.status==="agendado"&&h.data?" para "+fmt(h.data)+(h.hora?" às "+h.hora:""):"";
+    const perfisNovos=["USUARIO","PSICOLOGIA","SOCIAL","CPEN","DIR","SR","SR_PSICOLOGIA","SR_SOCIAL"];
+    if(perfisNovos.includes(p.perfil) && p.avisosVistoEm)
+      this.data.exames.filter(e=>this.exameNovoPara(e,p)).forEach(e=>it.push({chave:"ex:"+e.id,
+        txt:`Novo exame: <b>${esc(e.nome)}</b> — ${esc(e.unid||"")}`, plano:"Novo exame: "+e.nome+" — "+(e.unid||""), acao:`App.abrir('${e.id}')`}));
+    if(this.ehHctp()){
+      (this.data.hctp||[]).filter(h=>h.status==="solicitado"||h.novidadeParaHctp).forEach(h=>it.push({chave:"hh:"+h.id+":"+h.status+":"+(h.eventos||[]).length,
+        txt:h.status==="solicitado"?`Pedido de agendamento: <b>${esc(h.nome)}</b> — ${esc(h.cocNome||"")}`:`${esc(h.cocNome||"Centro")}: ${esc(this.HCTP_STATUS[h.status]||h.status)} — <b>${esc(h.nome)}</b>`,
+        plano:(h.status==="solicitado"?"Pedido de agendamento no HCTP: ":"HCTP — mudança do Centro: ")+h.nome, acao:"App.tab('hctp')"}));
+    } else {
+      (this.data.hctp||[]).filter(h=>h.novidadeParaCentro && (this.coc==="_cepen" || h.coc===this.coc)).forEach(h=>it.push({chave:"hc:"+h.id+":"+h.status+":"+(h.eventos||[]).length,
+        txt:`HCTP: ${esc(this.HCTP_STATUS[h.status]||h.status)}${esc(quando(h))} — <b>${esc(h.nome)}</b>`, plano:"HCTP: "+(this.HCTP_STATUS[h.status]||h.status)+quando(h)+" — "+h.nome, acao:`App.abrir('${h.exameId}')`}));
+      if(!this.agendaRestrita()){
+        const geral=this.coc==="_cepen";
+        this.data.exames.filter(e=>geral || this.cocIdDoExame(e)===this.coc).forEach(e=>["ent1","ent2","entConv"].forEach(k=>{
+          const et=(e.etapas||{})[k]||{};
+          if(et.agNome && et.agCiente===false) it.push({chave:"ag:"+e.id+":"+k+":"+(et.agEm||""),
+            txt:`${esc(et.agNome)} ${esc(et.agAcao||"agendou")} a ${this.CAL_TIPOS[k].toLowerCase()} — <b>${esc(e.nome)}</b>`, plano:et.agNome+" "+(et.agAcao||"agendou")+" a "+this.CAL_TIPOS[k].toLowerCase()+" — "+e.nome, acao:`App.abrir('${e.id}')`});
+        }));
+      }
+      if(this.minhaArea() && (p.matricula || this.agendaRestrita()))
+        this.calPendencias().itens.forEach(i=>it.push({chave:"pa:"+i.e.id+":"+i.k+(i.sr?":sr":""),
+          txt:`Entrevista a agendar: ${this.CAL_TIPOS[i.k]} — <b>${esc(i.e.nome)}</b>${i.sr?" (pedido à SR)":""}`, plano:"Entrevista a agendar: "+this.CAL_TIPOS[i.k]+" — "+i.e.nome, acao:"App.tab('cal')"}));
+    }
+    return it;
+  },
+  atualizarNotificacoes(){ if(window.NotifUI) window.NotifUI.atualizar(); },
+
   /* ---------- agendamento pela psicóloga / assistente social ----------
      Cada entrevista tem uma área ("Área/profissional responsável": Psicologia, Serviço Social ou
      Equipe). As contas de Psicologia e Serviço Social da unidade agendam, alteram e desmarcam só as
@@ -3764,6 +3799,7 @@ Continuar mesmo assim (sem salvar)?`);
       `<li>${esc(fmtTs(e.em))} — <b>${esc(e.lado)}</b> (${esc(e.por||"?")}) ${esc(this.HCTP_ACAO[e.acao]||e.acao)}${e.detalhe?": "+esc(e.detalhe):""}</li>`).join("")}</ul></details>`;
   },
   aoSincronizarHctp(){
+    this.atualizarNotificacoes();
     this.renderHctpExame();
     this.renderHctpAvisos();
     if(document.getElementById("v-hctp").classList.contains("on")) this.renderHctp();
@@ -4049,6 +4085,7 @@ Continuar mesmo assim (sem salvar)?`);
     this.renderLista();
   },
   renderDash(){
+    this.atualizarNotificacoes();
     this.renderHctpAvisos();
     this.renderAgendaAvisos();
     if(this.coc==="_cepen"){ this.renderDashGeral(); return; }
@@ -5033,6 +5070,7 @@ const ContaUI = {
       await updateDoc(doc(db,"usuarios",meuUid), { avisosVistoEm: serverTimestamp() });
       meuPerfilDoc.avisosVistoEm = Date.now();
       window.App.renderParaVoce();
+      NotifUI.atualizar();
     }catch(e){ alert("Não foi possível marcar como vistos (erro: "+(e.message||e)+")."); }
   },
   /* no login: primeira vez guarda "agora" como ponto de partida dos avisos (para não listar
@@ -5241,27 +5279,66 @@ window.UsuariosUI = UsuariosUI;
 
 /* ---------- Sino de notificações ---------- */
 const NotifUI = {
+  _nPend: 0, _vistas: null, _inicio: 0, _tituloBase: null,
+  /* no login: a primeira carga dos dados não vira aviso do computador (só o que chegar depois) */
+  iniciar(){ this._vistas = new Set(); this._inicio = Date.now(); this.atualizar(); },
   toggle(){
     const painel = document.getElementById("sinoPainel");
     const abrir = painel.style.display==="none";
     painel.style.display = abrir ? "block" : "none";
     if(abrir) this.render();
   },
-  atualizarContagem(n){
+  /* pedidos de acesso pendentes (vêm de UsuariosUI) + novidades do sistema (App.notificacoes) */
+  atualizarContagem(n){ this._nPend = n||0; this.atualizar(); },
+  atualizar(){
+    const itens = (meuPerfilDoc && window.App && window.App.notificacoes) ? window.App.notificacoes() : [];
+    const total = this._nPend + itens.length;
     const el = document.getElementById("sinoContagem");
-    if(n>0){ el.style.display="inline-block"; el.textContent = n>99?"99+":n; }
+    if(total>0){ el.style.display="inline-block"; el.textContent = total>99?"99+":total; }
     else el.style.display="none";
+    if(this._tituloBase===null) this._tituloBase = document.title.replace(/^\(\d+\+?\)\s*/,"");
+    document.title = total>0 ? "("+(total>99?"99+":total)+") "+this._tituloBase : this._tituloBase;
+    /* aviso do computador: só itens que não estavam aqui antes, com a aba em segundo plano e a permissão dada */
+    if(this._vistas){
+      const novos = itens.filter(i=>!this._vistas.has(i.chave));
+      const carregando = Date.now()-this._inicio < 8000;
+      if(novos.length && !carregando && "Notification" in window && Notification.permission==="granted" && (document.hidden || !document.hasFocus())){
+        try{
+          const n = new Notification(novos.length===1 ? novos[0].plano : novos.length+" novidades no Sistema do Centro de Observação",
+            { body: novos.length===1 ? "Clique para abrir o sistema." : novos.slice(0,4).map(i=>"• "+i.plano).join("\n"), tag:"criminologico" });
+          n.onclick = ()=>{ window.focus(); n.close(); };
+        }catch(e){ console.warn("Aviso do computador indisponível:", e); }
+      }
+      itens.forEach(i=>this._vistas.add(i.chave));
+    }
+    if(document.getElementById("sinoPainel").style.display!=="none") this.desenhar(itens);
+  },
+  async ativarAvisoComputador(){
+    if(!("Notification" in window)){ alert("Este navegador não mostra avisos do computador."); return; }
+    const r = await Notification.requestPermission();
+    alert(r==="granted" ? "Pronto: quando chegar uma novidade com o sistema aberto em outra aba ou minimizado, aparece um aviso no canto da tela."
+      : "O navegador não autorizou os avisos. Para ativar depois, clique no cadeado ao lado do endereço do site e permita \"Notificações\".");
+    this.desenhar();
+  },
+  _pendHtml: "",
+  desenhar(itens){
+    itens = itens || ((meuPerfilDoc && window.App) ? window.App.notificacoes() : []);
+    const painel = document.getElementById("sinoPainel");
+    const fechar = "document.getElementById('sinoPainel').style.display='none';";
+    const novidades = itens.map(i=>`<div style="padding:9px 12px; border-bottom:1px solid var(--line); font-size:13px; cursor:pointer;" onclick="${fechar}${i.acao}">${i.txt}</div>`).join("");
+    const perm = ("Notification" in window && Notification.permission==="default")
+      ? `<div style="padding:10px 12px; border-top:1px solid var(--line); font-size:12.5px;"><button class="btn sm ghost" type="button" onclick="NotifUI.ativarAvisoComputador()">Ativar aviso no computador</button><br><span class="muted">Mostra um aviso no canto da tela quando chegar novidade com o sistema aberto em segundo plano.</span></div>` : "";
+    painel.innerHTML = (novidades || this._pendHtml) ? novidades + this._pendHtml + perm
+      : `<div style="padding:14px; text-align:center; color:var(--mut); font-size:13px;">Nenhuma notificação.</div>` + perm;
   },
   async render(){
-    const painel = document.getElementById("sinoPainel");
     const lista = await UsuariosUI.carregar();
     if(UsuariosUI._erroCarregar){
-      painel.innerHTML = `<div style="padding:14px; font-size:12.5px; color:#B4232B;">Não foi possível verificar pedidos pendentes (erro: ${esc(UsuariosUI._erroCarregar)}). Veja a aba Configurações → Usuários para detalhes.</div>`;
-      this.atualizarContagem(0);
-      return;
-    }
-    const pendentes = lista.filter(u=>u.status==="PENDENTE" && podeAprovar(u));
-    painel.innerHTML = pendentes.length ? pendentes.map(u=>`
+      this._pendHtml = `<div style="padding:10px 12px; font-size:12.5px; color:#B4232B;">Não foi possível verificar pedidos de acesso pendentes (erro: ${esc(UsuariosUI._erroCarregar)}).</div>`;
+      this._nPend = 0;
+    } else {
+      const pendentes = lista.filter(u=>u.status==="PENDENTE" && podeAprovar(u));
+      this._pendHtml = pendentes.map(u=>`
       <div style="padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px;">
         <b>${esc(u.nome)}</b> pediu acesso como ${esc(PERFIL_LABEL[u.perfilSolicitado]||u.perfilSolicitado)}<br>
         <span class="muted">${esc(u.unidade||nomeSR(u.sr))}</span>
@@ -5269,8 +5346,11 @@ const NotifUI = {
           <button class="btn sm" onclick="UsuariosUI.aprovar('${u.id}').then(()=>NotifUI.render())">Aprovar</button>
           <button class="btn sm danger" onclick="UsuariosUI.recusar('${u.id}').then(()=>NotifUI.render())">Recusar</button>
         </div>
-      </div>`).join("") : `<div style="padding:14px; text-align:center; color:var(--mut); font-size:13px;">Nenhuma notificação.</div>`;
-    this.atualizarContagem(pendentes.length);
+      </div>`).join("");
+      this._nPend = pendentes.length;
+    }
+    this.atualizar();
+    this.desenhar();
   },
 };
 window.NotifUI = NotifUI;
@@ -5669,6 +5749,7 @@ onAuthStateChanged(auth, async (usuarioFirebase) => {
   QuadroFS.carregar();
   AuthUI.atualizarBotaoUsuario(meuPerfilDoc);
   UsuariosUI._cache = [];
+  NotifUI.iniciar();
   NotifUI.render();
   ContaUI.aoEntrar();
 });
