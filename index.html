@@ -622,7 +622,7 @@
 
     <div class="row c3" style="margin-top:6px;">
       <div><label class="f">Data da decisão judicial</label><input type="date" id="e_dataDecisao" onchange="App.triagem()"></div>
-      <div><label class="f">Prazo-limite para conclusão do exame (automático: 30 dias após a decisão)</label><input type="text" id="e_prazo" readonly style="background:#F1F4F9; font-weight:700;"></div>
+      <div><label class="f">Prazo-limite para conclusão do exame (vem do BPI — data prevista da progressão; sem ela, 30 dias após a decisão; pode ser alterado)</label><input type="date" id="e_prazo" onchange="App.prazoEditado()" style="font-weight:700;"></div>
       <div><label class="f">Data prevista da progressão (requisito objetivo)</label><input type="date" id="e_dataProg"></div>
     </div>
     <div class="row c3">
@@ -1508,6 +1508,21 @@ const Extractor = {
       const c=cands.filter(c=>+c.mo>=1 && +c.mo<=12 && +c.d>=1 && +c.d<=31).sort((a,b)=>a.i-b.i)[0];
       if(c){ document.getElementById("e_dataDecisao").value=c.a+"-"+c.mo+"-"+c.d; found.push("Data da decisão: "+c.d+"/"+c.mo+"/"+c.a+" (conferir)"); }
       else missing.push("data da decisão judicial");
+    }
+
+    /* data prevista da progressão — Régua penal do BPI ("Semiaberto: 23/10/2029 Aberto: N I"): vale a data do
+       próximo regime (do semiaberto vai para o aberto; dos demais, para o semiaberto). Também vira o prazo-limite
+       do exame (editável) */
+    {
+      const dt=rot=>{ const x=new RegExp("\\b"+rot+":\\s*(\\d{2})\\/(\\d{2})\\/(\\d{4})").exec(t); return x?{d:x[1],mo:x[2],a:x[3],rot}:null; };
+      const sa=dt("Semiaberto"), ab=dt("Aberto");
+      const c = document.getElementById("e_regime").value==="semiaberto" ? (ab||sa) : (sa||ab);
+      if(c){
+        const iso=c.a+"-"+c.mo+"-"+c.d;
+        document.getElementById("e_dataProg").value=iso;
+        document.getElementById("e_prazo").value=iso; this._prazoManual = iso!==this.prazoAutoISO();
+        found.push("Data prevista da progressão ("+c.rot.toLowerCase()+"): "+c.d+"/"+c.mo+"/"+c.a+" — usada como prazo-limite (conferir)");
+      } else missing.push("data prevista da progressão (BPI)");
     }
 
     App.triagem();
@@ -2729,9 +2744,8 @@ const App = {
     const conds=this.lerConds().filter(c=>c.dataFato);
     const box=document.getElementById("triagemBox");
 
-    /* prazo automático */
-    const lim=this.prazoLimite({dataDecisao:document.getElementById("e_dataDecisao").value});
-    document.getElementById("e_prazo").value=lim?lim.toLocaleDateString("pt-BR"):"";
+    /* prazo automático (enquanto não foi alterado à mão) */
+    if(!this._prazoManual) document.getElementById("e_prazo").value=this.prazoAutoISO();
 
     if(tipo==="judicial"){
       box.innerHTML=`<span class="carimbo mis">Determinação judicial</span>
@@ -2899,7 +2913,7 @@ Continuar mesmo assim (sem salvar)?`);
     if(this._previewEditing) this.toggleEditarPreview();
   },
   novo(){
-    this.editId=null; this._base=null; this._avisoConflito=null; this._formSeq=(this._formSeq||0)+1; this._relOkRemarcadas=new Set();
+    this.editId=null; this._prazoManual=false; this._base=null; this._avisoConflito=null; this._formSeq=(this._formSeq||0)+1; this._relOkRemarcadas=new Set();
     this.sairDaEdicaoDaPrevia();
     this.setSomenteLeitura(false);
     document.getElementById("fichaTitulo").textContent="Novo exame criminológico";
@@ -3099,6 +3113,9 @@ Continuar mesmo assim (sem salvar)?`);
       crimeSexual:document.getElementById("e_crimeSexual").checked,
       tipo:document.getElementById("e_tipo").value,
       dataDecisao:document.getElementById("e_dataDecisao").value,
+      /* prazo só é gravado quando alterado à mão (ou para limpar um que já estava gravado) */
+      ...(()=>{ const p=this.prazoManualForm(), srv=this.editId && this.data.exames.find(x=>x.id===this.editId);
+                return p || (srv && srv.prazo) ? {prazo:p} : {}; })(),
       dataProg:document.getElementById("e_dataProg").value,
       dataBase:document.getElementById("e_dataBase").value,
       faltaNaoReab:document.getElementById("e_faltaNaoReab").value,
@@ -3201,7 +3218,7 @@ Continuar mesmo assim (sem salvar)?`);
     e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_proc.value=ex.proc||""; document.getElementById("e_sgpe").value=ex.sgpe||"";
     document.getElementById("e_crimeSexual").checked=!!ex.crimeSexual;
     this.renderUnidadeSel(ex.unid||"");
-    e_tipo.value=ex.tipo||"progressao"; document.getElementById("e_dataDecisao").value=ex.dataDecisao||""; e_dataProg.value=ex.dataProg||""; document.getElementById("e_dataBase").value=ex.dataBase||""; e_obs.value=ex.obs||"";
+    e_tipo.value=ex.tipo||"progressao"; document.getElementById("e_dataDecisao").value=ex.dataDecisao||""; this._prazoManual=!!ex.prazo; document.getElementById("e_prazo").value=ex.prazo||""; e_dataProg.value=ex.dataProg||""; document.getElementById("e_dataBase").value=ex.dataBase||""; e_obs.value=ex.obs||"";
     document.getElementById("e_faltaNaoReab").value=ex.faltaNaoReab||"";
     document.getElementById("e_exameAnterior").value=ex.exameAnterior||"nao";
     /* importações antigas gravavam "Pai e Mãe" (ex.: "Desconhecido e Fulana") — com pai/mãe desconhecido,
@@ -3469,7 +3486,7 @@ Continuar mesmo assim (sem salvar)?`);
     document.querySelectorAll("#v-novo input, #v-novo textarea, #v-novo select").forEach(el=>{
       if(el.closest("#novoPreviewCol")) return;
       if(on) el.disabled=true;
-      else if(el.id!=="e_prazo") el.disabled=false;
+      else el.disabled=false;
     });
     if(!on){ this.aplicarPermEquipe(); this.aplicarSuprimir(this.lerSuprimir()); this.aplicarPermSecoes(); }
   },
@@ -3658,7 +3675,7 @@ Continuar mesmo assim (sem salvar)?`);
     const emails=[...new Set(comEmail.map(m=>m.contato.email))];
     const nome=document.getElementById("e_nome").value.trim()||"(sem nome)";
     const ipen=document.getElementById("e_mat").value.trim();
-    const lim=this.prazoLimite({dataDecisao:document.getElementById("e_dataDecisao").value});
+    const lim=this.prazoDoFormulario();
     const fin={progressao:"Progressão de regime",judicial:"Determinação judicial",dpp:"Requisição do DPP"}[document.getElementById("e_tipo").value]||"";
     const sgpe=document.getElementById("e_sgpe").value.trim();
     const assunto=(assinatura?"Assinatura no SGPE — ":"")+"Exame criminológico — "+nome+(ipen?" (IPEN "+ipen+")":"");
@@ -4062,8 +4079,27 @@ Continuar mesmo assim (sem salvar)?`);
   /* ---------- prazo/status ---------- */
   /* prazo para concluir o exame: 30 dias contados da decisão judicial (vale para qualquer finalidade) */
   prazoLimite(ex){
+    if(ex.prazo) return new Date(ex.prazo+"T00:00:00"); /* prazo alterado à mão na ficha */
     if(!ex.dataDecisao) return null;
     const d=new Date(ex.dataDecisao+"T00:00:00"); d.setDate(d.getDate()+30); return d;
+  },
+  /* prazo sugerido pela data da decisão do formulário, no formato do campo (aaaa-mm-dd) */
+  prazoAutoISO(){
+    const lim=this.prazoLimite({dataDecisao:document.getElementById("e_dataDecisao").value});
+    return lim ? lim.getFullYear()+"-"+String(lim.getMonth()+1).padStart(2,"0")+"-"+String(lim.getDate()).padStart(2,"0") : "";
+  },
+  /* prazo alterado à mão no formulário ("" quando é o sugerido) */
+  prazoManualForm(){
+    const v=document.getElementById("e_prazo").value;
+    return this._prazoManual && v && v!==this.prazoAutoISO() ? v : "";
+  },
+  prazoDoFormulario(){
+    return this.prazoLimite({dataDecisao:document.getElementById("e_dataDecisao").value, prazo:this.prazoManualForm()});
+  },
+  prazoEditado(){
+    const el=document.getElementById("e_prazo");
+    this._prazoManual = !!el.value && el.value!==this.prazoAutoISO();
+    if(!el.value) el.value=this.prazoAutoISO(); /* apagou: volta ao sugerido */
   },
   prazoInfo(ex){
     const lim=this.prazoLimite(ex);
