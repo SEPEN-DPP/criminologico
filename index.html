@@ -4526,8 +4526,8 @@ Continuar mesmo assim (sem salvar)?`);
     const unidInfo=UNIDADES_INFO[unidNome];
     const fin={progressao:"progressão de regime (art. 112, §1º, da LEP)",judicial:"determinação judicial motivada",dpp:"requisição do Departamento de Polícia Penal"}[e_tipo.value];
     const et=this.lerEtapas();
-    /* data da entrevista no quadro de identificação; a que não aconteceu aparece assim, com o motivo */
-    const dataEnt=v=>!v||!v.data ? "—" : v.nao==="sim" ? fmt(v.data)+" — não realizada"+(v.naoMotivo?" ("+esc(v.naoMotivo)+")":"") : fmt(v.data);
+    /* data da entrevista no quadro de identificação; a que não aconteceu fica só com "—" */
+    const dataEnt=v=>!v||!v.data||v.nao==="sim" ? "—" : fmt(v.data);
     const semPsq=document.getElementById("q_semPsq").checked;
     const entrevistas=[et.ent1,et.ent2,et.entConv].filter(x=>x&&x.ok&&x.data).map(x=>fmt(x.data)).join(", ")||"—";
     const regimeLabel={fechado:"Fechado",semiaberto:"Semiaberto",aberto:"Aberto",domiciliar:"Prisão domiciliar"}[document.getElementById("e_regime").value]||"não informado";
