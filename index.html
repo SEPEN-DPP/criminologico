@@ -113,6 +113,7 @@
   .cal-evt.atrasada{background:var(--critbg); border-left-color:var(--crit);}
   .cal-evt.area-psi{border-right:3px solid #3B6FA0;}
   .cal-evt.area-social{border-right:3px solid #8B5FBF;}
+  .cal-evt.nao{background:#F1F1F1; border-left-color:var(--steel); color:var(--mut); text-decoration:line-through;}
 
   .sgpe-drop.over{background:#E3F1E9 !important; border-color:var(--navy) !important; outline:2px dashed var(--navy); outline-offset:-6px;}
   main{max-width:1440px; margin:0 auto; padding:22px 18px 60px;}
@@ -179,6 +180,7 @@
   /* ===== etapas ===== */
   .etapa{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; background:#fff;}
   .etapa.done{background:var(--okbg); border-color:#BCDCC8;}
+  .etapa.nao{background:#F1F1F1;}
   .etapa input[type=checkbox]{width:19px; height:19px; accent-color:var(--ok); flex-shrink:0;}
   .etapa .et-t{flex:1;} .etapa .et-t b{font-size:14px; display:block;} .etapa .et-t span{font-size:12px; color:var(--mut);}
   .etapa input[type=date]{width:150px;}
@@ -1222,11 +1224,14 @@ const AREA_OPTS = [{v:"",t:"Equipe (conjunta)"},{v:"psi",t:"Psicologia"},{v:"soc
 const AREA_LABEL = {"":"Equipe", psi:"Psicologia", social:"Serviço Social"};
 /* modalidade de cada entrevista — em exames antigos, sem modalidade na entrevista, vale a do exame (campo e_modal) */
 const MODAL_OPTS = [{v:"presencial",t:"Modalidade: presencial"},{v:"video",t:"Modalidade: por videoconferência"}];
+/* entrevista que não aconteceu (faltou, recusou, não compareceu etc.): sai das pendências e libera o horário */
+const NAO_OPTS = [{v:"",t:"Situação: prevista / realizada"},{v:"sim",t:"Não aconteceu"}];
+const NAO_CAMPOS = [{f:"nao",p:"Situação",t:"select",options:NAO_OPTS},{f:"naoMotivo",p:"Motivo (por que não aconteceu)"}];
 
 /* campos extras por etapa — ver ETAPAS[].extra */
 const ETAPA_EXTRA = {
-  entrevista:[{f:"hora",p:"Horário",t:"time"},{f:"local",p:"Local"},{f:"dur",p:"Duração (minutos)",t:"number"},{f:"prof",p:"Profissionais presentes"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS},{f:"modal",p:"Modalidade",t:"select",options:MODAL_OPTS}],
-  convivio:[{f:"hora",p:"Horário",t:"time"},{f:"dur",p:"Duração (minutos)",t:"number"},{f:"nome",p:"Nome da pessoa"},{f:"vinc",p:"Vínculo"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS},{f:"modal",p:"Modalidade",t:"select",options:MODAL_OPTS}]
+  entrevista:[{f:"hora",p:"Horário",t:"time"},{f:"local",p:"Local"},{f:"dur",p:"Duração (minutos)",t:"number"},{f:"prof",p:"Profissionais presentes"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS},{f:"modal",p:"Modalidade",t:"select",options:MODAL_OPTS},...NAO_CAMPOS],
+  convivio:[{f:"hora",p:"Horário",t:"time"},{f:"dur",p:"Duração (minutos)",t:"number"},{f:"nome",p:"Nome da pessoa"},{f:"vinc",p:"Vínculo"},{f:"area",p:"Área/profissional responsável",t:"select",options:AREA_OPTS},{f:"modal",p:"Modalidade",t:"select",options:MODAL_OPTS},...NAO_CAMPOS]
 };
 
 /* parágrafos-modelo do Anexo II (modelo padrão DPP) — usados como texto inicial/sugestão
@@ -2056,7 +2061,7 @@ const App = {
           const area = et.area||"";
           if(this.calFiltroArea && area!==this.calFiltroArea) return;
           out.push({
-            data: et.data, hora: et.hora||"", dur: et.dur||"", tipo: this.CAL_TIPOS[k], tipoK: k, exId: ex.id, nome: ex.nome, mat: ex.mat||"", done: !!et.ok,
+            data: et.data, hora: et.hora||"", dur: et.dur||"", tipo: this.CAL_TIPOS[k], tipoK: k, exId: ex.id, nome: ex.nome, mat: ex.mat||"", done: !!et.ok || et.nao==="sim", nao: et.nao==="sim",
             detalhe: k==="entConv" ? [et.nome,et.vinc].filter(Boolean).join(" — ") : (et.local||""),
             regional: geral ? ((this.data.cocs.find(c=>c.id===this.cocIdDoExame(ex))||{}).nome||"") : "",
             unid: ex.unid||"",
@@ -2143,7 +2148,7 @@ const App = {
       const evsDia=eventos.filter(e=>e.data===iso);
       const temCrit=evsDia.some(e=>!e.done && e.data<hojeISO);
       const temWarn=evsDia.some(e=>!e.done && e.data>=hojeISO);
-      const temOk=evsDia.some(e=>e.done);
+      const temOk=evsDia.some(e=>e.done && !e.nao);
       html+=`<div class="cal-day ${fora?"out":""} ${iso===hojeISO?"today":""} ${iso===this.calDiaSel?"sel":""}" onclick="App.calSelDia('${iso}')">
         <div class="n">${d.getDate()}</div>
         ${evsDia.length?`<div class="dots">${temCrit?'<span class="cal-dot crit"></span>':""}${temWarn?'<span class="cal-dot warn"></span>':""}${temOk?'<span class="cal-dot ok"></span>':""}</div>`:""}
@@ -2160,7 +2165,7 @@ const App = {
     box.innerHTML = `<h3 style="font-size:14px;">Entrevistas em ${dataFmt} <button class="btn sm ghost" style="float:right;" type="button" onclick="App.calAbrirForm('${this.calDiaSel}','08:00')">+ agendar</button></h3>` + eventos.map(e=>`
       <div class="etapa ${e.done?"done":""}" style="cursor:pointer;" title="Clique para alterar esta entrevista" onclick="App.calEditar('${e.exId}','${e.tipoK}')">
         <div class="et-t"><b>${esc(e.nome)}${e.mat?(" — IPEN "+esc(e.mat)):""}</b><span>${e.hora?(esc(e.hora)+"–"+this.calHoraFim(e.hora,e.dur)+" — "):""}${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${e.video?" · videoconferência":""}${(!this.calFiltroUnidade && e.unid)?(" · "+esc(e.unid)):""}${e.regional?(" · "+esc(e.regional)):""}</span></div>
-        <span class="badge ${e.done?"b-ok":"b-warn"}">${e.done?"realizada":"pendente"}</span>
+        <span class="badge ${e.nao?"b-mut":e.done?"b-ok":"b-warn"}">${e.nao?"não aconteceu":e.done?"realizada":"pendente"}</span>
       </div>`).join("");
   },
   renderCalendarioSemana(){
@@ -2175,7 +2180,7 @@ const App = {
     const slot=(iso,hora)=>{
       const evs=eventos.filter(e=>e.data===iso && (hora===""?!e.hora:e.hora && parseInt(e.hora.split(":")[0])===hora));
       const chips=evs.map(e=>{
-        const cls=e.done?"":(e.data<hojeISO?"atrasada":"pend");
+        const cls=e.nao?"nao":e.done?"":(e.data<hojeISO?"atrasada":"pend");
         const areaCls=e.area?(" area-"+e.area):"";
         const ident=esc(e.nome)+(e.mat?(" — IPEN "+esc(e.mat)):"");
         return `<div class="cal-evt ${cls}${areaCls}" onclick="event.stopPropagation();App.calEditar('${e.exId}','${e.tipoK}')" title="Clique para alterar — ${ident} — ${e.hora?(e.hora+"–"+this.calHoraFim(e.hora,e.dur)+" — "):""}${e.tipo}${e.detalhe?(" — "+esc(e.detalhe)):""}${e.area?(" · "+AREA_LABEL[e.area]):""}${e.video?" · videoconferência":""}${e.unid?(" · "+esc(e.unid)):""}">${ident} · ${this.CAL_TIPOS_CURTO[e.tipoK]}${e.area?(" · "+AREA_LABEL[e.area]):""}${e.video?" · vídeo":""}</div>`;
@@ -2356,7 +2361,7 @@ const App = {
       for(const k2 of ["ent1","ent2","entConv"]){
         if(o.ex.id===exAlvo.id && k2===k) continue;
         const et=o.etapas[k2];
-        if(!et || et.data!==novo.data) continue;
+        if(!et || et.data!==novo.data || et.nao==="sim") continue; /* não aconteceu: horário livre */
         const ini2=this.calMinutos(et.hora); if(ini2==null) continue;
         const fim2=ini2+(this.calDurMin(et.dur)||this.CAL_DUR_PADRAO);
         if(ini<fim2 && ini2<fim) return {ex:o.ex, k:k2, et};
@@ -2416,6 +2421,7 @@ const App = {
     if(!this.calDurMin(f.dur)){ alert("Informe a duração da entrevista, em minutos — ela é necessária para o sistema conferir se não há choque com outra entrevista."); return; }
     if(!this.calConfirmaConflito(this.calConflito(exServidor, k, f, exServidor.etapas))) return;
     const novo=Object.assign({}, (exServidor.etapas||{})[k]||{}, f, {ok:document.getElementById("calfOk").checked});
+    if(novo.ok && novo.nao) novo.nao=""; /* marcada como realizada: deixa de ser "não aconteceu" */
     this.calGravarEtapa(exServidor, k, this.marcaAgenda(novo, "alterou"), "Entrevista de "+exServidor.nome+" alterada.");
   },
   calDesmarcar(){
@@ -2793,12 +2799,14 @@ const App = {
       const v = Object.assign({}, et[e.k]||{});
       if(!v.modal) v.modal = document.getElementById("e_modal").value || "presencial"; /* exame antigo: vale a modalidade do exame */
       const extraCampos = e.extra ? ETAPA_EXTRA[e.extra] : null;
-      return `<div class="etapa ${v.ok?"done":""}" id="et_${e.k}">
+      const nao=v.nao==="sim";
+      /* nao/naoMotivo só entram na gravação de exames que já os têm ou quando preenchidos (evita mexer em exames antigos) */
+      return `<div class="etapa ${v.ok?"done":""} ${nao?"nao":""}" id="et_${e.k}" data-tem-nao="${"nao" in v?1:""}">
         <input type="checkbox" ${v.ok?"checked":""} onchange="App.etToggle('${e.k}',this)">
         <div class="et-t"><b>${e.t}</b><span>${e.s}</span>
           ${extraCampos?`<div class="et-extra">${extraCampos.map(c=> c.t==="select"
-            ? `<select data-field="${c.f}" title="${c.p}">${c.options.map(o=>`<option value="${o.v}" ${(v[c.f]||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`
-            : `<input type="${c.t||"text"}" data-field="${c.f}" placeholder="${c.p}" title="${c.p}" ${c.t==="number"?'min="5" step="5" style="width:150px;"':""} value="${esc(c.f==="dur"?(this.calDurMin(v.dur)||""):(v[c.f]||""))}">`
+            ? `<select data-field="${c.f}" title="${c.p}" ${c.f==="nao"?`onchange="App.etNao('${e.k}')"`:""}>${c.options.map(o=>`<option value="${o.v}" ${(v[c.f]||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`
+            : `<input type="${c.t||"text"}" data-field="${c.f}" placeholder="${c.p}" title="${c.p}" ${c.t==="number"?'min="5" step="5" style="width:150px;"':""} ${c.f==="naoMotivo"&&!nao?'style="display:none;"':""} value="${esc(c.f==="dur"?(this.calDurMin(v.dur)||""):(v[c.f]||""))}">`
           ).join("")}</div>`:""}
         </div>
         ${e.data?`<input type="date" class="et-data" value="${v.data||""}">`:""}
@@ -2806,7 +2814,17 @@ const App = {
     }).join("");
     this.modalChange();
   },
-  etToggle(k,el){ el.closest(".etapa").classList.toggle("done", el.checked); },
+  etToggle(k,el){
+    el.closest(".etapa").classList.toggle("done", el.checked);
+    const s=document.querySelector(`#et_${k} [data-field="nao"]`);
+    if(el.checked && s && s.value){ s.value=""; this.etNao(k); } /* realizada: deixa de ser "não aconteceu" */
+  },
+  etNao(k){
+    const d=document.getElementById("et_"+k), nao=d.querySelector('[data-field="nao"]').value==="sim";
+    d.classList.toggle("nao", nao);
+    d.querySelector('[data-field="naoMotivo"]').style.display=nao?"":"none";
+    if(nao){ const cb=d.querySelector("input[type=checkbox]"); cb.checked=false; d.classList.remove("done"); }
+  },
   lerEtapas(){
     const out={};
     ETAPAS.forEach(e=>{
@@ -2814,12 +2832,13 @@ const App = {
       const v={ ok:d.querySelector("input[type=checkbox]").checked,
                 data:e.data ? d.querySelector(".et-data").value : "" };
       if(e.extra) ETAPA_EXTRA[e.extra].forEach(c=>{ v[c.f]=d.querySelector(`[data-field="${c.f}"]`).value.trim(); });
+      if(e.extra && !d.dataset.temNao && !v.nao && !v.naoMotivo){ delete v.nao; delete v.naoMotivo; }
       out[e.k]=v;
     });
     return out;
   },
   progresso(et){
-    const done=ETAPAS.filter(e=>et[e.k]&&et[e.k].ok).length;
+    const done=ETAPAS.filter(e=>et[e.k]&&(et[e.k].ok||et[e.k].nao==="sim")).length; /* a que não aconteceu também está resolvida */
     return Math.round(100*done/ETAPAS.length);
   },
 
@@ -4384,7 +4403,7 @@ Continuar mesmo assim (sem salvar)?`);
     ["cidade","local"].forEach(k=>{ const el=document.getElementById("c_"+k); if(el) el.placeholder=sug[k]||""; });
     const coc=this.cocDaUnidade(unid);
     const num=coc ? coc.id.replace(/\D/g,"").padStart(2,"0") : "00";
-    const quando=v=>v&&v.data ? fmt(v.data)+(v.hora?" às "+v.hora:"") : "";
+    const quando=v=>v&&v.data&&v.nao!=="sim" ? fmt(v.data)+(v.hora?" às "+v.hora:"") : "";
     return {
       oficio:c.oficio, cidade:c.cidade||sug.cidade, local:c.local||sug.local,
       respNome:coord, respMat:(document.getElementById("q_coord_mat")||{value:""}).value.trim(),
@@ -4507,6 +4526,8 @@ Continuar mesmo assim (sem salvar)?`);
     const unidInfo=UNIDADES_INFO[unidNome];
     const fin={progressao:"progressão de regime (art. 112, §1º, da LEP)",judicial:"determinação judicial motivada",dpp:"requisição do Departamento de Polícia Penal"}[e_tipo.value];
     const et=this.lerEtapas();
+    /* data da entrevista no quadro de identificação; a que não aconteceu aparece assim, com o motivo */
+    const dataEnt=v=>!v||!v.data ? "—" : v.nao==="sim" ? fmt(v.data)+" — não realizada"+(v.naoMotivo?" ("+esc(v.naoMotivo)+")":"") : fmt(v.data);
     const semPsq=document.getElementById("q_semPsq").checked;
     const entrevistas=[et.ent1,et.ent2,et.entConv].filter(x=>x&&x.ok&&x.data).map(x=>fmt(x.data)).join(", ")||"—";
     const regimeLabel={fechado:"Fechado",semiaberto:"Semiaberto",aberto:"Aberto",domiciliar:"Prisão domiciliar"}[document.getElementById("e_regime").value]||"não informado";
@@ -4577,9 +4598,9 @@ Continuar mesmo assim (sem salvar)?`);
           ["Benefício pretendido", esc(this.getBeneficio())||"—"],
           ["Origem da demanda", fin],
           ["Período de avaliação", (dataIniVal||dataConclVal)?`${fmt(dataIniVal)} a ${fmt(dataConclVal)}`:"—"],
-          ["Data da entrevista 1", et.ent1?.data?fmt(et.ent1.data):"—"],
-          ["Data da entrevista 2", et.ent2?.data?fmt(et.ent2.data):"—"],
-          ["Data da entrevista com alguém do convívio", et.entConv?.data?fmt(et.entConv.data):"—"],
+          ["Data da entrevista 1", dataEnt(et.ent1)],
+          ["Data da entrevista 2", dataEnt(et.ent2)],
+          ["Data da entrevista com alguém do convívio", dataEnt(et.entConv)],
         ].filter(Boolean);
         return `<table style="width:100%; border-collapse:collapse; margin:8px 0 12px; font-size:10.5pt;">
           ${linhas.map(([label,val])=>`<tr><td style="border:1px solid #999; padding:4px 8px; font-weight:bold; width:38%; vertical-align:top;">${label}:</td><td style="border:1px solid #999; padding:4px 8px;">${val}</td></tr>`).join("")}
