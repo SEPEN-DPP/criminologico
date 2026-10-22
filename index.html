@@ -212,7 +212,9 @@
     /* margem por pagina de verdade: padding no #printArea so vale para o inicio/fim do bloco
        inteiro (que atravessa varias paginas), nao repete pagina a pagina — quem repete a
        margem em toda folha impressa e a regra @page. */
-    @page{margin:2cm 2.5cm;}
+    /* as caixas de margem vazias (@top-center/@bottom-center) desligam o cabecalho/rodape
+       que o navegador poe sozinho (endereco do site, data, titulo, numero da pagina) — Chrome/Edge 131+. */
+    @page{margin:2cm 2.5cm; @top-center{content:""} @bottom-center{content:""}}
     #printArea{display:block; width:100%; font-family:Arial,Helvetica,sans-serif; font-size:11pt; color:#000; padding:0;}
     /* altura minima de uma folha A4 (menos a margem do @page) — com o corpo em flex:1, o
        rodape fica de verdade no fim da pagina em vez de logo depois do texto curto. */
