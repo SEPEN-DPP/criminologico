@@ -533,6 +533,20 @@
   <div class="card">
     <h3 id="fichaTitulo">Novo exame criminológico</h3>
 
+    <!-- exame concluído: registro de que o relatório foi peticionado no processo (SEEU);
+         fica no topo da ficha para aparecer em qualquer aba -->
+    <div id="peticaoBox" class="orient" style="display:none; margin:0 0 12px;">
+      <label style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-weight:700; cursor:pointer;">
+        <input type="checkbox" id="pet_ok" onchange="App.marcarPeticionado(this.checked)" style="width:auto;">
+        <span>Relatório peticionado no processo (SEEU)</span>
+      </label>
+      <div id="pet_dataRow" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px;">
+        <span>em</span><input type="date" id="pet_data" style="width:auto;">
+        <span class="muted" style="font-size:12.5px;">(confira a data e marque a caixa)</span>
+      </div>
+      <div id="pet_info" class="note" style="margin:6px 0 0;"></div>
+    </div>
+
     <nav class="subtabs" id="novoTabs">
       <button class="on" data-n="ident" onclick="App.novoTab('ident')">Identificação</button>
       <button data-n="equipe" onclick="App.novoTab('equipe')">Equipe examinadora</button>
@@ -936,19 +950,6 @@
     <div id="assinaturaBox" class="orient ok" style="display:none; margin-top:14px;">
       <b>Todas as seções do relatório estão concluídas.</b> A conclusão é feita no próprio sistema, pela SR ou pelo DPP ("Marcar como concluído"): gera a versão fechada, com o registro eletrônico de autoria e o código SHA-256.
       <div class="btnrow" style="margin-top:8px;"><button class="btn sm" type="button" onclick="App.avisarCentroEmail('pronto')">✉ Avisar o Centro: relatório pronto para conclusão</button></div>
-    </div>
-
-    <!-- exame concluído: registro de que o relatório foi peticionado no processo (SEEU) -->
-    <div id="peticaoBox" class="orient" style="display:none; margin-top:14px;">
-      <label style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-weight:700; cursor:pointer;">
-        <input type="checkbox" id="pet_ok" onchange="App.marcarPeticionado(this.checked)" style="width:auto;">
-        <span>Relatório peticionado no processo (SEEU)</span>
-      </label>
-      <div id="pet_dataRow" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px;">
-        <span>em</span><input type="date" id="pet_data" style="width:auto;">
-        <span class="muted" style="font-size:12.5px;">(confira a data e marque a caixa)</span>
-      </div>
-      <div id="pet_info" class="note" style="margin:6px 0 0;"></div>
     </div>
 
     <div class="btnrow">
