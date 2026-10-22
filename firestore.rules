@@ -157,6 +157,19 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
     function motivoOk(h) { return h.motivo is string && h.motivo.size() > 0; }
+    // Peticionamento no SEEU (exame concluido): marca ou desmarca so o campo peticionado, sempre
+    // em nome de quem esta logado, ligado a versao fechada atual. Quem pode fica a cargo de
+    // edicaoPorSecaoOk (Psicologia/Servico Social da unidade e HCTP nao gravam esse campo).
+    function peticaoOk(n, a, h) {
+      let p = n.get('peticionado', {});
+      return h.acao in ['peticionou', 'desfezPeticao']
+        && n.diff(a).affectedKeys().hasOnly(['peticionado','rev','updatedBy','updatedByNome','updatedAt'])
+        && p.get('ok', null) is bool
+        && (p.ok == false || (p.get('data', '') is string && p.get('data', '').size() == 10))
+        && p.get('versao', null) == a.get('versaoFinal', null)
+        && p.get('por', null) == request.auth.uid
+        && p.get('em', null) == request.time;
+    }
     function transicaoOk(examId) {
       let de = resource.data.get('status', 'andamento');
       let para = request.resource.data.get('status', 'andamento');
@@ -164,7 +177,8 @@ service cloud.firestore {
       let h = getAfter(historicoDoc(examId, n.rev)).data;
       return de == 'excluido' ? false
         : de == 'concluido' ? (
-            para == 'andamento'
+            para == 'concluido' ? peticaoOk(n, resource.data, h)
+            : para == 'andamento'
             && ehSROuDPPDo(resource.data)
             && h.acao == 'reabriu' && motivoOk(h)
             && n.diff(resource.data).affectedKeys().hasOnly(['status','rev','updatedBy','updatedByNome','updatedAt']))

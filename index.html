@@ -473,6 +473,8 @@
           <option value="tem-conv">Agendado: pessoa do convívio</option>
         </optgroup>
         <option value="concluido">Concluídos</option>
+        <option value="concluido-falta-seeu">Concluídos — falta peticionar no SEEU</option>
+        <option value="concluido-seeu">Concluídos — já peticionados no SEEU</option>
       </select>
       <input type="text" id="fBusca" placeholder="Buscar por nome, matrícula ou processo…" style="max-width:300px;" oninput="App.renderLista()">
     </div>
@@ -934,6 +936,19 @@
     <div id="assinaturaBox" class="orient ok" style="display:none; margin-top:14px;">
       <b>Todas as seções do relatório estão concluídas.</b> A conclusão é feita no próprio sistema, pela SR ou pelo DPP ("Marcar como concluído"): gera a versão fechada, com o registro eletrônico de autoria e o código SHA-256.
       <div class="btnrow" style="margin-top:8px;"><button class="btn sm" type="button" onclick="App.avisarCentroEmail('pronto')">✉ Avisar o Centro: relatório pronto para conclusão</button></div>
+    </div>
+
+    <!-- exame concluído: registro de que o relatório foi peticionado no processo (SEEU) -->
+    <div id="peticaoBox" class="orient" style="display:none; margin-top:14px;">
+      <label style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-weight:700; cursor:pointer;">
+        <input type="checkbox" id="pet_ok" onchange="App.marcarPeticionado(this.checked)" style="width:auto;">
+        <span>Relatório peticionado no processo (SEEU)</span>
+      </label>
+      <div id="pet_dataRow" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px;">
+        <span>em</span><input type="date" id="pet_data" style="width:auto;">
+        <span class="muted" style="font-size:12.5px;">(confira a data e marque a caixa)</span>
+      </div>
+      <div id="pet_info" class="note" style="margin:6px 0 0;"></div>
     </div>
 
     <div class="btnrow">
@@ -1652,6 +1667,8 @@ function matIgual(a,b){
   return x===y || (x.length===y.length+1 && x.startsWith(y)) || (y.length===x.length+1 && y.startsWith(x));
 }
 const hoje = ()=> new Date(new Date().toDateString());
+/* data de hoje (horário local) no formato dos campos de data: aaaa-mm-dd */
+const isoHoje = ()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 /* escapa texto de origem do usuário antes de inserir via innerHTML — evita XSS armazenado
    (nomes, campos livres etc. vêm de qualquer perfil, inclusive o mais restrito, e são
    exibidos depois para outros usuários, então precisam ser tratados como não confiáveis) */
@@ -2443,10 +2460,11 @@ const App = {
     const concl=exs.filter(e=>e.status==="concluido").sort((a,b)=>this.tsMs(b.finalizedAt)-this.tsMs(a.finalizedAt));
     document.getElementById("acompCard").style.display = "";
     document.getElementById("conclCard").style.display = "";
-    document.getElementById("conclTitle").innerHTML=`Exames concluídos${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— ${concl.length} exame(s), o mais recente primeiro</span>`;
+    const faltaPet=concl.filter(e=>!this.peticionadoAtual(e)).length;
+    document.getElementById("conclTitle").innerHTML=`Exames concluídos${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— ${concl.length} exame(s), o mais recente primeiro${faltaPet?` · <span class="badge b-warn">${faltaPet} falta(m) peticionar no SEEU</span>`:""}</span>`;
     document.getElementById("conclBox").innerHTML = concl.length ?
-      `<table><tr><th>Avaliado</th>${unidFiltro?"":"<th>Unidade</th>"}<th>Concluído em</th><th>Concluído por</th><th>Versão</th></tr>`+
-      concl.map(e=>`<tr class="ex-pronto" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td>${unidFiltro?"":`<td>${esc(e.unid)||"—"}</td>`}<td>${e.finalizedAt?fmtTs(e.finalizedAt):"—"}</td><td>${esc(e.finalizedByNome||"—")}</td><td>${e.versaoFinal?"nº "+e.versaoFinal:"—"}</td></tr>`).join("")+`</table>`
+      `<table><tr><th>Avaliado</th>${unidFiltro?"":"<th>Unidade</th>"}<th>Concluído em</th><th>Concluído por</th><th>Versão</th><th>SEEU</th></tr>`+
+      concl.map(e=>`<tr class="ex-pronto" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td>${unidFiltro?"":`<td>${esc(e.unid)||"—"}</td>`}<td>${e.finalizedAt?fmtTs(e.finalizedAt):"—"}</td><td>${esc(e.finalizedByNome||"—")}</td><td>${e.versaoFinal?"nº "+e.versaoFinal:"—"}</td><td>${this.seloPeticao(e)}</td></tr>`).join("")+`</table>`
       : `<div class="empty">Nenhum exame concluído${unidFiltro?" nesta unidade":onde} ainda.</div>`;
     document.getElementById("acompBox").innerHTML = acomp.length ?
       `<table><tr><th>Avaliado</th>${unidFiltro?"":"<th>Unidade</th>"}<th>Prazo</th><th>Seções do relatório</th><th>Situação</th></tr>`+
@@ -3301,7 +3319,7 @@ Continuar mesmo assim (sem salvar)?`);
      exigem). _base guarda a versão do servidor em que o formulário aberto se
      apoia: é contra ela que se calcula o "antes/depois" e o número da versão. */
   META_EXAME: ["id","coc","status","criadoEm","unidade","sr","rev","createdBy","createdByNome","createdAt","updatedBy","updatedByNome","updatedAt",
-    "finalizedBy","finalizedByNome","finalizedAt","versaoFinal","excluidoBy","excluidoByNome","excluidoAt","motivoExclusao","relOkPor","numCrim"],
+    "finalizedBy","finalizedByNome","finalizedAt","versaoFinal","excluidoBy","excluidoByNome","excluidoAt","motivoExclusao","relOkPor","numCrim","peticionado"],
   conteudoExame(ex){
     const out={};
     Object.keys(ex||{}).forEach(k=>{ if(!this.META_EXAME.includes(k) && ex[k]!==undefined) out[k]=ex[k]; });
@@ -3314,7 +3332,7 @@ Continuar mesmo assim (sem salvar)?`);
     nome:"Nome do avaliado", mat:"Matrícula", unid:"Unidade prisional", proc:"Processo", sgpe:"SGPE", crimeSexual:"Crime sexual", tipo:"Finalidade do exame",
     dataDecisao:"Data da decisão judicial", dataProg:"Data prevista da progressão", dataBase:"Data-base", faltaNaoReab:"Falta grave não reabilitada", exameAnterior:"Exame anterior",
     modal:"Modalidade", filiacao:"Filiação", nasc:"Nascimento", regime:"Regime", juizo:"Juízo da execução", penaTotal:"Pena total",
-    beneficio:"Benefício pretendido", hctpPedido:"Pedido ao HCTP (acesso do psiquiatra à seção de Psiquiatria)", dataIni:"Início da avaliação", dataConcl:"Conclusão da avaliação", conds:"Condenações", obs:"Observações internas"
+    beneficio:"Benefício pretendido", hctpPedido:"Pedido ao HCTP (acesso do psiquiatra à seção de Psiquiatria)", dataIni:"Início da avaliação", dataConcl:"Conclusão da avaliação", conds:"Condenações", obs:"Observações internas", peticionado:"Peticionado no SEEU"
   },
   ROTULO_SUB: {
     met:"Metodologia", coord:"Coordenação", direcao:"Direção", chefiaSeg:"Chefia de Segurança", execPenal:"Execução Penal",
@@ -3424,7 +3442,7 @@ Continuar mesmo assim (sem salvar)?`);
       if((doFormulario && ex.id===this.editId) || (criando && o.doFormulario && o.formSeq===this._formSeq)) this._relOkRemarcadas=new Set();
       if(criando && o.doFormulario && o.formSeq===this._formSeq) this.editId=ex.id;
       if(ex.id===this.editId){
-        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: (o.acao==="reabriu"||o.acao==="excluiu") ? base.conteudo : this.conteudoExame(ex) };
+        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: ["reabriu","excluiu","peticionou","desfezPeticao"].includes(o.acao) ? base.conteudo : this.conteudoExame(ex) };
         this._avisoConflito=null;
         const vivo=this.data.exames.find(x=>x.id===ex.id);
         if(vivo) this.atualizarEstadoExame(vivo);
@@ -3492,6 +3510,7 @@ Continuar mesmo assim (sem salvar)?`);
     document.querySelectorAll(".btnSalvar").forEach(b=>b.style.display = concl ? "none" : "");
     if(ex) document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(concl?" (concluído)":"");
     this.setSomenteLeitura(concl);
+    this.atualizarPeticao(ex);
     const linhas=[];
     if(ex){
       linhas.push(ex.createdBy ? "Criado por "+esc(ex.createdByNome||"?")+" em "+fmtTs(ex.createdAt) : "Criado antes da trilha de auditoria"+(ex.criadoEm?" (em "+fmtTs(ex.criadoEm)+")":""));
@@ -3534,6 +3553,59 @@ Continuar mesmo assim (sem salvar)?`);
       this.renderDash(); this.renderLista();
     }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ Não foi concluído: "+e.message; });
   },
+  /* ---------- peticionamento no SEEU (depois de concluído) ----------
+     vale para a versão fechada atual: se o exame for reaberto e concluído de novo,
+     a nova versão volta a "falta peticionar" */
+  peticionadoAtual(e){
+    const p=(e&&e.peticionado)||{};
+    return !!(e && e.status==="concluido" && p.ok && p.versao===e.versaoFinal);
+  },
+  seloPeticao(e){
+    return this.peticionadoAtual(e) ? `<span class="badge b-ok" title="Registrado por ${esc(e.peticionado.porNome||"?")}">✓ peticionado ${fmt(e.peticionado.data)}</span>`
+      : `<span class="badge b-warn">falta peticionar</span>`;
+  },
+  /* Psicologia/Serviço Social da unidade e HCTP não registram (mesma regra do firestore.rules) */
+  podePeticionar(){ return !!this._meuPerfil && !["PSICOLOGIA","SOCIAL","HCTP"].includes(this._meuPerfil.perfil); },
+  atualizarPeticao(ex){
+    const box=document.getElementById("peticaoBox");
+    const concl=!!ex && ex.status==="concluido";
+    box.style.display = concl ? "" : "none";
+    if(!concl) return;
+    const p=ex.peticionado||{}, ok=this.peticionadoAtual(ex), pode=this.podePeticionar();
+    const chk=document.getElementById("pet_ok"), dt=document.getElementById("pet_data");
+    chk.checked=ok; chk.disabled=!pode;
+    dt.value = ok ? p.data : isoHoje(); dt.disabled=!pode || ok;
+    document.getElementById("pet_dataRow").style.display = ok || !pode ? "none" : "flex";
+    box.classList.toggle("ok", ok);
+    const info=[];
+    if(ok) info.push("<b>Peticionado no SEEU em "+fmt(p.data)+"</b> — registrado por "+esc(p.porNome||"?")+" em "+fmtTs(p.em)+".");
+    else {
+      if(p.ok && p.versao!==ex.versaoFinal) info.push("A versão fechada nº "+p.versao+" foi peticionada em "+fmt(p.data)+"; esta nova versão (nº "+ex.versaoFinal+") ainda não.");
+      info.push(pode ? "Depois de juntar o relatório ao processo no SEEU, marque a caixa: fica registrado no exame e no histórico." : "Ainda não peticionado no SEEU.");
+    }
+    document.getElementById("pet_info").innerHTML=info.join("<br>");
+  },
+  marcarPeticionado(marcar){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    const reverter=()=>this.atualizarPeticao(ex);
+    if(!ex || ex.status!=="concluido"){ reverter(); return; }
+    let data=null;
+    if(marcar){
+      data=document.getElementById("pet_data").value;
+      if(!data){ alert("Informe a data do peticionamento no SEEU."); reverter(); return; }
+      if(data>isoHoje()){ alert("A data do peticionamento não pode ser no futuro."); reverter(); return; }
+      if(!confirm("Registrar que o relatório de "+ex.nome+" foi peticionado no SEEU em "+fmt(data)+"?")){ reverter(); return; }
+    } else if(!confirm("Desfazer o registro de peticionamento no SEEU? (fica anotado no histórico)")){ reverter(); return; }
+    const antes=this.peticionadoAtual(ex) ? "sim ("+fmt(ex.peticionado.data)+")" : "não";
+    const msg=document.getElementById("salvoMsg");
+    msg.style.color="var(--mut)"; msg.textContent="Gravando…";
+    this.gravarExame(ex,{acao: marcar?"peticionou":"desfezPeticao", peticao:{ok:marcar, data},
+        alteracoes:[{campo:"peticionado", rotulo:this.ROTULO_CAMPO.peticionado, antes, depois: marcar?"sim ("+fmt(data)+")":"não"}], secoes:["SEEU"]}).then(()=>{
+      msg.style.color="var(--ok)";
+      msg.textContent = marcar ? "✓ Peticionamento no SEEU registrado." : "✓ Registro de peticionamento desfeito.";
+      this.renderDash(); this.renderLista();
+    }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ Não foi gravado: "+e.message; reverter(); });
+  },
   reabrir(){
     if(!this.editId) return;
     const ex=this.data.exames.find(x=>x.id===this.editId); if(!ex) return;
@@ -3558,7 +3630,7 @@ Continuar mesmo assim (sem salvar)?`);
     }).catch(e=>alert("Não foi excluído: "+e.message));
   },
   /* ---------- histórico e versões fechadas ---------- */
-  ROTULO_ACAO: { criou:"criou o exame", alterou:"alterou", concluiu:"concluiu (versão fechada)", reabriu:"reabriu", excluiu:"excluiu" },
+  ROTULO_ACAO: { criou:"criou o exame", alterou:"alterou", concluiu:"concluiu (versão fechada)", reabriu:"reabriu", excluiu:"excluiu", peticionou:"registrou o peticionamento no SEEU", desfezPeticao:"desfez o registro de peticionamento no SEEU" },
   valorHist(v){
     if(v===null || v===undefined || v==="") return '<span class="muted">(vazio)</span>';
     if(typeof v==="boolean") return v?"sim":"não";
@@ -4257,7 +4329,9 @@ Continuar mesmo assim (sem salvar)?`);
       const unidadesDoCentro=(this.data.cocs.find(c=>c.id===this.coc)||{}).unidades||[];
       exs=this.filtrarPorUnidade(exs, unidFiltro, unidadesDoCentro);
     }
-    if(st) exs=exs.filter(e=> st==="concluido" ? e.status==="concluido" : e.status!=="concluido");
+    if(st) exs=exs.filter(e=> st.startsWith("concluido") ? e.status==="concluido" : e.status!=="concluido");
+    if(st==="concluido-falta-seeu") exs=exs.filter(e=>!this.peticionadoAtual(e));
+    if(st==="concluido-seeu") exs=exs.filter(e=>this.peticionadoAtual(e));
     // "agendado" = alguma entrevista (1ª, 2ª ou convívio) com data marcada — o mesmo critério do calendário
     const temEntrevista = e => ["ent1","ent2","entConv"].some(k=>((e.etapas||{})[k]||{}).data);
     if(st==="agendado") exs=exs.filter(temEntrevista);
@@ -4287,7 +4361,7 @@ Continuar mesmo assim (sem salvar)?`);
           `<span class="badge ${a[k]?"b-ok":"b-mut"}" style="padding:2px 7px;" title="${a[k]?"Entrevista agendada":"Falta agendar"}: ${nome}">${a[k]?"✓":"–"} ${curto}</span>`).join(" ");};
     const linha = e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{}); const ro=this.progressoRelOk(e.relOk,e.sup);
         const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
-        return `<tr class="${this.examePronto(e)?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}</td><td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td style="white-space:nowrap;">${selosAgend(e)}</td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;};
+        return `<tr class="${this.examePronto(e)?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}${e.status==="concluido"?" "+this.seloPeticao(e):""}</td><td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td style="white-space:nowrap;">${selosAgend(e)}</td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;};
     let corpo;
     if(unidFiltro) corpo = exs.map(linha).join("");
     else {
@@ -5533,6 +5607,10 @@ const ExamesFS = {
     let payload;
     if(o.acao === "reabriu"){
       payload = { ...meta, status: "andamento" };
+    }else if(o.acao === "peticionou" || o.acao === "desfezPeticao"){
+      /* exame concluído: só o registro do peticionamento no SEEU, ligado à versão fechada atual */
+      payload = { ...meta, peticionado: { ok: o.peticao.ok, data: o.peticao.data || null, versao: ex.versaoFinal || null,
+        por: quem.uid, porNome: quem.nome, em: agora } };
     }else if(o.acao === "excluiu"){
       payload = { ...meta, status: "excluido", excluidoBy: quem.uid, excluidoByNome: quem.nome, excluidoAt: agora, motivoExclusao: o.motivo };
     }else{
