@@ -4279,12 +4279,12 @@ Continuar mesmo assim (sem salvar)?`);
         const euAnd=eu.filter(e=>e.status!=="concluido");
         const euCrit=euAnd.filter(e=>this.prazoInfo(e).cls==="b-crit");
         const euWarn=euAnd.filter(e=>this.prazoInfo(e).cls==="b-warn");
-        return {u, and:euAnd.length, crit:euCrit.length, warn:euWarn.length, conc:eu.length-euAnd.length};
-      });
+        return {u, i:unidadesDoCentro.indexOf(u), and:euAnd.length, crit:euCrit.length, warn:euWarn.length, conc:eu.length-euAnd.length};
+      }).filter(r=>!/HCTP|Monitoramento Eletr/i.test(r.u)); /* HCTP e Monitoramento Eletrônico não entram nesta lista */
       const semUnidade=exsCentro.filter(e=>!e.unid || !unidadesDoCentro.includes(e.unid));
       document.getElementById("painelUnidadesBox").innerHTML = `
         <table><tr><th>Unidade prisional</th><th>Em andamento</th><th>Prazo crítico</th><th>Atenção</th><th>Concluídos</th><th></th></tr>
-        ${linhas.map((r,i)=>`<tr onclick="App.abrirUnidadePainelIdx(${i})">
+        ${linhas.map(r=>`<tr onclick="App.abrirUnidadePainelIdx(${r.i})">
           <td><b>${esc(r.u)}</b></td>
           <td>${r.and}</td>
           <td>${r.crit?`<span class="badge b-crit">${r.crit}</span>`:"0"}</td>
