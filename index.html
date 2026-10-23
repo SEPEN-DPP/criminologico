@@ -595,7 +595,8 @@
       </div>
     </div>
     <div class="row c2">
-      <div><label class="f">Número do SGPE</label><input type="text" id="e_sgpe" placeholder="ex.: SGPE 00012345/2026"></div>
+      <!-- SGPE não é mais usado: campo fora da tela, guardado só para não perder o número dos exames antigos ao salvar -->
+      <div style="display:none;"><label class="f">Número do SGPE</label><input type="text" id="e_sgpe" placeholder="ex.: SGPE 00012345/2026"></div>
       <div><label class="f">Crime sexual</label>
         <label style="display:flex; align-items:center; gap:8px; font-size:13.5px; margin-top:8px;">
           <input type="checkbox" id="e_crimeSexual" style="width:18px; height:18px; flex-shrink:0;" onchange="App.renderHctpExame()">
@@ -4658,7 +4659,6 @@ Continuar mesmo assim (sem salvar)?`);
           <p style="margin:5px 0;"><b>Avaliado:</b> ${esc(e_nome.value)||"—"}</p>
           <p style="margin:5px 0;"><b>Matrícula/IPEN/Prontuário:</b> ${esc(e_mat.value)||"—"}</p>
           <p style="margin:5px 0;"><b>Processo de execução:</b> ${esc(e_proc.value)||"—"}</p>
-          <p style="margin:5px 0;"><b>SGPE:</b> ${esc(document.getElementById("e_sgpe").value.trim())||"—"}</p>
         </div>
       </div>`;
 
@@ -4670,7 +4670,6 @@ Continuar mesmo assim (sem salvar)?`);
       ${(()=>{
         const dataBaseVal=document.getElementById("e_dataBase").value;
         const juizoVal=document.getElementById("e_juizo").value.trim();
-        const sgpeVal=document.getElementById("e_sgpe").value.trim();
         const filiacaoVal=document.getElementById("e_filiacao").value.trim();
         const penaTotalVal=document.getElementById("e_penaTotal").value.trim();
         const dataIniVal=document.getElementById("e_dataIni").value, dataConclVal=document.getElementById("e_dataConcl").value;
@@ -4680,7 +4679,6 @@ Continuar mesmo assim (sem salvar)?`);
           filiacaoVal?["Filiação", esc(filiacaoVal)]:null,
           ["Processo de Execução Penal", esc(e_proc.value)||"—"],
           juizoVal?["Juízo da execução", esc(juizoVal)]:null,
-          sgpeVal?["SGPE", esc(sgpeVal)]:null,
           ["Data de nascimento", document.getElementById("e_nasc").value?fmt(document.getElementById("e_nasc").value):"—"],
           ["Unidade prisional", esc(this.getUnidadeValor())||"—"],
           ["Regime atual", regimeLabel],
