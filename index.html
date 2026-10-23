@@ -184,6 +184,8 @@
   .etapa input[type=checkbox]{width:19px; height:19px; accent-color:var(--ok); flex-shrink:0;}
   .etapa .et-t{flex:1;} .etapa .et-t b{font-size:14px; display:block;} .etapa .et-t span{font-size:12px; color:var(--mut);}
   .etapa input[type=date]{width:150px;}
+  .et-opc{display:flex; align-items:center; gap:8px; margin:4px 0 8px; font-size:13px; cursor:pointer;}
+  .et-opc input{width:17px; height:17px;}
 
   /* ===== verificador ===== */
   .flag{background:var(--critbg); border-left:4px solid var(--crit); border-radius:6px; padding:10px 12px; margin-bottom:8px; font-size:13.5px;}
@@ -1236,8 +1238,12 @@ const UNIDADES_INFO = {
 const ETAPAS = [
   {k:"ent1",     t:"1ª entrevista com o avaliado", s:"", data:true, extra:"entrevista"},
   {k:"ent2",     t:"2ª entrevista com o avaliado", s:"", data:true, extra:"entrevista"},
-  {k:"entConv",  t:"Entrevista com pessoa do convívio (familiar, coapenado ou servidor)", s:"", data:true, extra:"convivio"}
+  {k:"entConv",  t:"Entrevista com pessoa do convívio (familiar, coapenado ou servidor)", s:"", data:true, extra:"convivio"},
+  {k:"ent3",     t:"3ª entrevista com o avaliado", s:"", data:true, extra:"entrevista", opcional:true}
 ];
+/* entrevistas do exame: a 3ª é opcional e só vale quando marcada no exame (etapas.ent3.usar) */
+const ENT_KEYS = ["ent1","ent2","entConv","ent3"];
+function entrevistasDo(etapas){ etapas=etapas||{}; return ENT_KEYS.filter(k=>k!=="ent3" || !!(etapas.ent3||{}).usar); }
 /* área/profissional responsável pela entrevista — usada para filtrar o calendário por Psicologia/Serviço Social */
 const AREA_OPTS = [{v:"",t:"Equipe (conjunta)"},{v:"psi",t:"Psicologia"},{v:"social",t:"Serviço Social"}];
 const AREA_LABEL = {"":"Equipe", psi:"Psicologia", social:"Serviço Social"};
@@ -1909,7 +1915,7 @@ const App = {
         txt:`HCTP: ${esc(this.HCTP_STATUS[h.status]||h.status)}${esc(quando(h))} — <b>${esc(h.nome)}</b>`, plano:"HCTP: "+(this.HCTP_STATUS[h.status]||h.status)+quando(h)+" — "+h.nome, acao:`App.abrir('${h.exameId}')`}));
       if(!this.agendaRestrita()){
         const geral=this.coc==="_cepen";
-        this.data.exames.filter(e=>geral || this.cocIdDoExame(e)===this.coc).forEach(e=>["ent1","ent2","entConv"].forEach(k=>{
+        this.data.exames.filter(e=>geral || this.cocIdDoExame(e)===this.coc).forEach(e=>entrevistasDo(e.etapas).forEach(k=>{
           const et=(e.etapas||{})[k]||{};
           if(et.agNome && et.agCiente===false) it.push({chave:"ag:"+e.id+":"+k+":"+(et.agEm||""),
             txt:`${esc(et.agNome)} ${esc(et.agAcao||"agendou")} a ${this.CAL_TIPOS[k].toLowerCase()} — <b>${esc(e.nome)}</b>`, plano:et.agNome+" "+(et.agAcao||"agendou")+" a "+this.CAL_TIPOS[k].toLowerCase()+" — "+e.nome, acao:`App.abrir('${e.id}')`});
@@ -1951,7 +1957,7 @@ const App = {
     const cobertura = area && !this.agendaRestrita();
     const naEquipe = e => !!p.matricula && matIgual(this.matDaEquipe(e.equipe||{}, this.EQ_DA_AREA[area]), p.matricula);
     if(cobertura){
-      exs=exs.filter(e=>naEquipe(e) || ["ent1","ent2","entConv"].some(k=>((e.etapas||{})[k]||{}).srPedido));
+      exs=exs.filter(e=>naEquipe(e) || entrevistasDo(e.etapas).some(k=>((e.etapas||{})[k]||{}).srPedido));
       if(!p.matricula && !exs.length) return {semMatricula:true, itens:[]};
     } else {
       const geral=this.coc==="_cepen";
@@ -1959,7 +1965,7 @@ const App = {
       if(!geral && this.calFiltroUnidade) exs=exs.filter(e=>e.unid===this.calFiltroUnidade);
     }
     const itens=[];
-    exs.forEach(e=>["ent1","ent2","entConv"].forEach(k=>{
+    exs.forEach(e=>entrevistasDo(e.etapas).forEach(k=>{
       const et=(e.etapas||{})[k]||{}, a=et.area||"";
       if(et.data || et.ok) return;
       if(this.agendaRestrita() && et.srPedido) return;            /* impedida: foi pedida à Superintendência */
@@ -2062,7 +2068,7 @@ const App = {
     if(this.ehHctp() || this.agendaRestrita()){ box.innerHTML=""; return; }
     const geral=this.coc==="_cepen";
     const itens=[];
-    this.data.exames.filter(e=>geral || this.cocIdDoExame(e)===this.coc).forEach(e=>["ent1","ent2","entConv"].forEach(k=>{
+    this.data.exames.filter(e=>geral || this.cocIdDoExame(e)===this.coc).forEach(e=>entrevistasDo(e.etapas).forEach(k=>{
       const et=(e.etapas||{})[k]||{};
       if(et.agNome && et.agCiente===false) itens.push({e,k,et});
     }));
@@ -2086,8 +2092,8 @@ const App = {
   },
 
   /* ---------- calendário de entrevistas ---------- */
-  CAL_TIPOS: {ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista c/ pessoa do convívio"},
-  CAL_TIPOS_CURTO: {ent1:"1ª", ent2:"2ª", entConv:"Convívio", hctp:"HCTP"},
+  CAL_TIPOS: {ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista c/ pessoa do convívio", ent3:"3ª entrevista"},
+  CAL_TIPOS_CURTO: {ent1:"1ª", ent2:"2ª", entConv:"Convívio", ent3:"3ª", hctp:"HCTP"},
   CAL_HORAS: (()=>{ const h=[]; for(let i=7;i<=19;i++) h.push(i); return h; })(),
   calEventos(){
     const geral = this.coc==="_cepen";
@@ -2096,7 +2102,7 @@ const App = {
     const out=[];
     exs.forEach(ex=>{
       if(ex.status==="concluido") return;
-      ["ent1","ent2","entConv"].forEach(k=>{
+      entrevistasDo(ex.etapas).forEach(k=>{
         const et=(ex.etapas||{})[k];
         if(et && et.data){
           const area = et.area||"";
@@ -2244,7 +2250,7 @@ const App = {
   },
 
   /* ---------- agendar / alterar entrevista direto no calendário ---------- */
-  CAL_TIPOS_LONGO: {ent1:"1ª entrevista com o avaliado", ent2:"2ª entrevista com o avaliado", entConv:"Entrevista com pessoa do convívio"},
+  CAL_TIPOS_LONGO: {ent1:"1ª entrevista com o avaliado", ent2:"2ª entrevista com o avaliado", entConv:"Entrevista com pessoa do convívio", ent3:"3ª entrevista com o avaliado"},
   calAbrirForm(iso,hora){
     this.calFormAberto={iso,hora};
     this.calRenderForm();
@@ -2306,7 +2312,7 @@ const App = {
   calRenderTipos(){
     const ex=this.data.exames.find(x=>x.id===document.getElementById("calfExame").value)||{};
     const et=ex.etapas||{};
-    const opts=["ent1","ent2","entConv"].map(k=>{
+    const opts=entrevistasDo(et).map(k=>{
       const v=et[k]||{}, outra=!this.podeAgendarEtapa(ex,k), marcada=!!v.data || outra;
       return {k, marcada, txt:this.CAL_TIPOS_LONGO[k]+(v.data?` — já marcada: ${fmt(v.data)}${v.hora?" às "+v.hora:""}`:(outra?` — área de ${AREA_LABEL[v.area||""]}`:""))};
     });
@@ -2316,7 +2322,7 @@ const App = {
     if(livre) sel.value=livre.k;
     const algumaMarcada=opts.some(o=>o.marcada);
     document.getElementById("calfAviso").innerHTML = !livre
-      ? `<div class="orient warn" style="margin:8px 0;">As três entrevistas deste exame já estão marcadas. Para mudar alguma, clique nela no calendário.</div>`
+      ? `<div class="orient warn" style="margin:8px 0;">Todas as entrevistas deste exame já estão marcadas. Para mudar alguma, clique nela no calendário.</div>`
       : (algumaMarcada?`<p class="note" style="margin:4px 0 8px;">As entrevistas que já estão marcadas aparecem bloqueadas na lista. Para mudar uma delas, clique nela no calendário.</p>`:"");
     document.getElementById("calfBtnAgendar").disabled=!livre;
     this.calRenderExtra(sel.value, livre ? {area:(et[sel.value]||{}).area||"", modal:(et[sel.value]||{}).modal||ex.modal||""} : {});
@@ -2399,7 +2405,7 @@ const App = {
     const lista=this.data.exames.filter(e=>e.id!==exAlvo.id && this.cocIdDoExame(e)===coc).map(e=>({ex:e, etapas:e.etapas||{}}));
     lista.unshift({ex:exAlvo, etapas:etapasProprias||{}});
     for(const o of lista){
-      for(const k2 of ["ent1","ent2","entConv"]){
+      for(const k2 of entrevistasDo(o.etapas)){
         if(o.ex.id===exAlvo.id && k2===k) continue;
         const et=o.etapas[k2];
         if(!et || et.data!==novo.data || et.nao==="sim") continue; /* não aconteceu: horário livre */
@@ -2741,7 +2747,7 @@ const App = {
     this.beneficioChange();
   },
   modalChange(){
-    const algumaVideo = [...document.querySelectorAll('#etapasBox select[data-field="modal"]')].some(s=>s.value==="video");
+    const algumaVideo = [...document.querySelectorAll('#etapasBox select[data-field="modal"]')].some(s=>s.value==="video" && s.closest(".etapa").style.display!=="none");
     document.getElementById("modalNote").style.display = algumaVideo ? "block" : "none";
   },
   getUnidadeValor(){
@@ -2842,8 +2848,10 @@ const App = {
       if(!v.modal) v.modal = document.getElementById("e_modal").value || "presencial"; /* exame antigo: vale a modalidade do exame */
       const extraCampos = e.extra ? ETAPA_EXTRA[e.extra] : null;
       const nao=v.nao==="sim";
+      /* etapa opcional (3ª entrevista): um checkbox mostra/esconde a etapa; data-tinha = já existia no exame */
+      const opc = e.opcional ? `<label class="et-opc"><input type="checkbox" id="et_${e.k}_usar" data-tinha="${et[e.k]?1:""}" ${v.usar?"checked":""} onchange="App.etUsar('${e.k}')"> Acrescentar ${e.t.toLowerCase()} (opcional)</label>` : "";
       /* nao/naoMotivo só entram na gravação de exames que já os têm ou quando preenchidos (evita mexer em exames antigos) */
-      return `<div class="etapa ${v.ok?"done":""} ${nao?"nao":""}" id="et_${e.k}" data-tem-nao="${"nao" in v?1:""}">
+      return `${opc}<div class="etapa ${v.ok?"done":""} ${nao?"nao":""}" id="et_${e.k}" data-tem-nao="${"nao" in v?1:""}" ${e.opcional&&!v.usar?'style="display:none;"':""}>
         <input type="checkbox" ${v.ok?"checked":""} onchange="App.etToggle('${e.k}',this)">
         <div class="et-t"><b>${e.t}</b><span>${e.s}</span>
           ${extraCampos?`<div class="et-extra">${extraCampos.map(c=> c.t==="select"
@@ -2855,6 +2863,9 @@ const App = {
       </div>`;
     }).join("");
     this.modalChange();
+  },
+  etUsar(k){
+    document.getElementById("et_"+k).style.display = document.getElementById("et_"+k+"_usar").checked ? "" : "none";
   },
   etToggle(k,el){
     el.closest(".etapa").classList.toggle("done", el.checked);
@@ -2871,17 +2882,27 @@ const App = {
     const out={};
     ETAPAS.forEach(e=>{
       const d=document.getElementById("et_"+e.k);
+      if(e.opcional){
+        const u=document.getElementById("et_"+e.k+"_usar");
+        if(!u.checked){
+          /* desmarcada: não grava nada em exame que nunca a teve; se já tinha, tira do calendário */
+          if(u.dataset.tinha) out[e.k]={usar:false, ok:false, data:""};
+          return;
+        }
+      }
       const v={ ok:d.querySelector("input[type=checkbox]").checked,
                 data:e.data ? d.querySelector(".et-data").value : "" };
       if(e.extra) ETAPA_EXTRA[e.extra].forEach(c=>{ v[c.f]=d.querySelector(`[data-field="${c.f}"]`).value.trim(); });
       if(e.extra && !d.dataset.temNao && !v.nao && !v.naoMotivo){ delete v.nao; delete v.naoMotivo; }
+      if(e.opcional) v.usar=true;
       out[e.k]=v;
     });
     return out;
   },
   progresso(et){
-    const done=ETAPAS.filter(e=>et[e.k]&&(et[e.k].ok||et[e.k].nao==="sim")).length; /* a que não aconteceu também está resolvida */
-    return Math.round(100*done/ETAPAS.length);
+    const ks=entrevistasDo(et);
+    const done=ks.filter(k=>et[k]&&(et[k].ok||et[k].nao==="sim")).length; /* a que não aconteceu também está resolvida */
+    return Math.round(100*done/ks.length);
   },
 
   /* ---------- checklists simples (metodologia, fontes, realidade, conformidade) ---------- */
@@ -3237,7 +3258,7 @@ Continuar mesmo assim (sem salvar)?`);
       });
     }
     /* avisa se a entrevista cai em cima de outra já marcada no mesmo centro (a pessoa pode salvar assim mesmo) */
-    for(const k of ["ent1","ent2","entConv"]){
+    for(const k of entrevistasDo(ex.etapas)){
       const et=(ex.etapas||{})[k]||{};
       const antes=((exServidor&&exServidor.etapas)||{})[k]||{};
       if(antes.data===et.data && (antes.hora||"")===(et.hora||"") && this.calDurMin(antes.dur)===this.calDurMin(et.dur)) continue; /* só confere o que mudou */
@@ -3369,7 +3390,7 @@ Continuar mesmo assim (sem salvar)?`);
     soc:"Serviço Social", as:"Assistente social", sin:"Síntese do Relatório", diverg:"Divergências técnicas", limit:"Limitações",
     chefesExtra:"Outros chefes de serviço", semPsq:"Sem psiquiatra", detOrigem:"Determinação de origem", impedimento:"Impedimento/suspeição",
     defesaNome:"Defesa — nome", defesaOAB:"Defesa — OAB", mpQuesitos:"Quesitos do MP", defQuesitos:"Quesitos da defesa", lista:"Quesitos",
-    ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista com convivente",
+    ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista com convivente", ent3:"3ª entrevista",
     oficio:"Ofício nº", cidade:"Cidade", local:"Local das entrevistas", respNome:"Responsável que assina", respCargo:"Cargo/função de quem assina"
   },
   GRUPO_SUB: { comunicacao:"Comunicação ao Juízo", equipe:"Equipe examinadora", quesitos:"Quesitos", rel:"Relatório", relOk:"Seção concluída", sup:"Seção suprimida", etapas:"Etapas" },
@@ -4362,14 +4383,14 @@ Continuar mesmo assim (sem salvar)?`);
     if(st==="concluido-falta-seeu") exs=exs.filter(e=>!this.peticionadoAtual(e));
     if(st==="concluido-seeu") exs=exs.filter(e=>this.peticionadoAtual(e));
     // "agendado" = alguma entrevista (1ª, 2ª ou convívio) com data marcada — o mesmo critério do calendário
-    const temEntrevista = e => ["ent1","ent2","entConv"].some(k=>((e.etapas||{})[k]||{}).data);
+    const temEntrevista = e => entrevistasDo(e.etapas).some(k=>((e.etapas||{})[k]||{}).data);
     if(st==="agendado") exs=exs.filter(temEntrevista);
     if(st==="naoagendado") exs=exs.filter(e=>!temEntrevista(e));
     /* por tipo de agendamento: Psicologia e Serviço Social = entrevista com o avaliado (1ª ou 2ª)
        daquela área — "Equipe (conjunta)" vale para as duas; convívio = entrevista com pessoa do
        convívio, de qualquer área. Conta a entrevista com data marcada ou já marcada como feita. */
     const marcada = v => !!(v && (v.data || v.ok));
-    const agend = e => { const et=e.etapas||{}; const av=[et.ent1,et.ent2].filter(marcada);
+    const agend = e => { const et=e.etapas||{}; const av=[et.ent1,et.ent2,(et.ent3||{}).usar?et.ent3:null].filter(marcada);
       return { psi:av.some(v=>(v.area||"")!=="social"), social:av.some(v=>(v.area||"")!=="psi"), conv:marcada(et.entConv) }; };
     const mTipo=/^(falta|tem)-(psi|social|conv)$/.exec(st);
     if(mTipo) exs=exs.filter(e=>agend(e)[mTipo[2]]===(mTipo[1]==="tem"));
@@ -4514,6 +4535,7 @@ Continuar mesmo assim (sem salvar)?`);
       juizo:document.getElementById("e_juizo").value.trim(),
       beneficio:this.getBeneficio(),
       ent1:quando(et.ent1), ent2:quando(et.ent2), entConv:quando(et.entConv),
+      temEnt3:!!(et.ent3||{}).usar, ent3:quando(et.ent3),
       coNum:num,
     };
   },
@@ -4547,6 +4569,7 @@ Continuar mesmo assim (sem salvar)?`);
         ${linha("Data da entrevista 1",v(d.ent1,"data e horário"))}
         ${linha("Data da entrevista 2",v(d.ent2,"data e horário"))}
         ${linha("Entrevista com pessoa do convívio",d.entConv?esc(d.entConv):"a definir")}
+        ${d.temEnt3?linha("Data da entrevista 3",d.ent3?esc(d.ent3):"a definir"):""}
         ${linha("Local",v(d.local,"unidade/local"))}
       </table>
       <p style="text-indent:1.5cm;">Solicita-se a ciência do Ministério Público e da defesa técnica acerca das datas agendadas, facultando-se a apresentação de quesitos e demais manifestações cabíveis, nos termos da Resolução CNPCP nº 36/2024.</p>
@@ -4632,7 +4655,7 @@ Continuar mesmo assim (sem salvar)?`);
     /* data da entrevista no quadro de identificação; a que não aconteceu fica só com "—" */
     const dataEnt=v=>!v||!v.data||v.nao==="sim" ? "—" : fmt(v.data);
     const semPsq=document.getElementById("q_semPsq").checked;
-    const entrevistas=[et.ent1,et.ent2,et.entConv].filter(x=>x&&x.ok&&x.data).map(x=>fmt(x.data)).join(", ")||"—";
+    const entrevistas=entrevistasDo(et).map(k=>et[k]).filter(x=>x&&x.ok&&x.data).map(x=>fmt(x.data)).join(", ")||"—";
     const regimeLabel={fechado:"Fechado",semiaberto:"Semiaberto",aberto:"Aberto",domiciliar:"Prisão domiciliar"}[document.getElementById("e_regime").value]||"não informado";
     const quesitos=this.lerQuesitos();
     const origemLabel={mp:"Ministério Público",defesa:"Defesa",juizo:"Juízo"};
@@ -4701,6 +4724,7 @@ Continuar mesmo assim (sem salvar)?`);
           ["Data da entrevista 1", dataEnt(et.ent1)],
           ["Data da entrevista 2", dataEnt(et.ent2)],
           ["Data da entrevista com alguém do convívio", dataEnt(et.entConv)],
+          (et.ent3||{}).usar?["Data da entrevista 3", dataEnt(et.ent3)]:null,
         ].filter(Boolean);
         return `<table style="width:100%; border-collapse:collapse; margin:8px 0 12px; font-size:10.5pt;">
           ${linhas.map(([label,val])=>`<tr><td style="border:1px solid #999; padding:4px 8px; font-weight:bold; width:38%; vertical-align:top;">${label}:</td><td style="border:1px solid #999; padding:4px 8px;">${val}</td></tr>`).join("")}
@@ -4722,7 +4746,7 @@ Continuar mesmo assim (sem salvar)?`);
       <p><b>Entrevistas realizadas em:</b> ${(()=>{
         /* cada entrevista pode ter a sua modalidade; vazio (exame antigo) = a do exame. Todas iguais: uma só menção no fim */
         const padrao=document.getElementById("e_modal").value||"presencial";
-        const feitas=[et.ent1,et.ent2,et.entConv].filter(x=>x&&x.ok&&x.data).map(x=>({data:fmt(x.data), modal:x.modal||padrao}));
+        const feitas=entrevistasDo(et).map(k=>et[k]).filter(x=>x&&x.ok&&x.data).map(x=>({data:fmt(x.data), modal:x.modal||padrao}));
         const nomeModal=m=>m==="video"?"por videoconferência":"presencial";
         const art=" nos termos do art. 9º, §§1º e 2º, da Portaria";
         const modais=[...new Set(feitas.map(f=>f.modal))];
