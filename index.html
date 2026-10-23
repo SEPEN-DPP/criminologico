@@ -1305,6 +1305,7 @@ const VEDADOS = [
 ];
 
 const MARCO = new Date("2024-04-11T00:00:00");
+const MAX_PAGINAS = 300; /* páginas lidas do PDF do SGPE */
 
 /* ================= extração de dados de documentos ================= */
 const Extractor = {
@@ -1339,6 +1340,7 @@ const Extractor = {
 
   processarArquivo(f){
     window.App._arquivoImportado=f; window.App.renderAnexos(); /* vira anexo do exame ao salvar */
+    this._paginasNaoLidas=0;
     const out=document.getElementById("extResult");
     if(/\.txt$/i.test(f.name)){
       const r=new FileReader();
@@ -1377,12 +1379,17 @@ const Extractor = {
             try{
               const pdf=await window.pdfjsLib.getDocument({data:new Uint8Array(fr.result)}).promise;
               let txt="";
-              const max=Math.min(pdf.numPages,20);
+              /* antes eram só 20 páginas: no documento do SGPE a decisão vem antes do BPI, e em processos longos o BPI
+                 ficava depois da 20ª página — nascimento, filiação, IPEN, data-base e régua penal saíam "não localizados" */
+              const max=Math.min(pdf.numPages,MAX_PAGINAS);
+              const out=document.getElementById("extResult");
               for(let i=1;i<=max;i++){
+                if(out && max>20 && i%10===0) out.innerHTML=`<p class="note">Lendo PDF… página ${i} de ${max}</p>`;
                 const pg=await pdf.getPage(i);
                 const tc=await pg.getTextContent();
                 txt+=tc.items.map(it=>it.str).join(" ")+"\n";
               }
+              this._paginasNaoLidas = pdf.numPages-max;
               if(txt.replace(/\s/g,"").length<40) reject(new Error("sem camada de texto"));
               else resolve(txt);
             }catch(e){reject(e);}
@@ -1552,7 +1559,9 @@ const Extractor = {
     out.innerHTML =
       `<div class="allclear" style="margin-bottom:8px;">✓ Extração de <b>${esc(fonte)}</b> — ${found.length} campo(s) preenchido(s). Confira antes de salvar.</div>`
       + (found.length?`<p class="note"><b>Preenchidos:</b> ${esc(found.join(" · "))}</p>`:"")
-      + (missing.length?`<p class="note" style="color:var(--warn);"><b>Não localizados no documento (preencher manualmente):</b> ${esc(missing.join(", "))}.</p>`:"");
+      + (missing.length?`<p class="note" style="color:var(--warn);"><b>Não localizados no documento (preencher manualmente):</b> ${esc(missing.join(", "))}.</p>`:"")
+      + (this._paginasNaoLidas>0?`<p class="note" style="color:var(--warn);"><b>O PDF tem mais de ${MAX_PAGINAS} páginas</b> — as ${this._paginasNaoLidas} últimas não foram lidas.</p>`:"");
+    this._paginasNaoLidas=0;
   },
 
   /* artigos mais comuns do CP — só para sugerir o nome do crime quando o BPI traz o número solto (ex.: "155") sem o nome; sempre exige conferência */
