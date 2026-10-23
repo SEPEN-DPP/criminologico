@@ -1503,8 +1503,14 @@ const Extractor = {
        Prisional | Infração" (que também contém "Unidade Prisional" — mas é outro campo). */
     if(/BOLETIM\s+PENAL/i.test(t)) m=t.match(/Unidade\s*:?\s*([A-ZÀ-Ü][A-ZÀ-Üa-zà-ü'’]+(?:\s+[A-ZÀ-Ü][A-ZÀ-Üa-zà-ü'’]+)*\s*-\s*(?:PRES[ÍI]DIO|PENITENCI[ÁA]RIA|COMPLEXO[^,;.\n]{0,30}|COL[ÔO]NIA[^,;.\n]{0,20}|CASA\s+DO\s+ALBERGADO)[^,;.\n]{0,20}?)\s*Gest(?:[ãa]o|or)/i);
     else m=null;
-    /* formato "Tipo de Cidade" (decisões judiciais) */
-    if(!m) m=t.match(/(Penitenci[áa]ria[^,;.\n]{0,55}|Pres[íi]dio[^,;.\n]{0,55}|Unidade\s+Prisional[^,;.\n]{0,55}|Complexo\s+Penitenci[áa]rio[^,;.\n]{0,55}|Casa\s+do\s+Albergado[^,;.\n]{0,45}|Col[ôo]nia\s+(?:Penal\s+)?Agr[íi]cola[^,;.\n]{0,45}|USM[^,;.\n]{0,35})/i);
+    /* formato "Tipo de Cidade" (decisões judiciais) — só vale com nome próprio logo depois do tipo ("Presídio Regional de
+       Videira"); a decisão também cita a unidade no meio da frase ("oficie-se à unidade prisional a remessa do boletim..."),
+       que antes era lida como se fosse o nome da unidade */
+    if(!m){
+      const reTipo=/(Penitenci[áa]ria[^,;.\n]{0,55}|Pres[íi]dio[^,;.\n]{0,55}|Unidade\s+Prisional[^,;.\n]{0,55}|Complexo\s+Penitenci[áa]rio[^,;.\n]{0,55}|Casa\s+do\s+Albergado[^,;.\n]{0,45}|Col[ôo]nia\s+(?:Penal\s+)?Agr[íi]cola[^,;.\n]{0,45}|USM[^,;.\n]{0,35})/gi;
+      const reNome=/^(?:Penitenci[áa]ria|Pres[íi]dio|Unidade\s+Prisional|Complexo\s+Penitenci[áa]rio|Casa\s+do\s+Albergado|Col[ôo]nia\s+(?:Penal\s+)?Agr[íi]cola|USM)\s+(?:(?:de|da|do|d[eo]s?)\s+)?[A-ZÀ-Ü]/i;
+      m=[...t.matchAll(reTipo)].find(x=>{ const r=x[1].match(reNome); return r && /[A-ZÀ-Ü]/.test(r[0].slice(-1)) && r[0].slice(-1)===r[0].slice(-1).toUpperCase(); })||null;
+    }
     /* formato "Cidade - Tipo" sem "Gest" por perto, como último recurso */
     if(!m) m=t.match(/Unidade\s*:?\s*([A-ZÀ-Ü][A-ZÀ-Üa-zà-ü'’]+(?:\s+[A-ZÀ-Ü][A-ZÀ-Üa-zà-ü'’]+)*\s*-\s*(?:PRES[ÍI]DIO|PENITENCI[ÁA]RIA|COMPLEXO[^,;.\n]{0,30}|COL[ÔO]NIA[^,;.\n]{0,20}|CASA\s+DO\s+ALBERGADO)[^,;.\n]{0,20})/i);
     if(m){
@@ -1558,7 +1564,6 @@ const Extractor = {
     App.triagem();
     out.innerHTML =
       `<div class="allclear" style="margin-bottom:8px;">✓ Extração de <b>${esc(fonte)}</b> — ${found.length} campo(s) preenchido(s). Confira antes de salvar.</div>`
-      + (found.length?`<p class="note"><b>Preenchidos:</b> ${esc(found.join(" · "))}</p>`:"")
       + (missing.length?`<p class="note" style="color:var(--warn);"><b>Não localizados no documento (preencher manualmente):</b> ${esc(missing.join(", "))}.</p>`:"")
       + (this._paginasNaoLidas>0?`<p class="note" style="color:var(--warn);"><b>O PDF tem mais de ${MAX_PAGINAS} páginas</b> — as ${this._paginasNaoLidas} últimas não foram lidas.</p>`:"");
     this._paginasNaoLidas=0;
