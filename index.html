@@ -1239,11 +1239,15 @@ const ETAPAS = [
   {k:"ent1",     t:"1ª entrevista com o avaliado", s:"", data:true, extra:"entrevista"},
   {k:"ent2",     t:"2ª entrevista com o avaliado", s:"", data:true, extra:"entrevista"},
   {k:"entConv",  t:"Entrevista com pessoa do convívio (familiar, coapenado ou servidor)", s:"", data:true, extra:"convivio"},
-  {k:"ent3",     t:"3ª entrevista com o avaliado", s:"", data:true, extra:"entrevista", opcional:true}
+  {k:"ent3",     t:"3ª entrevista com o avaliado", s:"", data:true, extra:"entrevista", opcional:"Acrescentar entrevista com o avaliado"},
+  {k:"entFam",   t:"Entrevista com pessoa da família", s:"", data:true, extra:"convivio", opcional:"Acrescentar entrevista com pessoa da família"}
 ];
-/* entrevistas do exame: a 3ª é opcional e só vale quando marcada no exame (etapas.ent3.usar) */
-const ENT_KEYS = ["ent1","ent2","entConv","ent3"];
-function entrevistasDo(etapas){ etapas=etapas||{}; return ENT_KEYS.filter(k=>k!=="ent3" || !!(etapas.ent3||{}).usar); }
+/* entrevistas do exame: a 3ª com o avaliado e a com pessoa da família são opcionais e só valem quando marcadas no exame (etapas.<k>.usar) */
+const ENT_KEYS = ["ent1","ent2","entConv","ent3","entFam"];
+const ENT_OPCIONAIS = ["ent3","entFam"];
+function entrevistasDo(etapas){ etapas=etapas||{}; return ENT_KEYS.filter(k=>!ENT_OPCIONAIS.includes(k) || !!(etapas[k]||{}).usar); }
+/* entrevistas com outra pessoa (não o avaliado): têm nome e vínculo em vez de local e profissionais */
+const ENT_COM_PESSOA = ["entConv","entFam"];
 /* área/profissional responsável pela entrevista — usada para filtrar o calendário por Psicologia/Serviço Social */
 const AREA_OPTS = [{v:"",t:"Equipe (conjunta)"},{v:"psi",t:"Psicologia"},{v:"social",t:"Serviço Social"}];
 const AREA_LABEL = {"":"Equipe", psi:"Psicologia", social:"Serviço Social"};
@@ -2092,8 +2096,8 @@ const App = {
   },
 
   /* ---------- calendário de entrevistas ---------- */
-  CAL_TIPOS: {ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista c/ pessoa do convívio", ent3:"3ª entrevista"},
-  CAL_TIPOS_CURTO: {ent1:"1ª", ent2:"2ª", entConv:"Convívio", ent3:"3ª", hctp:"HCTP"},
+  CAL_TIPOS: {ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista c/ pessoa do convívio", ent3:"3ª entrevista", entFam:"Entrevista c/ pessoa da família"},
+  CAL_TIPOS_CURTO: {ent1:"1ª", ent2:"2ª", entConv:"Convívio", ent3:"3ª", entFam:"Família", hctp:"HCTP"},
   CAL_HORAS: (()=>{ const h=[]; for(let i=7;i<=19;i++) h.push(i); return h; })(),
   calEventos(){
     const geral = this.coc==="_cepen";
@@ -2109,7 +2113,7 @@ const App = {
           if(this.calFiltroArea && area!==this.calFiltroArea) return;
           out.push({
             data: et.data, hora: et.hora||"", dur: et.dur||"", tipo: this.CAL_TIPOS[k], tipoK: k, exId: ex.id, nome: ex.nome, mat: ex.mat||"", done: !!et.ok || et.nao==="sim", nao: et.nao==="sim",
-            detalhe: k==="entConv" ? [et.nome,et.vinc].filter(Boolean).join(" — ") : (et.local||""),
+            detalhe: ENT_COM_PESSOA.includes(k) ? [et.nome,et.vinc].filter(Boolean).join(" — ") : (et.local||""),
             regional: geral ? ((this.data.cocs.find(c=>c.id===this.cocIdDoExame(ex))||{}).nome||"") : "",
             unid: ex.unid||"",
             area,
@@ -2250,7 +2254,7 @@ const App = {
   },
 
   /* ---------- agendar / alterar entrevista direto no calendário ---------- */
-  CAL_TIPOS_LONGO: {ent1:"1ª entrevista com o avaliado", ent2:"2ª entrevista com o avaliado", entConv:"Entrevista com pessoa do convívio", ent3:"3ª entrevista com o avaliado"},
+  CAL_TIPOS_LONGO: {ent1:"1ª entrevista com o avaliado", ent2:"2ª entrevista com o avaliado", entConv:"Entrevista com pessoa do convívio", ent3:"3ª entrevista com o avaliado", entFam:"Entrevista com pessoa da família"},
   calAbrirForm(iso,hora){
     this.calFormAberto={iso,hora};
     this.calRenderForm();
@@ -2358,7 +2362,7 @@ const App = {
     const areaSelect=`<select id="calfArea" ${this.agendaRestrita()?'disabled title="A área da entrevista é definida pelo Centro"':""}>${AREA_OPTS.map(o=>`<option value="${o.v}" ${(v.area||"")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`;
     const modalSelect=`<select id="calfModal">${MODAL_OPTS.map(o=>`<option value="${o.v}" ${(v.modal||"presencial")===o.v?"selected":""}>${o.t}</option>`).join("")}</select>`;
     const linhaAreaModal=`<div class="row c2"><div><label class="f">Área/profissional responsável</label>${areaSelect}</div><div><label class="f">Modalidade</label>${modalSelect.replace(/Modalidade: p/g,"P")}</div></div>`;
-    if(tipo==="entConv"){
+    if(ENT_COM_PESSOA.includes(tipo)){
       box.innerHTML=`<div class="row c3"><div><label class="f">Nome da pessoa</label><input type="text" id="calfNome" ${val("nome")}></div><div><label class="f">Vínculo</label><input type="text" id="calfVinc" ${val("vinc")}></div><div><label class="f">Duração (minutos)</label><input type="number" min="5" step="5" id="calfDur" value="${esc(this.calDurMin(v.dur)||"")}" placeholder="ex.: 60"></div></div>
       ${linhaAreaModal}`;
     } else {
@@ -2369,7 +2373,7 @@ const App = {
   /* lê data, horário e campos extras do formulário do calendário */
   calLerForm(tipo){
     const d={data:document.getElementById("calfData").value, hora:document.getElementById("calfHora").value, dur:document.getElementById("calfDur").value.trim(), area:document.getElementById("calfArea").value, modal:document.getElementById("calfModal").value};
-    if(tipo==="entConv"){
+    if(ENT_COM_PESSOA.includes(tipo)){
       d.nome=document.getElementById("calfNome").value.trim();
       d.vinc=document.getElementById("calfVinc").value.trim();
     } else {
@@ -2848,8 +2852,8 @@ const App = {
       if(!v.modal) v.modal = document.getElementById("e_modal").value || "presencial"; /* exame antigo: vale a modalidade do exame */
       const extraCampos = e.extra ? ETAPA_EXTRA[e.extra] : null;
       const nao=v.nao==="sim";
-      /* etapa opcional (3ª entrevista): um checkbox mostra/esconde a etapa; data-tinha = já existia no exame */
-      const opc = e.opcional ? `<label class="et-opc"><input type="checkbox" id="et_${e.k}_usar" data-tinha="${et[e.k]?1:""}" ${v.usar?"checked":""} onchange="App.etUsar('${e.k}')"> Acrescentar ${e.t.toLowerCase()} (opcional)</label>` : "";
+      /* etapa opcional (3ª entrevista, pessoa da família): um checkbox mostra/esconde a etapa; data-tinha = já existia no exame */
+      const opc = e.opcional ? `<label class="et-opc"><input type="checkbox" id="et_${e.k}_usar" data-tinha="${et[e.k]?1:""}" ${v.usar?"checked":""} onchange="App.etUsar('${e.k}')"> ${e.opcional}</label>` : "";
       /* nao/naoMotivo só entram na gravação de exames que já os têm ou quando preenchidos (evita mexer em exames antigos) */
       return `${opc}<div class="etapa ${v.ok?"done":""} ${nao?"nao":""}" id="et_${e.k}" data-tem-nao="${"nao" in v?1:""}" ${e.opcional&&!v.usar?'style="display:none;"':""}>
         <input type="checkbox" ${v.ok?"checked":""} onchange="App.etToggle('${e.k}',this)">
@@ -3390,7 +3394,7 @@ Continuar mesmo assim (sem salvar)?`);
     soc:"Serviço Social", as:"Assistente social", sin:"Síntese do Relatório", diverg:"Divergências técnicas", limit:"Limitações",
     chefesExtra:"Outros chefes de serviço", semPsq:"Sem psiquiatra", detOrigem:"Determinação de origem", impedimento:"Impedimento/suspeição",
     defesaNome:"Defesa — nome", defesaOAB:"Defesa — OAB", mpQuesitos:"Quesitos do MP", defQuesitos:"Quesitos da defesa", lista:"Quesitos",
-    ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista com convivente", ent3:"3ª entrevista",
+    ent1:"1ª entrevista", ent2:"2ª entrevista", entConv:"Entrevista com convivente", ent3:"3ª entrevista", entFam:"Entrevista com pessoa da família",
     oficio:"Ofício nº", cidade:"Cidade", local:"Local das entrevistas", respNome:"Responsável que assina", respCargo:"Cargo/função de quem assina"
   },
   GRUPO_SUB: { comunicacao:"Comunicação ao Juízo", equipe:"Equipe examinadora", quesitos:"Quesitos", rel:"Relatório", relOk:"Seção concluída", sup:"Seção suprimida", etapas:"Etapas" },
@@ -4391,7 +4395,7 @@ Continuar mesmo assim (sem salvar)?`);
        convívio, de qualquer área. Conta a entrevista com data marcada ou já marcada como feita. */
     const marcada = v => !!(v && (v.data || v.ok));
     const agend = e => { const et=e.etapas||{}; const av=[et.ent1,et.ent2,(et.ent3||{}).usar?et.ent3:null].filter(marcada);
-      return { psi:av.some(v=>(v.area||"")!=="social"), social:av.some(v=>(v.area||"")!=="psi"), conv:marcada(et.entConv) }; };
+      return { psi:av.some(v=>(v.area||"")!=="social"), social:av.some(v=>(v.area||"")!=="psi"), conv:marcada(et.entConv) || ((et.entFam||{}).usar && marcada(et.entFam)) }; };
     const mTipo=/^(falta|tem)-(psi|social|conv)$/.exec(st);
     if(mTipo) exs=exs.filter(e=>agend(e)[mTipo[2]]===(mTipo[1]==="tem"));
     if(this.dashPrazoFiltro) exs=exs.filter(e=>this.prazoInfo(e).cls===this.dashPrazoFiltro);
@@ -4536,6 +4540,7 @@ Continuar mesmo assim (sem salvar)?`);
       beneficio:this.getBeneficio(),
       ent1:quando(et.ent1), ent2:quando(et.ent2), entConv:quando(et.entConv),
       temEnt3:!!(et.ent3||{}).usar, ent3:quando(et.ent3),
+      temEntFam:!!(et.entFam||{}).usar, entFam:quando(et.entFam),
       coNum:num,
     };
   },
@@ -4570,6 +4575,7 @@ Continuar mesmo assim (sem salvar)?`);
         ${linha("Data da entrevista 2",v(d.ent2,"data e horário"))}
         ${linha("Entrevista com pessoa do convívio",d.entConv?esc(d.entConv):"a definir")}
         ${d.temEnt3?linha("Data da entrevista 3",d.ent3?esc(d.ent3):"a definir"):""}
+        ${d.temEntFam?linha("Entrevista com pessoa da família",d.entFam?esc(d.entFam):"a definir"):""}
         ${linha("Local",v(d.local,"unidade/local"))}
       </table>
       <p style="text-indent:1.5cm;">Solicita-se a ciência do Ministério Público e da defesa técnica acerca das datas agendadas, facultando-se a apresentação de quesitos e demais manifestações cabíveis, nos termos da Resolução CNPCP nº 36/2024.</p>
@@ -4725,6 +4731,7 @@ Continuar mesmo assim (sem salvar)?`);
           ["Data da entrevista 2", dataEnt(et.ent2)],
           ["Data da entrevista com alguém do convívio", dataEnt(et.entConv)],
           (et.ent3||{}).usar?["Data da entrevista 3", dataEnt(et.ent3)]:null,
+          (et.entFam||{}).usar?["Data da entrevista com pessoa da família", dataEnt(et.entFam)]:null,
         ].filter(Boolean);
         return `<table style="width:100%; border-collapse:collapse; margin:8px 0 12px; font-size:10.5pt;">
           ${linhas.map(([label,val])=>`<tr><td style="border:1px solid #999; padding:4px 8px; font-weight:bold; width:38%; vertical-align:top;">${label}:</td><td style="border:1px solid #999; padding:4px 8px;">${val}</td></tr>`).join("")}

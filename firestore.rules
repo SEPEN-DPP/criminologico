@@ -218,7 +218,7 @@ service cloud.firestore {
             && eu.get('unidade', null) != null && eu.get('unidade', null) == d.get('unidade', null))
         || (eu.status == 'ATIVO' && eu.perfil == 'HCTP' && d.get('hctpPedido', false) == true);
     }
-    // Entrevistas (etapas ent1/ent2/entConv e a 3a opcional, ent3): as contas de Psicologia e Servico Social da unidade
+    // Entrevistas (etapas ent1/ent2/entConv e as opcionais ent3 e entFam): as contas de Psicologia e Servico Social da unidade
     // agendam, alteram e desmarcam so as da propria area ou da Equipe (area vazia), sem trocar a area.
     // O HCTP nao mexe em entrevistas.
     function areaDoPerfil(p) { return p == 'PSICOLOGIA' ? 'psi' : p == 'SOCIAL' ? 'social' : 'nenhuma'; }
@@ -228,11 +228,12 @@ service cloud.firestore {
     }
     function entrevistasOk(n, a, area) {
       let m = mudouEm(n, a, 'etapas');
-      return m.size() == 0 || (area != 'nenhuma' && m.hasOnly(['ent1','ent2','entConv','ent3'])
+      return m.size() == 0 || (area != 'nenhuma' && m.hasOnly(['ent1','ent2','entConv','ent3','entFam'])
         && (!('ent1' in m) || entrevistaOk(n, a, 'ent1', area))
         && (!('ent2' in m) || entrevistaOk(n, a, 'ent2', area))
         && (!('entConv' in m) || entrevistaOk(n, a, 'entConv', area))
-        && (!('ent3' in m) || entrevistaOk(n, a, 'ent3', area)));
+        && (!('ent3' in m) || entrevistaOk(n, a, 'ent3', area))
+        && (!('entFam' in m) || entrevistaOk(n, a, 'entFam', area)));
     }
     function edicaoPorSecaoOk(n, a, eu) {
       let p = eu.perfil;
