@@ -957,6 +957,13 @@
       <div class="btnrow" style="margin-top:8px;"><button class="btn sm" type="button" onclick="App.avisarCentroEmail('pronto')">✉ Avisar o Centro: relatório pronto para conclusão</button></div>
     </div>
 
+    <!-- exame concluído: aviso à CPEN da unidade (no sistema, pelo sininho, e por e-mail) -->
+    <div id="avisoCpenBox" class="orient" style="display:none; margin-top:14px;">
+      <b>Aviso à CPEN da unidade</b>
+      <div id="avisoCpenInfo" class="note" style="margin:6px 0 0;"></div>
+      <div id="avisoCpenBtns" class="btnrow" style="margin-top:8px;"></div>
+    </div>
+
     <div class="btnrow">
       <button class="btn btnSalvar" onclick="App.salvar()">Salvar exame</button>
       <button class="btn ghost" onclick="App.imprimir()">Gerar PDF / imprimir</button>
@@ -1374,8 +1381,12 @@ const Extractor = {
       r.readAsText(f,"utf-8");
     } else if(/\.pdf$/i.test(f.name)){
       out.innerHTML=`<p class="note">Lendo PDF…</p>`;
-      this.lerPDF(f).then(t=>this.processarSGPE(t, f.name))
-        .catch(e=>{
+      /* erro de leitura e erro na extração têm avisos diferentes: antes, uma falha dentro da extração (com campos já
+         preenchidos) aparecia como "Não foi possível abrir este PDF" */
+      this.lerPDF(f).then(t=>{
+          try{ this.processarSGPE(t, f.name); }
+          catch(e){ console.error(e); out.innerHTML=`<div class="flag"><b>O PDF foi lido, mas a extração parou no meio</b> — parte dos campos pode ter ficado sem preencher. Confira os campos abaixo e complete à mão.</div>`; }
+        }, e=>{
           const alt=`Alternativa garantida: abra o documento no SGPE, selecione o texto, copie e use "colar o texto do SGPE".`;
           const msg = e && e.message==="sem camada de texto"
             ? `<b>Este PDF não tem texto selecionável</b> — é uma imagem digitalizada (escaneada), e o sistema não consegue ler imagem. Prefira baixar do SGPE a versão gerada pelo sistema (não a escaneada). ${alt}`
@@ -1440,6 +1451,22 @@ const Extractor = {
   },
 
   /* ---- parser de documentos judiciais brasileiros ---- */
+  /* "PALHOÇA - CAPH COLÔNIA AGRÍCOLA" (BPI) → "Colônia Agroindustrial de Palhoça" (cadastro): primeiro pelo e-mail da
+     unidade no rodapé do BPI, depois pela cidade + palavras do tipo (colônia, presídio, feminino…); sem certeza, "" */
+  unidadeDoCadastro(bruta, entorno){
+    const norm=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+    const nomes=Object.keys(UNIDADES_INFO);
+    const em=(entorno||"").match(/[\w.\-]+@pp\.sc\.gov\.br/i);
+    if(em){ const n=nomes.filter(u=>norm(UNIDADES_INFO[u].email)===norm(em[0])); if(n.length===1) return n[0]; }
+    const cidade=norm(bruta.split(/\s+-\s+/)[0]).trim();
+    const daCidade=nomes.filter(u=>norm(UNIDADES_INFO[u].cidade)===cidade);
+    if(daCidade.length===1) return daCidade[0];
+    const tipos=["coloni","penitenciari","presidio","complexo","hospital","feminin","masculin","industrial","agricol","regional","seguranca","monitoramento"];
+    const b=norm(bruta);
+    const pts=daCidade.map(u=>({u, p:tipos.filter(k=>b.includes(k)&&norm(u).includes(k)).length - tipos.filter(k=>!b.includes(k)&&norm(u).includes(k)).length*0.5}));
+    pts.sort((a,c)=>c.p-a.p);
+    return pts.length && pts[0].p>0 && (pts.length===1 || pts[0].p>pts[1].p) ? pts[0].u : "";
+  },
   titleCase(s){
     const low=["de","da","do","das","dos","e"];
     return s.toLowerCase().split(/\s+/).map((w,i)=> low.includes(w)&&i>0 ? w : w.charAt(0).toUpperCase()+w.slice(1)).join(" ");
@@ -1450,10 +1477,21 @@ const Extractor = {
     const t=texto.replace(/\s+/g," "); /* colapsa também quebras de linha — PDFs frequentemente quebram uma frase no meio (ex.: "Presídio\nRegional de Videira"), o que truncava regexes de uma linha só */
     const found=[], missing=[];
     let m=null;
+    /* no documento do SGPE a decisão vem antes do Boletim Penal (BPI): data da decisão e juízo só valem na parte da
+       decisão — o BPI traz a própria data de emissão ("PALHOÇA, 28 de outubro de 2026"), que era lida como data da
+       decisão. Marcadores em caixa alta / do cabeçalho do BPI, para não cortar numa decisão que cite "o boletim penal" */
+    const iniBPI=t.search(/Sistema\s+de\s+Identifica[çc][ãa]o\s+e\s+Administra[çc][ãa]o\s+Penal|BOLETIM\s+PENAL/);
+    const decisao = iniBPI>=0 ? t.slice(0,iniBPI) : t;
 
-    /* processo CNJ */
-    const proc=t.match(/\d{7}-?\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4}/);
-    if(proc){ e_proc.value=proc[0]; found.push("Processo: "+proc[0]); } else missing.push("processo");
+    /* processo CNJ — vale o da execução: cabeçalho da decisão ("Autos nº"/"Processo:"), o unificador/PEC do BPI;
+       o primeiro número solto do BPI costuma ser de "Processos em andamento" (outra ação, ainda sem condenação) */
+    const CNJ="\\d{7}-?\\d{2}\\.?\\d{4}\\.?\\d\\.?\\d{2}\\.?\\d{4}";
+    const proc=(decisao.match(new RegExp("(?:Autos|Processo)\\s*(?:n[.ºo°]*)?\\s*[:\\-]?\\s*("+CNJ+")","i"))
+      || t.match(new RegExp("("+CNJ+")\\s*\\(unificador\\)","i"))
+      || t.match(new RegExp("PEC\\s*:?\\s*("+CNJ+")","i"))
+      || (()=>{ const i=t.search(/processos?\s+transitad[oa]s?\s+em\s+julgado/i); return i>=0 ? t.slice(i).match(new RegExp("("+CNJ+")")) : null; })()
+      || t.match(new RegExp("("+CNJ+")")));
+    if(proc){ e_proc.value=proc[1]; found.push("Processo: "+proc[1]); } else missing.push("processo");
 
     /* nome — localiza o rótulo (case-insensitive) e captura o nome em CAIXA ALTA logo após */
     let nome=null;
@@ -1513,9 +1551,21 @@ const Extractor = {
 
     /* juízo da execução — aceita "Vara [Regional] de Execuções Penais da Comarca d[a/e] X",
        como aparece no cabeçalho das decisões do SEEU (às vezes seguido de "- MEIO FECHADO...") */
-    m=t.match(/Vara\s+(?:Regional\s+)?de\s+Execu[çc][õo]es?\s+Penais?(?:\s+da\s+Comarca\s+d[ae]\s+[^-\n;.]{2,40}?)?(?=\s*-|\s*[\n;.]|\s*$)/i);
-    if(!m){ const m2=t.match(/ju[íi]zo\s+da\s+execu[çc][ãa]o\s*[:\-]?\s*([^\n;.]{3,60})/i); if(m2) m=[m2[1]]; }
-    if(m){ document.getElementById("e_juizo").value=m[0].trim(); found.push("Juízo da execução: "+document.getElementById("e_juizo").value); }
+    /* no cabeçalho do SEEU a comarca vem numa linha à parte, antes da vara ("COMARCA DE SÃO JOSÉ  VARA DE EXECUÇÕES PENAIS  Autos nº…")
+       — monta "Vara de Execuções Penais da Comarca de São José" */
+    let juizo="";
+    const reCom="Comarca\\s+(d[aeo])\\s+([A-ZÀ-Üa-zà-ü'’]+(?:\\s+(?:d[aeo]s?|[A-ZÀ-Üa-zà-ü'’]+)){0,4}?)(?=\\s+(?:VARA|Vara|JU[IÍ]ZO|Ju[ií]zo|Autos|AUTOS|Processo|PROCESSO|PODER|-)|\\s*[;.,(]|\\s*$)";
+    const vara=decisao.match(/Vara\s+(?:Regional\s+)?de\s+Execu[çc][õo]es?\s+Penais?/i) || t.match(/Vara\s+(?:Regional\s+)?de\s+Execu[çc][õo]es?\s+Penais?/i);
+    if(vara){
+      const fonteV = vara.input;
+      const depois=fonteV.slice(vara.index+vara[0].length).match(new RegExp("^\\s*(?:da\\s+)?"+reCom,"i"));
+      const antes=[...fonteV.slice(Math.max(0,vara.index-200), vara.index).matchAll(new RegExp(reCom,"gi"))].pop();
+      const com=depois||antes;
+      juizo=this.titleCase(vara[0].replace(/\s+/g," "))+(com?" da Comarca "+com[1].toLowerCase()+" "+this.titleCase(com[2]):"");
+    } else {
+      const m2=t.match(/ju[íi]zo\s+da\s+execu[çc][ãa]o\s*[:\-]?\s*([^\n;.]{3,60})/i); if(m2) juizo=m2[1].trim();
+    }
+    if(juizo){ document.getElementById("e_juizo").value=juizo; found.push("Juízo da execução: "+juizo); }
     else missing.push("juízo da execução");
 
     /* pena total */
@@ -1527,15 +1577,17 @@ const Extractor = {
        rotulada "Unidade: CIDADE - TIPO" perto de "Gestão/Gestor" na linha de assinatura; sem essa
        prioridade, o padrão genérico abaixo acaba batendo antes no cabeçalho da tabela "Unidade
        Prisional | Infração" (que também contém "Unidade Prisional" — mas é outro campo). */
-    if(/BOLETIM\s+PENAL/i.test(t)) m=t.match(/Unidade\s*:?\s*([A-ZÀ-Ü][A-ZÀ-Üa-zà-ü'’]+(?:\s+[A-ZÀ-Ü][A-ZÀ-Üa-zà-ü'’]+)*\s*-\s*(?:PRES[ÍI]DIO|PENITENCI[ÁA]RIA|COMPLEXO[^,;.\n]{0,30}|COL[ÔO]NIA[^,;.\n]{0,20}|CASA\s+DO\s+ALBERGADO)[^,;.\n]{0,20}?)\s*Gest(?:[ãa]o|or)/i);
+    /* aceita qualquer sigla entre a cidade e o tipo ("PALHOÇA - CAPH COLÔNIA AGRÍCOLA") e traduz para o nome do cadastro */
+    if(/BOLETIM\s+PENAL/i.test(t)) m=t.match(/Unidade\s*:\s*([A-ZÀ-Ü][^:|]{3,80}?)\s*Gest(?:[ãa]o|or)/i);
     else m=null;
+    if(m){ const cad=this.unidadeDoCadastro(m[1], t.slice(m.index, m.index+600)); if(cad) m=[m[0],cad]; }
     /* formato "Tipo de Cidade" (decisões judiciais) — só vale com nome próprio logo depois do tipo ("Presídio Regional de
        Videira"); a decisão também cita a unidade no meio da frase ("oficie-se à unidade prisional a remessa do boletim..."),
        que antes era lida como se fosse o nome da unidade */
     if(!m){
       const reTipo=/(Penitenci[áa]ria[^,;.\n]{0,55}|Pres[íi]dio[^,;.\n]{0,55}|Unidade\s+Prisional[^,;.\n]{0,55}|Complexo\s+Penitenci[áa]rio[^,;.\n]{0,55}|Casa\s+do\s+Albergado[^,;.\n]{0,45}|Col[ôo]nia\s+(?:Penal\s+)?Agr[íi]cola[^,;.\n]{0,45}|USM[^,;.\n]{0,35})/gi;
       const reNome=/^(?:Penitenci[áa]ria|Pres[íi]dio|Unidade\s+Prisional|Complexo\s+Penitenci[áa]rio|Casa\s+do\s+Albergado|Col[ôo]nia\s+(?:Penal\s+)?Agr[íi]cola|USM)\s+(?:(?:de|da|do|d[eo]s?)\s+)?[A-ZÀ-Ü]/i;
-      m=[...t.matchAll(reTipo)].find(x=>{ const r=x[1].match(reNome); return r && /[A-ZÀ-Ü]/.test(r[0].slice(-1)) && r[0].slice(-1)===r[0].slice(-1).toUpperCase(); })||null;
+      m=[...decisao.matchAll(reTipo)].find(x=>{ const r=x[1].match(reNome); return r && /[A-ZÀ-Ü]/.test(r[0].slice(-1)) && r[0].slice(-1)===r[0].slice(-1).toUpperCase(); })||null;
     }
     /* formato "Cidade - Tipo" sem "Gest" por perto, como último recurso */
     if(!m) m=t.match(/Unidade\s*:?\s*([A-ZÀ-Ü][A-ZÀ-Üa-zà-ü'’]+(?:\s+[A-ZÀ-Ü][A-ZÀ-Üa-zà-ü'’]+)*\s*-\s*(?:PRES[ÍI]DIO|PENITENCI[ÁA]RIA|COMPLEXO[^,;.\n]{0,30}|COL[ÔO]NIA[^,;.\n]{0,20}|CASA\s+DO\s+ALBERGADO)[^,;.\n]{0,20})/i);
@@ -1563,9 +1615,11 @@ const Extractor = {
     {
       const MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
       const cands=[];
-      const re1=/Data\s+e\s+Hora\s*:?\s*(\d{2})\/(\d{2})\/(\d{4})/i, re2=/assinad[oa]\s+(?:digitalmente|eletronicamente|por)[\s\S]{0,400}?(\d{2})\/(\d{2})\/(\d{4})/i;
-      [re1,re2].forEach(re=>{ const x=re.exec(t); if(x) cands.push({i:x.index, d:x[1], mo:x[2], a:x[3]}); });
-      const x3=/,\s*(\d{1,2})º?\s+de\s+(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+(20[2-9]\d)/i.exec(t);
+      /* só na parte da decisão (antes do BPI) — sem decisão no documento, fica em branco em vez de pegar a emissão do BPI */
+      const re1=/Data\s+e\s+Hora\s*:?\s*(\d{2})\/(\d{2})\/(\d{4})/i, re2=/assinad[oa]\s+(?:digitalmente|eletronicamente|por)[\s\S]{0,400}?(\d{2})\/(\d{2})\/(\d{4})/i,
+            re4=/Ato\s+Ordinat[óo]rio\s+em\s+(\d{2})\/(\d{2})\/(\d{4})/i;
+      [re1,re2,re4].forEach(re=>{ const x=re.exec(decisao); if(x) cands.push({i:x.index, d:x[1], mo:x[2], a:x[3]}); });
+      const x3=/,\s*(\d{1,2})º?\s+de\s+(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+(20[2-9]\d)/i.exec(decisao);
       if(x3) cands.push({i:x3.index, d:x3[1].padStart(2,"0"), mo:String(MESES.indexOf(x3[2].toLowerCase().replace("marco","março"))+1).padStart(2,"0"), a:x3[3]});
       const c=cands.filter(c=>+c.mo>=1 && +c.mo<=12 && +c.d>=1 && +c.d<=31).sort((a,b)=>a.i-b.i)[0];
       if(c){ document.getElementById("e_dataDecisao").value=c.a+"-"+c.mo+"-"+c.d; found.push("Data da decisão: "+c.d+"/"+c.mo+"/"+c.a+" (conferir)"); }
@@ -1582,9 +1636,23 @@ const Extractor = {
       if(c){
         const iso=c.a+"-"+c.mo+"-"+c.d;
         document.getElementById("e_dataProg").value=iso;
-        document.getElementById("e_prazo").value=iso; this._prazoManual = iso!==this.prazoAutoISO();
+        document.getElementById("e_prazo").value=iso; App._prazoManual = iso!==App.prazoAutoISO();
         found.push("Data prevista da progressão ("+c.rot.toLowerCase()+"): "+c.d+"/"+c.mo+"/"+c.a+" — usada como prazo-limite (conferir)");
       } else missing.push("data prevista da progressão (BPI)");
+    }
+
+    /* benefício pretendido — livramento condicional só quando a decisão fala nele e não em progressão; senão,
+       progressão ao regime seguinte ao atual (fechado → semiaberto; semiaberto → aberto) */
+    {
+      let ben="";
+      if(/livramento\s+condicional/i.test(decisao) && !/progress[ãa]o/i.test(decisao)) ben="Livramento Condicional";
+      else {
+        const reg=document.getElementById("e_regime").value;
+        if(reg==="fechado") ben="Progressão ao Regime Semiaberto";
+        else if(reg==="semiaberto") ben="Progressão ao Regime Aberto";
+      }
+      if(ben){ App.setBeneficio(ben); found.push("Benefício pretendido: "+ben+" (deduzido do regime atual — conferir)"); }
+      else missing.push("benefício pretendido");
     }
 
     App.triagem();
@@ -1919,6 +1987,10 @@ const App = {
     if(perfisNovos.includes(p.perfil) && p.avisosVistoEm)
       this.data.exames.filter(e=>this.exameNovoPara(e,p)).forEach(e=>it.push({chave:"ex:"+e.id,
         txt:`Novo exame: <b>${esc(e.nome)}</b> — ${esc(e.unid||"")}`, plano:"Novo exame: "+e.nome+" — "+(e.unid||""), acao:`App.abrir('${e.id}')`}));
+    /* CPEN da unidade: exames concluídos avisados pela SR/DPP, até marcar "Ciente" no exame */
+    if(p.perfil==="CPEN")
+      this.data.exames.filter(e=>this.avisoCpenAtual(e) && !e.avisoCpen.ciente && this.ehCpenDoExame(e)).forEach(e=>it.push({chave:"cp:"+e.id+":"+e.versaoFinal,
+        txt:`Exame concluído: <b>${esc(e.nome)}</b> — relatório pronto para encaminhar ao Juízo`, plano:"Exame concluído: "+e.nome+" — relatório pronto para encaminhar ao Juízo", acao:`App.abrir('${e.id}')`}));
     if(this.ehHctp()){
       (this.data.hctp||[]).filter(h=>h.status==="solicitado"||h.novidadeParaHctp).forEach(h=>it.push({chave:"hh:"+h.id+":"+h.status+":"+(h.eventos||[]).length,
         txt:h.status==="solicitado"?`Pedido de agendamento: <b>${esc(h.nome)}</b> — ${esc(h.cocNome||"")}`:`${esc(h.cocNome||"Centro")}: ${esc(this.HCTP_STATUS[h.status]||h.status)} — <b>${esc(h.nome)}</b>`,
@@ -3389,7 +3461,7 @@ Continuar mesmo assim (sem salvar)?`);
      exigem). _base guarda a versão do servidor em que o formulário aberto se
      apoia: é contra ela que se calcula o "antes/depois" e o número da versão. */
   META_EXAME: ["id","coc","status","criadoEm","unidade","sr","rev","createdBy","createdByNome","createdAt","updatedBy","updatedByNome","updatedAt",
-    "finalizedBy","finalizedByNome","finalizedAt","versaoFinal","excluidoBy","excluidoByNome","excluidoAt","motivoExclusao","relOkPor","numCrim","peticionado"],
+    "finalizedBy","finalizedByNome","finalizedAt","versaoFinal","excluidoBy","excluidoByNome","excluidoAt","motivoExclusao","relOkPor","numCrim","peticionado","avisoCpen"],
   conteudoExame(ex){
     const out={};
     Object.keys(ex||{}).forEach(k=>{ if(!this.META_EXAME.includes(k) && ex[k]!==undefined) out[k]=ex[k]; });
@@ -3402,7 +3474,7 @@ Continuar mesmo assim (sem salvar)?`);
     nome:"Nome do avaliado", mat:"Matrícula", unid:"Unidade prisional", proc:"Processo", sgpe:"SGPE", crimeSexual:"Crime sexual", tipo:"Finalidade do exame",
     dataDecisao:"Data da decisão judicial", dataProg:"Data prevista da progressão", dataBase:"Data-base", faltaNaoReab:"Falta grave não reabilitada", exameAnterior:"Exame anterior",
     modal:"Modalidade", filiacao:"Filiação", nasc:"Nascimento", regime:"Regime", juizo:"Juízo da execução", penaTotal:"Pena total",
-    beneficio:"Benefício pretendido", hctpPedido:"Pedido ao HCTP (acesso do psiquiatra à seção de Psiquiatria)", dataIni:"Início da avaliação", dataConcl:"Conclusão da avaliação", conds:"Condenações", obs:"Observações internas", peticionado:"Peticionado no SEEU"
+    beneficio:"Benefício pretendido", hctpPedido:"Pedido ao HCTP (acesso do psiquiatra à seção de Psiquiatria)", dataIni:"Início da avaliação", dataConcl:"Conclusão da avaliação", conds:"Condenações", obs:"Observações internas", peticionado:"Peticionado no SEEU", avisoCpen:"Aviso à CPEN da unidade"
   },
   ROTULO_SUB: {
     met:"Metodologia", coord:"Coordenação", direcao:"Direção", chefiaSeg:"Chefia de Segurança", execPenal:"Execução Penal",
@@ -3512,7 +3584,7 @@ Continuar mesmo assim (sem salvar)?`);
       if((doFormulario && ex.id===this.editId) || (criando && o.doFormulario && o.formSeq===this._formSeq)) this._relOkRemarcadas=new Set();
       if(criando && o.doFormulario && o.formSeq===this._formSeq) this.editId=ex.id;
       if(ex.id===this.editId){
-        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: ["reabriu","excluiu","peticionou","desfezPeticao"].includes(o.acao) ? base.conteudo : this.conteudoExame(ex) };
+        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: ["reabriu","excluiu","peticionou","desfezPeticao","avisouCpen","cpenCiente"].includes(o.acao) ? base.conteudo : this.conteudoExame(ex) };
         this._avisoConflito=null;
         const vivo=this.data.exames.find(x=>x.id===ex.id);
         if(vivo) this.atualizarEstadoExame(vivo);
@@ -3581,6 +3653,7 @@ Continuar mesmo assim (sem salvar)?`);
     if(ex) document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(concl?" (concluído)":"");
     this.setSomenteLeitura(concl);
     this.atualizarPeticao(ex);
+    this.atualizarAvisoCpen(ex);
     const linhas=[];
     if(ex){
       linhas.push(ex.createdBy ? "Criado por "+esc(ex.createdByNome||"?")+" em "+fmtTs(ex.createdAt) : "Criado antes da trilha de auditoria"+(ex.criadoEm?" (em "+fmtTs(ex.criadoEm)+")":""));
@@ -3676,6 +3749,74 @@ Continuar mesmo assim (sem salvar)?`);
       this.renderDash(); this.renderLista();
     }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ Não foi gravado: "+e.message; reverter(); });
   },
+  /* ---------- aviso à CPEN da unidade (depois de concluído) ----------
+     quem conclui (SR/DPP) avisa: fica gravado no exame — aparece no sininho da CPEN da unidade até ela
+     marcar "Ciente" — e abre o e-mail pronto para as contas CPEN da unidade. Vale para a versão fechada
+     atual: se o exame for reaberto e concluído de novo, a nova versão volta a "CPEN não avisada" */
+  avisoCpenAtual(e){
+    const a=(e&&e.avisoCpen)||{};
+    return !!(e && e.status==="concluido" && a.por && a.versao===e.versaoFinal);
+  },
+  ehCpenDoExame(ex){ const p=this._meuPerfil||{}; return p.perfil==="CPEN" && !!ex && (ex.unidade||ex.unid)===p.unidade; },
+  atualizarAvisoCpen(ex){
+    const box=document.getElementById("avisoCpenBox");
+    const concl=!!ex && ex.status==="concluido";
+    box.style.display = concl ? "" : "none";
+    if(!concl) return;
+    const a=ex.avisoCpen||{}, avisado=this.avisoCpenAtual(ex), podeAvisar=this.podeConcluir(ex);
+    box.classList.toggle("ok", avisado && !!a.ciente);
+    const info=[], btns=[];
+    if(avisado){
+      info.push("<b>CPEN avisada</b> por "+esc(a.porNome||"?")+" em "+fmtTs(a.em)+".");
+      info.push(a.ciente ? "CPEN ciente: "+esc(a.cienteNome||"?")+" em "+fmtTs(a.cienteEm)+"." : "Aguardando a CPEN da unidade marcar \"Ciente\".");
+      if(podeAvisar) btns.push(`<button class="btn sm ghost" type="button" onclick="App.avisarCpenEmail()">✉ Enviar o e-mail à CPEN de novo</button>`);
+      if(!a.ciente && this.ehCpenDoExame(ex)) btns.push(`<button class="btn sm" type="button" onclick="App.cpenCiente()">✓ Ciente</button>`);
+    } else {
+      info.push(podeAvisar ? "Avise a CPEN de "+esc(ex.unid||"unidade")+" que o exame está concluído e o relatório pode ser encaminhado ao Juízo: o aviso aparece no sistema para a CPEN e abre o e-mail pronto." : "A CPEN da unidade ainda não foi avisada da conclusão (o aviso é dado pela SR ou pelo DPP).");
+      if(a.por && a.versao!==ex.versaoFinal) info.push("A versão fechada nº "+a.versao+" foi avisada em "+fmtTs(a.em)+"; esta nova versão (nº "+ex.versaoFinal+") ainda não.");
+      if(podeAvisar) btns.push(`<button class="btn sm" type="button" onclick="App.avisarCpen()">🔔 Avisar a CPEN: exame concluído (sistema e e-mail)</button>`);
+    }
+    document.getElementById("avisoCpenInfo").innerHTML=info.join("<br>");
+    document.getElementById("avisoCpenBtns").innerHTML=btns.join(" ");
+  },
+  avisarCpen(){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    if(!ex || ex.status!=="concluido") return;
+    if(!this.podeConcluir(ex)){ alert("Somente a Superintendência Regional ou o DPP avisa a CPEN da conclusão."); return; }
+    if(this.avisoCpenAtual(ex)){ this.avisarCpenEmail(); return; }
+    if(!confirm("Avisar a CPEN de "+(ex.unid||"unidade")+" que o exame de "+ex.nome+" está concluído?\n\nO aviso aparece no sistema para a CPEN da unidade e, em seguida, abre o e-mail pronto para enviar.")) return;
+    const msg=document.getElementById("salvoMsg");
+    msg.style.color="var(--mut)"; msg.textContent="Gravando…";
+    this.gravarExame(ex,{acao:"avisouCpen",
+        alteracoes:[{campo:"avisoCpen", rotulo:this.ROTULO_CAMPO.avisoCpen, antes:"não", depois:"avisada (versão fechada nº "+ex.versaoFinal+")"}], secoes:["CPEN"]}).then(()=>{
+      msg.style.color="var(--ok)"; msg.textContent="✓ CPEN avisada no sistema. Confira o e-mail e clique em Enviar.";
+      this.avisarCpenEmail();
+    }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ O aviso não foi gravado: "+e.message; });
+  },
+  avisarCpenEmail(){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId); if(!ex) return;
+    const unid=ex.unid||"";
+    const texto=["Prezados(as),","",
+      "Informamos que o exame criminológico de "+ex.nome+(ex.mat?" (IPEN "+ex.mat+")":"")+(ex.proc?", processo de execução "+ex.proc+",":"")+" foi concluído"+(ex.versaoFinal?" (versão fechada nº "+ex.versaoFinal+")":"")+".",
+      "O relatório está disponível no sistema e pode ser encaminhado ao Juízo da Execução / peticionado no SEEU.","",
+      "Acesse: https://criminologico.web.app (abra o exame e clique em \"Ciente\" no quadro \"Aviso à CPEN da unidade\").","",
+      "Atenciosamente,",(this._meuPerfil&&this._meuPerfil.nome)||""].join("\n");
+    this.abrirEmailModal("Avisar a CPEN: exame concluído",
+      c=>c.perfil==="CPEN" && c.unidade===unid,
+      "Exame criminológico concluído — "+ex.nome, texto,
+      "Ninguém da CPEN de "+(unid||"unidade")+" tem conta com e-mail no sistema — o aviso ficou só no sistema; avise por outro meio.");
+  },
+  cpenCiente(){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    if(!ex || !this.avisoCpenAtual(ex) || ex.avisoCpen.ciente) return;
+    if(!this.ehCpenDoExame(ex)){ alert("Só a CPEN da unidade marca \"Ciente\"."); return; }
+    const msg=document.getElementById("salvoMsg");
+    msg.style.color="var(--mut)"; msg.textContent="Gravando…";
+    this.gravarExame(ex,{acao:"cpenCiente",
+        alteracoes:[{campo:"avisoCpen", rotulo:this.ROTULO_CAMPO.avisoCpen, antes:"avisada", depois:"ciente"}], secoes:["CPEN"]}).then(()=>{
+      msg.style.color="var(--ok)"; msg.textContent="✓ Ciência registrada.";
+    }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ Não foi gravado: "+e.message; });
+  },
   reabrir(){
     if(!this.editId) return;
     const ex=this.data.exames.find(x=>x.id===this.editId); if(!ex) return;
@@ -3700,7 +3841,7 @@ Continuar mesmo assim (sem salvar)?`);
     }).catch(e=>alert("Não foi excluído: "+e.message));
   },
   /* ---------- histórico e versões fechadas ---------- */
-  ROTULO_ACAO: { criou:"criou o exame", alterou:"alterou", concluiu:"concluiu (versão fechada)", reabriu:"reabriu", excluiu:"excluiu", peticionou:"registrou o peticionamento no SEEU", desfezPeticao:"desfez o registro de peticionamento no SEEU" },
+  ROTULO_ACAO: { criou:"criou o exame", alterou:"alterou", concluiu:"concluiu (versão fechada)", reabriu:"reabriu", excluiu:"excluiu", peticionou:"registrou o peticionamento no SEEU", desfezPeticao:"desfez o registro de peticionamento no SEEU", avisouCpen:"avisou a CPEN da unidade (exame concluído)", cpenCiente:"marcou ciente do aviso de exame concluído (CPEN)" },
   valorHist(v){
     if(v===null || v===undefined || v==="") return '<span class="muted">(vazio)</span>';
     if(typeof v==="boolean") return v?"sim":"não";
@@ -5703,6 +5844,13 @@ const ExamesFS = {
       /* exame concluído: só o registro do peticionamento no SEEU, ligado à versão fechada atual */
       payload = { ...meta, peticionado: { ok: o.peticao.ok, data: o.peticao.data || null, versao: ex.versaoFinal || null,
         por: quem.uid, porNome: quem.nome, em: agora } };
+    }else if(o.acao === "avisouCpen"){
+      /* exame concluído: aviso à CPEN da unidade, ligado à versão fechada atual (o "ciente" de um aviso anterior é zerado) */
+      payload = { ...meta, avisoCpen: { versao: ex.versaoFinal || null, por: quem.uid, porNome: quem.nome, em: agora,
+        ciente: false, cienteBy: null, cienteNome: null, cienteEm: null } };
+    }else if(o.acao === "cpenCiente"){
+      /* gravação com merge: só os campos do "ciente" mudam no aviso */
+      payload = { ...meta, avisoCpen: { ciente: true, cienteBy: quem.uid, cienteNome: quem.nome, cienteEm: agora } };
     }else if(o.acao === "excluiu"){
       payload = { ...meta, status: "excluido", excluidoBy: quem.uid, excluidoByNome: quem.nome, excluidoAt: agora, motivoExclusao: o.motivo };
     }else{
