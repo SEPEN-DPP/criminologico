@@ -355,7 +355,7 @@
       🔔
       <span id="sinoContagem" class="badge b-crit" style="display:none; position:absolute; top:0; right:0; font-size:10px; padding:1px 5px; border-radius:10px;">0</span>
     </button>
-    <div id="sinoPainel" style="display:none; position:absolute; right:0; top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.2); width:320px; max-height:420px; overflow:auto; z-index:80; color:#111; text-align:left;"></div>
+    <div id="sinoPainel" onmouseenter="NotifUI.manterAberto()" onmouseleave="NotifUI.agendarFechar()" style="display:none; position:absolute; right:0; top:40px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.2); width:320px; max-height:420px; overflow:auto; z-index:80; color:#111; text-align:left;"></div>
   </div>
   <div style="position:relative;">
     <button id="userBtn" onclick="AuthUI.toggleMenu()" title="Minha conta" style="background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.4); border-radius:50%; cursor:pointer; margin-left:6px; color:#fff; font-size:13px; font-weight:700; width:36px; height:36px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
@@ -5670,8 +5670,16 @@ const NotifUI = {
     const painel = document.getElementById("sinoPainel");
     const abrir = painel.style.display==="none";
     painel.style.display = abrir ? "block" : "none";
-    if(abrir) this.render();
+    if(abrir){ this.render(); this.agendarFechar(); } else this.manterAberto();
   },
+  /* a lista do sininho some sozinha alguns segundos depois de aberta; com o mouse em cima ela fica,
+     e a contagem volta a correr quando o mouse sai */
+  FECHAR_EM: 6000, _tFechar: null,
+  agendarFechar(){
+    clearTimeout(this._tFechar);
+    this._tFechar = setTimeout(()=>{ document.getElementById("sinoPainel").style.display="none"; }, this.FECHAR_EM);
+  },
+  manterAberto(){ clearTimeout(this._tFechar); },
   /* pedidos de acesso pendentes (vêm de UsuariosUI) + novidades do sistema (App.notificacoes) */
   atualizarContagem(n){ this._nPend = n||0; this.atualizar(); },
   atualizar(){
