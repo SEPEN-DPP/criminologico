@@ -171,26 +171,15 @@ service cloud.firestore {
         && p.get('em', null) == request.time;
     }
     // Aviso a CPEN da unidade (exame concluido): quem conclui (SR/perfis regionais da propria SR ou DPP)
-    // avisa, ligado a versao fechada atual; a CPEN da unidade do exame so marca "ciente" no aviso existente.
+    // avisa, ligado a versao fechada atual (o aviso sai do sininho da CPEN quando ela abre o exame; nada e gravado).
     function avisoCpenOk(n, a, h) {
       let v = n.get('avisoCpen', {});
-      let antes = a.get('avisoCpen', {});
       return n.diff(a).affectedKeys().hasOnly(['avisoCpen','rev','updatedBy','updatedByNome','updatedAt'])
-        && (h.acao == 'avisouCpen' ? (
-              ehRegionalOuDPPDo(a)
-              && v.get('versao', null) == a.get('versaoFinal', null)
-              && v.get('por', null) == request.auth.uid
-              && v.get('em', null) == request.time
-              && v.get('ciente', null) == false)
-          : h.acao == 'cpenCiente'
-            && ativo() && perfilAtual().perfil == 'CPEN'
-            && perfilAtual().get('unidade', null) == a.get('unidade', null)
-            && antes.get('versao', null) == a.get('versaoFinal', null)
-            && antes.get('ciente', null) == false
-            && v.diff(antes).affectedKeys().hasOnly(['ciente','cienteBy','cienteNome','cienteEm'])
-            && v.get('ciente', null) == true
-            && v.get('cienteBy', null) == request.auth.uid
-            && v.get('cienteEm', null) == request.time);
+        && h.acao == 'avisouCpen'
+        && ehRegionalOuDPPDo(a)
+        && v.get('versao', null) == a.get('versaoFinal', null)
+        && v.get('por', null) == request.auth.uid
+        && v.get('em', null) == request.time;
     }
     function transicaoOk(examId) {
       let de = resource.data.get('status', 'andamento');

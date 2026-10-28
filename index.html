@@ -1987,9 +1987,9 @@ const App = {
     if(perfisNovos.includes(p.perfil) && p.avisosVistoEm)
       this.data.exames.filter(e=>this.exameNovoPara(e,p)).forEach(e=>it.push({chave:"ex:"+e.id,
         txt:`Novo exame: <b>${esc(e.nome)}</b> — ${esc(e.unid||"")}`, plano:"Novo exame: "+e.nome+" — "+(e.unid||""), acao:`App.abrir('${e.id}')`}));
-    /* CPEN da unidade: exames concluídos avisados pela SR/DPP, até marcar "Ciente" no exame */
+    /* CPEN da unidade: exames concluídos avisados pela SR/DPP, até abrir o exame */
     if(p.perfil==="CPEN")
-      this.data.exames.filter(e=>this.avisoCpenAtual(e) && !e.avisoCpen.ciente && this.ehCpenDoExame(e)).forEach(e=>it.push({chave:"cp:"+e.id+":"+e.versaoFinal,
+      this.data.exames.filter(e=>this.avisoCpenAtual(e) && this.ehCpenDoExame(e) && !this.cpenAvisoVisto(e)).forEach(e=>it.push({chave:"cp:"+e.id+":"+e.versaoFinal,
         txt:`Exame concluído: <b>${esc(e.nome)}</b> — relatório pronto para encaminhar ao Juízo`, plano:"Exame concluído: "+e.nome+" — relatório pronto para encaminhar ao Juízo", acao:`App.abrir('${e.id}')`}));
     if(this.ehHctp()){
       (this.data.hctp||[]).filter(h=>h.status==="solicitado"||h.novidadeParaHctp).forEach(h=>it.push({chave:"hh:"+h.id+":"+h.status+":"+(h.eventos||[]).length,
@@ -3584,7 +3584,7 @@ Continuar mesmo assim (sem salvar)?`);
       if((doFormulario && ex.id===this.editId) || (criando && o.doFormulario && o.formSeq===this._formSeq)) this._relOkRemarcadas=new Set();
       if(criando && o.doFormulario && o.formSeq===this._formSeq) this.editId=ex.id;
       if(ex.id===this.editId){
-        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: ["reabriu","excluiu","peticionou","desfezPeticao","avisouCpen","cpenCiente"].includes(o.acao) ? base.conteudo : this.conteudoExame(ex) };
+        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: ["reabriu","excluiu","peticionou","desfezPeticao","avisouCpen"].includes(o.acao) ? base.conteudo : this.conteudoExame(ex) };
         this._avisoConflito=null;
         const vivo=this.data.exames.find(x=>x.id===ex.id);
         if(vivo) this.atualizarEstadoExame(vivo);
@@ -3751,26 +3751,31 @@ Continuar mesmo assim (sem salvar)?`);
   },
   /* ---------- aviso à CPEN da unidade (depois de concluído) ----------
      quem conclui (SR/DPP) avisa: fica gravado no exame — aparece no sininho da CPEN da unidade até ela
-     marcar "Ciente" — e abre o e-mail pronto para as contas CPEN da unidade. Vale para a versão fechada
-     atual: se o exame for reaberto e concluído de novo, a nova versão volta a "CPEN não avisada" */
+     abrir o exame (guardado neste navegador) — e abre o e-mail pronto para as contas CPEN da unidade. Vale
+     para a versão fechada atual: se o exame for reaberto e concluído de novo, a nova versão volta a "CPEN não avisada" */
   avisoCpenAtual(e){
     const a=(e&&e.avisoCpen)||{};
     return !!(e && e.status==="concluido" && a.por && a.versao===e.versaoFinal);
   },
   ehCpenDoExame(ex){ const p=this._meuPerfil||{}; return p.perfil==="CPEN" && !!ex && (ex.unidade||ex.unid)===p.unidade; },
+  cpenAvisosVistos(){ try{ return JSON.parse(localStorage.getItem("cpenAvisosVistos")||"[]"); }catch(e){ return []; } },
+  cpenAvisoVisto(e){ return this.cpenAvisosVistos().includes(e.id+":"+e.versaoFinal); },
   atualizarAvisoCpen(ex){
     const box=document.getElementById("avisoCpenBox");
     const concl=!!ex && ex.status==="concluido";
     box.style.display = concl ? "" : "none";
     if(!concl) return;
     const a=ex.avisoCpen||{}, avisado=this.avisoCpenAtual(ex), podeAvisar=this.podeConcluir(ex);
-    box.classList.toggle("ok", avisado && !!a.ciente);
+    box.classList.toggle("ok", avisado);
     const info=[], btns=[];
     if(avisado){
       info.push("<b>CPEN avisada</b> por "+esc(a.porNome||"?")+" em "+fmtTs(a.em)+".");
-      info.push(a.ciente ? "CPEN ciente: "+esc(a.cienteNome||"?")+" em "+fmtTs(a.cienteEm)+"." : "Aguardando a CPEN da unidade marcar \"Ciente\".");
       if(podeAvisar) btns.push(`<button class="btn sm ghost" type="button" onclick="App.avisarCpenEmail()">✉ Enviar o e-mail à CPEN de novo</button>`);
-      if(!a.ciente && this.ehCpenDoExame(ex)) btns.push(`<button class="btn sm" type="button" onclick="App.cpenCiente()">✓ Ciente</button>`);
+      /* a CPEN abriu o exame: o aviso sai do sininho dela */
+      if(this.ehCpenDoExame(ex) && !this.cpenAvisoVisto(ex)){
+        try{ localStorage.setItem("cpenAvisosVistos", JSON.stringify([...this.cpenAvisosVistos(), ex.id+":"+ex.versaoFinal].slice(-300))); }catch(e){}
+        this.atualizarNotificacoes();
+      }
     } else {
       info.push(podeAvisar ? "Avise a CPEN de "+esc(ex.unid||"unidade")+" que o exame está concluído e o relatório pode ser encaminhado ao Juízo: o aviso aparece no sistema para a CPEN e abre o e-mail pronto." : "A CPEN da unidade ainda não foi avisada da conclusão (o aviso é dado pela SR ou pelo DPP).");
       if(a.por && a.versao!==ex.versaoFinal) info.push("A versão fechada nº "+a.versao+" foi avisada em "+fmtTs(a.em)+"; esta nova versão (nº "+ex.versaoFinal+") ainda não.");
@@ -3799,23 +3804,12 @@ Continuar mesmo assim (sem salvar)?`);
     const texto=["Prezados(as),","",
       "Informamos que o exame criminológico de "+ex.nome+(ex.mat?" (IPEN "+ex.mat+")":"")+(ex.proc?", processo de execução "+ex.proc+",":"")+" foi concluído"+(ex.versaoFinal?" (versão fechada nº "+ex.versaoFinal+")":"")+".",
       "O relatório está disponível no sistema e pode ser encaminhado ao Juízo da Execução / peticionado no SEEU.","",
-      "Acesse: https://criminologico.web.app (abra o exame e clique em \"Ciente\" no quadro \"Aviso à CPEN da unidade\").","",
+      "Acesse: https://criminologico.web.app","",
       "Atenciosamente,",(this._meuPerfil&&this._meuPerfil.nome)||""].join("\n");
     this.abrirEmailModal("Avisar a CPEN: exame concluído",
       c=>c.perfil==="CPEN" && c.unidade===unid,
       "Exame criminológico concluído — "+ex.nome, texto,
       "Ninguém da CPEN de "+(unid||"unidade")+" tem conta com e-mail no sistema — o aviso ficou só no sistema; avise por outro meio.");
-  },
-  cpenCiente(){
-    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
-    if(!ex || !this.avisoCpenAtual(ex) || ex.avisoCpen.ciente) return;
-    if(!this.ehCpenDoExame(ex)){ alert("Só a CPEN da unidade marca \"Ciente\"."); return; }
-    const msg=document.getElementById("salvoMsg");
-    msg.style.color="var(--mut)"; msg.textContent="Gravando…";
-    this.gravarExame(ex,{acao:"cpenCiente",
-        alteracoes:[{campo:"avisoCpen", rotulo:this.ROTULO_CAMPO.avisoCpen, antes:"avisada", depois:"ciente"}], secoes:["CPEN"]}).then(()=>{
-      msg.style.color="var(--ok)"; msg.textContent="✓ Ciência registrada.";
-    }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ Não foi gravado: "+e.message; });
   },
   reabrir(){
     if(!this.editId) return;
@@ -5853,12 +5847,8 @@ const ExamesFS = {
       payload = { ...meta, peticionado: { ok: o.peticao.ok, data: o.peticao.data || null, versao: ex.versaoFinal || null,
         por: quem.uid, porNome: quem.nome, em: agora } };
     }else if(o.acao === "avisouCpen"){
-      /* exame concluído: aviso à CPEN da unidade, ligado à versão fechada atual (o "ciente" de um aviso anterior é zerado) */
-      payload = { ...meta, avisoCpen: { versao: ex.versaoFinal || null, por: quem.uid, porNome: quem.nome, em: agora,
-        ciente: false, cienteBy: null, cienteNome: null, cienteEm: null } };
-    }else if(o.acao === "cpenCiente"){
-      /* gravação com merge: só os campos do "ciente" mudam no aviso */
-      payload = { ...meta, avisoCpen: { ciente: true, cienteBy: quem.uid, cienteNome: quem.nome, cienteEm: agora } };
+      /* exame concluído: aviso à CPEN da unidade, ligado à versão fechada atual */
+      payload = { ...meta, avisoCpen: { versao: ex.versaoFinal || null, por: quem.uid, porNome: quem.nome, em: agora } };
     }else if(o.acao === "excluiu"){
       payload = { ...meta, status: "excluido", excluidoBy: quem.uid, excluidoByNome: quem.nome, excluidoAt: agora, motivoExclusao: o.motivo };
     }else{
