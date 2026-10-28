@@ -3088,6 +3088,7 @@ Continuar mesmo assim (sem salvar)?`);
      "q_direcao","q_chefiaSeg","q_execPenal","q_ativLab","q_ensino","q_psq","q_psi","q_as","q_coord",
      "q_direcao_mat","q_chefiaSeg_mat","q_execPenal_mat","q_ativLab_mat","q_ensino_mat","q_psq_mat","q_psi_mat","q_as_mat","q_coord_mat","q_detOrigem","q_impedimento","q_defesaNome","q_defesaOAB",
      "r_met","r_direcao","r_chefiaSeg","r_execPenal","r_ativLab","r_ensino","r_soc","r_psi","r_psq","r_sin","r_diverg","r_limit","e_obs"].forEach(id=>document.getElementById(id).value="");
+    document.getElementById("e_dataIni").value=isoHoje(); /* início da avaliação: dia do cadastro (pode ser alterado) */
     r_met.value=TEXTO_MODELO.met;
     r_direcao.value=TEXTO_MODELO.direcao; r_chefiaSeg.value=TEXTO_MODELO.chefiaSeg; r_execPenal.value=TEXTO_MODELO.execPenal;
     r_ativLab.value=TEXTO_MODELO.ativLab; r_ensino.value=TEXTO_MODELO.ensino;
