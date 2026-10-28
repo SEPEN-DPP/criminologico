@@ -645,7 +645,7 @@
 
     <div class="row c3" style="margin-top:6px;">
       <div><label class="f">Data da decisão judicial</label><input type="date" id="e_dataDecisao" onchange="App.triagem()"></div>
-      <div><label class="f">Prazo-limite para conclusão do exame (vem do BPI — data prevista da progressão; sem ela, 30 dias após a decisão; pode ser alterado)</label><input type="date" id="e_prazo" onchange="App.prazoEditado()" style="font-weight:700;"></div>
+      <div><label class="f">Prazo-limite para conclusão do exame (30 dias após a decisão judicial; pode ser alterado)</label><input type="date" id="e_prazo" onchange="App.prazoEditado()" style="font-weight:700;"></div>
       <div><label class="f">Data prevista da progressão (requisito objetivo)</label><input type="date" id="e_dataProg"></div>
     </div>
     <div class="row c3">
@@ -1627,8 +1627,8 @@ const Extractor = {
     }
 
     /* data prevista da progressão — Régua penal do BPI ("Semiaberto: 23/10/2029 Aberto: N I"): vale a data do
-       próximo regime (do semiaberto vai para o aberto; dos demais, para o semiaberto). Também vira o prazo-limite
-       do exame (editável) */
+       próximo regime (do semiaberto vai para o aberto; dos demais, para o semiaberto). Só informativa: o
+       prazo-limite do exame é sempre 30 dias após a decisão (até 28/10/2026 esta data virava o prazo) */
     {
       const dt=rot=>{ const x=new RegExp("\\b"+rot+":\\s*(\\d{2})\\/(\\d{2})\\/(\\d{4})").exec(t); return x?{d:x[1],mo:x[2],a:x[3],rot}:null; };
       const sa=dt("Semiaberto"), ab=dt("Aberto");
@@ -1636,8 +1636,7 @@ const Extractor = {
       if(c){
         const iso=c.a+"-"+c.mo+"-"+c.d;
         document.getElementById("e_dataProg").value=iso;
-        document.getElementById("e_prazo").value=iso; App._prazoManual = iso!==App.prazoAutoISO();
-        found.push("Data prevista da progressão ("+c.rot.toLowerCase()+"): "+c.d+"/"+c.mo+"/"+c.a+" — usada como prazo-limite (conferir)");
+        found.push("Data prevista da progressão ("+c.rot.toLowerCase()+"): "+c.d+"/"+c.mo+"/"+c.a+" (conferir)");
       } else missing.push("data prevista da progressão (BPI)");
     }
 
@@ -3386,7 +3385,7 @@ Continuar mesmo assim (sem salvar)?`);
     e_nome.value=ex.nome||""; e_mat.value=ex.mat||""; e_proc.value=ex.proc||""; document.getElementById("e_sgpe").value=ex.sgpe||"";
     document.getElementById("e_crimeSexual").checked=!!ex.crimeSexual;
     this.renderUnidadeSel(ex.unid||"");
-    e_tipo.value=ex.tipo||"progressao"; document.getElementById("e_dataDecisao").value=ex.dataDecisao||""; this._prazoManual=!!ex.prazo; document.getElementById("e_prazo").value=ex.prazo||""; e_dataProg.value=ex.dataProg||""; document.getElementById("e_dataBase").value=ex.dataBase||""; e_obs.value=ex.obs||"";
+    e_tipo.value=ex.tipo||"progressao"; document.getElementById("e_dataDecisao").value=ex.dataDecisao||""; this._prazoManual=!!this.prazoManualGravado(ex); document.getElementById("e_prazo").value=this.prazoManualGravado(ex); e_dataProg.value=ex.dataProg||""; document.getElementById("e_dataBase").value=ex.dataBase||""; e_obs.value=ex.obs||"";
     document.getElementById("e_faltaNaoReab").value=ex.faltaNaoReab||"";
     document.getElementById("e_exameAnterior").value=ex.exameAnterior||"nao";
     /* importações antigas gravavam "Pai e Mãe" (ex.: "Desconhecido e Fulana") — com pai/mãe desconhecido,
@@ -4376,8 +4375,10 @@ Continuar mesmo assim (sem salvar)?`);
 
   /* ---------- prazo/status ---------- */
   /* prazo para concluir o exame: 30 dias contados da decisão judicial (vale para qualquer finalidade) */
+  prazoManualGravado(ex){ return ex.prazo && ex.prazo!==ex.dataProg ? ex.prazo : ""; }, /* igual à data da progressão = veio do BPI pela regra antiga: não vale */
   prazoLimite(ex){
-    if(ex.prazo) return new Date(ex.prazo+"T00:00:00"); /* prazo alterado à mão na ficha */
+    const manual=this.prazoManualGravado(ex);
+    if(manual) return new Date(manual+"T00:00:00"); /* prazo alterado à mão na ficha */
     if(!ex.dataDecisao) return null;
     const d=new Date(ex.dataDecisao+"T00:00:00"); d.setDate(d.getDate()+30); return d;
   },
