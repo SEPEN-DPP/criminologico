@@ -246,16 +246,34 @@ service cloud.firestore {
         && (!('ent3' in m) || entrevistaOk(n, a, 'ent3', area))
         && (!('entFam' in m) || entrevistaOk(n, a, 'entFam', area)));
     }
+    // Impedimento (psicologo(a)/assistente social da unidade para um avaliado): a conta de Psicologia
+    // ou Servico Social da unidade grava so impedida.<sua secao>, em nome proprio, com motivo, uma vez;
+    // depois disso nao grava mais nada nesse exame (secao e entrevistas passam a cobertura regional).
+    // Desfazer fica com a SR/DPP (regionalOuDPP edita tudo); as demais contas da unidade nao mexem.
+    function impedidaDe(d, p) { return p in ['PSICOLOGIA','SOCIAL'] && d.get('impedida', {}).get(secaoDoPerfil(p), null) != null; }
+    function impedimentoOk(n, a, sec) {
+      let v = n.get('impedida', {}).get(sec, null);
+      return n.diff(a).affectedKeys().hasOnly(['impedida','rev','updatedBy','updatedByNome','updatedAt'])
+        && mudouEm(n, a, 'impedida').hasOnly([sec])
+        && a.get('impedida', {}).get(sec, null) == null
+        && v is map
+        && v.get('motivo', '') is string && v.get('motivo', '').size() > 0
+        && v.get('por', null) == request.auth.uid
+        && v.get('em', null) == request.time;
+    }
     function edicaoPorSecaoOk(n, a, eu) {
       let p = eu.perfil;
       return regionalOuDPP(a, eu) ? true
+        : p in ['PSICOLOGIA','SOCIAL'] && mudouEm(n, a, 'impedida').size() > 0 ? impedimentoOk(n, a, secaoDoPerfil(p))
         : p in ['PSICOLOGIA','SOCIAL','HCTP'] ? (
-            n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt','numCrim','etapas'])
+            !impedidaDe(a, p)
+            && n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt','numCrim','etapas'])
             && entrevistasOk(n, a, areaDoPerfil(p))
             && mudouEm(n, a, 'rel').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOk').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOkPor').hasOnly([secaoDoPerfil(p)]))
-        : !mudouEm(n, a, 'rel').hasAny(['psi','soc'])
+        : mudouEm(n, a, 'impedida').size() == 0
+          && !mudouEm(n, a, 'rel').hasAny(['psi','soc'])
           && !mudouEm(n, a, 'relOk').hasAny(['psi','soc'])
           && !mudouEm(n, a, 'relOkPor').hasAny(['psi','soc']);
     }

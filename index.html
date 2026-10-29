@@ -883,6 +883,7 @@
     </div>
     <div class="relpanel" id="rp-psi">
       <p class="note">Responsável: <span class="resp-tag" id="rp_psiNome">—</span></p>
+      <div id="impBox_psi"></div>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_psi" style="width:15px; height:15px;" onchange="App.marcarRelOk('psi')">
         <span>Seção concluída</span>
@@ -924,6 +925,7 @@
     </div>
     <div class="relpanel" id="rp-soc">
       <p class="note">Responsável: <span class="resp-tag" id="rp_socNome">—</span></p>
+      <div id="impBox_soc"></div>
       <label style="display:flex; align-items:center; gap:6px; margin:2px 0 10px; font-size:12.5px;">
         <input type="checkbox" id="relok_soc" style="width:15px; height:15px;" onchange="App.marcarRelOk('soc')">
         <span>Seção concluída</span>
@@ -1990,6 +1992,12 @@ const App = {
     if(p.perfil==="CPEN")
       this.data.exames.filter(e=>this.avisoCpenAtual(e) && this.ehCpenDoExame(e) && !this.cpenAvisoVisto(e)).forEach(e=>it.push({chave:"cp:"+e.id+":"+e.versaoFinal,
         txt:`Exame concluído: <b>${esc(e.nome)}</b> — relatório pronto para encaminhar ao Juízo`, plano:"Exame concluído: "+e.nome+" — relatório pronto para encaminhar ao Juízo", acao:`App.abrir('${e.id}')`}));
+    /* Centro (SR) e cobertura regional da área: impedimento da profissional da unidade, até abrir o exame */
+    if(["SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil))
+      this.data.exames.filter(e=>e.status==="andamento").forEach(e=>["psi","soc"].forEach(sec=>{
+        if(this.impedimentoAtivo(e, sec) && this.avisadoDoImpedimento(e, sec) && !this.impVistos().includes(this.impVistoChave(e, sec))) it.push({chave:"im:"+this.impVistoChave(e, sec),
+          txt:`Impedimento (${this.SECAO_LABEL[sec]}): <b>${esc(e.nome)}</b> — ${esc(e.unid||"")} — passou à cobertura regional`, plano:"Impedimento ("+this.SECAO_LABEL[sec]+"): "+e.nome+" — "+(e.unid||""), acao:`App.abrir('${e.id}')`});
+      }));
     if(this.ehHctp()){
       (this.data.hctp||[]).filter(h=>h.status==="solicitado"||h.novidadeParaHctp).forEach(h=>it.push({chave:"hh:"+h.id+":"+h.status+":"+(h.eventos||[]).length,
         txt:h.status==="solicitado"?`Pedido de agendamento: <b>${esc(h.nome)}</b> — ${esc(h.cocNome||"")}`:`${esc(h.cocNome||"Centro")}: ${esc(this.HCTP_STATUS[h.status]||h.status)} — <b>${esc(h.nome)}</b>`,
@@ -2025,10 +2033,12 @@ const App = {
   podeAgendarEtapa(ex, k){
     if(this.ehHctp()) return false;
     if(!this.agendaRestrita()) return true;
+    if(this.minhaUnidadeImpedida(ex)) return false;
     const area=(((ex||{}).etapas||{})[k]||{}).area||"";
     return area==="" || area===this.minhaArea();
   },
-  avisoOutraArea(k){
+  avisoOutraArea(k, ex){
+    if(this.minhaUnidadeImpedida(ex)){ alert("Há impedimento declarado neste exame para a "+AREA_LABEL[this.minhaArea()]+" da unidade: as entrevistas e a seção passaram à cobertura regional da Superintendência."); return; }
     alert("A "+this.CAL_TIPOS_LONGO[k].toLowerCase()+" deste exame é da área de "+(AREA_LABEL[this.minhaArea()==="psi"?"social":"psi"])+". Seu perfil agenda só as entrevistas de "+AREA_LABEL[this.minhaArea()]+" (ou da Equipe). Para mudar a área, fale com o Centro.");
   },
   /* entrevistas ainda sem data. Psicologia/Serviço Social da unidade: todas as da própria área (ou Equipe)
@@ -2037,11 +2047,13 @@ const App = {
   calPendencias(){
     const area=this.minhaArea(), p=this._meuPerfil||{};
     let exs=this.data.exames.filter(e=>e.status!=="concluido");
-    /* cobertura regional (SR_PSICOLOGIA/SR_SOCIAL): exames em que está na equipe + os pedidos à SR da regional */
+    /* cobertura regional (SR_PSICOLOGIA/SR_SOCIAL): exames em que está na equipe + os pedidos à SR da regional
+       + os exames com impedimento da profissional da unidade na área */
     const cobertura = area && !this.agendaRestrita();
     const naEquipe = e => !!p.matricula && matIgual(this.matDaEquipe(e.equipe||{}, this.EQ_DA_AREA[area]), p.matricula);
+    const impArea = e => area ? this.impedimentoAtivo(e, this.SEC_DA_AREA[area]) : null;
     if(cobertura){
-      exs=exs.filter(e=>naEquipe(e) || entrevistasDo(e.etapas).some(k=>((e.etapas||{})[k]||{}).srPedido));
+      exs=exs.filter(e=>naEquipe(e) || impArea(e) || entrevistasDo(e.etapas).some(k=>((e.etapas||{})[k]||{}).srPedido));
       if(!p.matricula && !exs.length) return {semMatricula:true, itens:[]};
     } else {
       const geral=this.coc==="_cepen";
@@ -2052,11 +2064,12 @@ const App = {
     exs.forEach(e=>entrevistasDo(e.etapas).forEach(k=>{
       const et=(e.etapas||{})[k]||{}, a=et.area||"";
       if(et.data || et.ok) return;
-      if(this.agendaRestrita() && et.srPedido) return;            /* impedida: foi pedida à Superintendência */
-      if(cobertura && !et.srPedido && !naEquipe(e)) return;
+      if(this.agendaRestrita() && (et.srPedido || this.minhaUnidadeImpedida(e))) return; /* impedida: foi pedida à Superintendência */
+      if(cobertura && !et.srPedido && !naEquipe(e) && !impArea(e)) return;
       if(area && a!=="" && a!==area) return;
       if(!area && this.calFiltroArea && a!==this.calFiltroArea) return;
-      itens.push({e, k, area:a, sr:!!et.srPedido, srMotivo:et.srMotivo||"", pz:this.prazoInfo(e), lim:this.prazoLimite(e)});
+      const imp = impArea(e) || this.impedidaNaArea(e, a);
+      itens.push({e, k, area:a, sr:!!(et.srPedido||imp), srMotivo:et.srMotivo||(imp?"Impedimento: "+(imp.motivo||""):""), pz:this.prazoInfo(e), lim:this.prazoLimite(e)});
     }));
     itens.sort((x,y)=>(x.lim?x.lim.getTime():9e15)-(y.lim?y.lim.getTime():9e15));
     return {itens};
@@ -2098,7 +2111,7 @@ const App = {
   /* impedimento da profissional da unidade: a entrevista vai para a cobertura regional da SR */
   calPedirSR(exId, k){
     const ex=this.data.exames.find(x=>x.id===exId); if(!ex) return;
-    if(!this.podeAgendarEtapa(ex, k)){ this.avisoOutraArea(k); return; }
+    if(!this.podeAgendarEtapa(ex, k)){ this.avisoOutraArea(k, ex); return; }
     const motivo=prompt("Motivo do impedimento (vai para a Superintendência e fica no histórico do exame):"); if(motivo===null) return;
     if(!motivo.trim()){ alert("Informe o motivo."); return; }
     const et=(ex.etapas||{})[k]||{};
@@ -2528,7 +2541,8 @@ const App = {
     if(this.ehHctp()){ this.avisoSoSecao(); return; }
     const exId=document.getElementById("calfExame").value;
     const tipo=document.getElementById("calfTipo").value;
-    if(!this.podeAgendarEtapa(this.data.exames.find(x=>x.id===exId), tipo)){ this.avisoOutraArea(tipo); return; }
+    const exAg=this.data.exames.find(x=>x.id===exId);
+    if(!this.podeAgendarEtapa(exAg, tipo)){ this.avisoOutraArea(tipo, exAg); return; }
     const f=this.calLerForm(tipo);
     if(!f.data){ alert("Informe a data."); return; }
     if(!f.hora){ alert("Informe o horário — ele é necessário para o sistema conferir se já não há outra entrevista marcada no mesmo horário."); return; }
@@ -2544,7 +2558,7 @@ const App = {
     if(this.ehHctp()){ this.avisoSoSecao(); return; }
     const {exId,k}=this.calFormAberto||{};
     const exServidor=this.data.exames.find(x=>x.id===exId); if(!exServidor) return;
-    if(!this.podeAgendarEtapa(exServidor, k)){ this.avisoOutraArea(k); return; }
+    if(!this.podeAgendarEtapa(exServidor, k)){ this.avisoOutraArea(k, exServidor); return; }
     if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de alterar."); return; }
     const f=this.calLerForm(k);
     if(!f.data){ alert("Informe a data. Para tirar a entrevista do calendário, use Desmarcar entrevista."); return; }
@@ -2559,7 +2573,7 @@ const App = {
     if(this.ehHctp()){ this.avisoSoSecao(); return; }
     const {exId,k}=this.calFormAberto||{};
     const exServidor=this.data.exames.find(x=>x.id===exId); if(!exServidor) return;
-    if(!this.podeAgendarEtapa(exServidor, k)){ this.avisoOutraArea(k); return; }
+    if(!this.podeAgendarEtapa(exServidor, k)){ this.avisoOutraArea(k, exServidor); return; }
     if(exServidor.status==="concluido"){ alert("Este exame está concluído — a SR ou o DPP precisa reabri-lo antes de alterar."); return; }
     const et=(exServidor.etapas||{})[k]||{};
     if(!confirm("Desmarcar a "+this.CAL_TIPOS_LONGO[k].toLowerCase()+" de "+exServidor.nome+" ("+fmt(et.data)+(et.hora?" às "+et.hora:"")+")?\n\nEla sai do calendário e o horário fica livre.")) return;
@@ -3326,6 +3340,7 @@ Continuar mesmo assim (sem salvar)?`);
     if(exServidor && exServidor.status==="concluido"){ alert("Este exame está concluído. Para alterar, a SR ou o DPP precisa reabri-lo."); return; }
     const sx=this.secaoExclusiva();
     if(sx && !exServidor){ this.avisoSoSecao(); return; }
+    if(this.minhaUnidadeImpedida(exServidor)){ alert("Há impedimento declarado neste exame: a seção de "+this.SECAO_LABEL[sx]+" passou à cobertura regional da Superintendência."); return; }
     let ex = exServidor ? {...exServidor} : {id:uid(), coc:(this.cocDaUnidade(unid)||{}).id||this.coc, criadoEm:new Date().toISOString(), status:"andamento"};
     const form=this.lerFormulario();
     if(sx){
@@ -3461,7 +3476,7 @@ Continuar mesmo assim (sem salvar)?`);
      exigem). _base guarda a versão do servidor em que o formulário aberto se
      apoia: é contra ela que se calcula o "antes/depois" e o número da versão. */
   META_EXAME: ["id","coc","status","criadoEm","unidade","sr","rev","createdBy","createdByNome","createdAt","updatedBy","updatedByNome","updatedAt",
-    "finalizedBy","finalizedByNome","finalizedAt","versaoFinal","excluidoBy","excluidoByNome","excluidoAt","motivoExclusao","relOkPor","numCrim","peticionado","avisoCpen"],
+    "finalizedBy","finalizedByNome","finalizedAt","versaoFinal","excluidoBy","excluidoByNome","excluidoAt","motivoExclusao","relOkPor","numCrim","peticionado","avisoCpen","impedida"],
   conteudoExame(ex){
     const out={};
     Object.keys(ex||{}).forEach(k=>{ if(!this.META_EXAME.includes(k) && ex[k]!==undefined) out[k]=ex[k]; });
@@ -3584,7 +3599,7 @@ Continuar mesmo assim (sem salvar)?`);
       if((doFormulario && ex.id===this.editId) || (criando && o.doFormulario && o.formSeq===this._formSeq)) this._relOkRemarcadas=new Set();
       if(criando && o.doFormulario && o.formSeq===this._formSeq) this.editId=ex.id;
       if(ex.id===this.editId){
-        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: ["reabriu","excluiu","peticionou","desfezPeticao","avisouCpen"].includes(o.acao) ? base.conteudo : this.conteudoExame(ex) };
+        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: ["reabriu","excluiu","peticionou","desfezPeticao","avisouCpen","declarouImpedimento","desfezImpedimento"].includes(o.acao) ? base.conteudo : this.conteudoExame(ex) };
         this._avisoConflito=null;
         const vivo=this.data.exames.find(x=>x.id===ex.id);
         if(vivo) this.atualizarEstadoExame(vivo);
@@ -3632,9 +3647,9 @@ Continuar mesmo assim (sem salvar)?`);
     if(sx){
       document.querySelectorAll("#v-novo input, #v-novo textarea, #v-novo select").forEach(el=>{
         if(el.closest("#novoPreviewCol")) return;
-        if(el.id!=="r_"+sx && el.id!=="relok_"+sx) el.disabled=true;
+        if((el.id!=="r_"+sx && el.id!=="relok_"+sx) || this.minhaUnidadeImpedida(this.editId && this.data.exames.find(x=>x.id===this.editId))) el.disabled=true;
       });
-      const livres=/relTab|novoTab|salvar|imprimir\(|Historico|fecharAviso|avisarEquipe|toggleEditarPreview|irParaEtapas|copiarAviso|baixarAnexo/;
+      const livres=/relTab|novoTab|salvar|imprimir\(|Historico|fecharAviso|avisarEquipe|toggleEditarPreview|irParaEtapas|copiarAviso|baixarAnexo|Impedimento/;
       document.querySelectorAll("#v-novo button").forEach(b=>{ if(!livres.test(b.getAttribute("onclick")||"")) b.disabled=true; });
     }
     this.secoesBloqueadas().forEach(k=>{
@@ -3654,6 +3669,7 @@ Continuar mesmo assim (sem salvar)?`);
     this.setSomenteLeitura(concl);
     this.atualizarPeticao(ex);
     this.atualizarAvisoCpen(ex);
+    this.renderImpedimento(ex);
     const linhas=[];
     if(ex){
       linhas.push(ex.createdBy ? "Criado por "+esc(ex.createdByNome||"?")+" em "+fmtTs(ex.createdAt) : "Criado antes da trilha de auditoria"+(ex.criadoEm?" (em "+fmtTs(ex.criadoEm)+")":""));
@@ -3749,6 +3765,79 @@ Continuar mesmo assim (sem salvar)?`);
       this.renderDash(); this.renderLista();
     }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ Não foi gravado: "+e.message; reverter(); });
   },
+  /* ---------- impedimento da psicóloga / assistente social da unidade para um avaliado ----------
+     A profissional da unidade marca "Declaro-me impedido(a)" na própria seção (com motivo): a seção e as
+     entrevistas da área (e as da Equipe) deste exame passam à cobertura regional da SR (SR_PSICOLOGIA/
+     SR_SOCIAL). O Centro (contas SR) e a cobertura da área são avisados pelo sininho — até abrirem o exame
+     (guardado neste navegador) — e por e-mail (Gmail preenchido). A SR ou o DPP pode desfazer. */
+  SEC_DA_AREA: {psi:"psi", social:"soc"},
+  impedimentoAtivo(ex, sec){ const i=((ex||{}).impedida||{})[sec]; return i && i.por ? i : null; },
+  impedidaNaArea(ex, area){ return area ? this.impedimentoAtivo(ex, this.SEC_DA_AREA[area]) : (this.impedimentoAtivo(ex,"psi") || this.impedimentoAtivo(ex,"soc")); },
+  minhaUnidadeImpedida(ex){ const sx=this.agendaRestrita() && this.secaoExclusiva(); return !!(sx && ex && this.impedimentoAtivo(ex, sx)); },
+  avisadoDoImpedimento(ex, sec){ const p=this._meuPerfil||{}; return !!ex && ex.sr===p.sr && (p.perfil==="SR" || p.perfil===(sec==="psi"?"SR_PSICOLOGIA":"SR_SOCIAL")); },
+  impVistoChave(ex, sec){ const i=this.impedimentoAtivo(ex, sec)||{}; return ex.id+":"+sec+":"+((i.em&&i.em.seconds)||""); },
+  impVistos(){ try{ return JSON.parse(localStorage.getItem("impedimentosVistos")||"[]"); }catch(e){ return []; } },
+  renderImpedimento(ex){
+    ["psi","soc"].forEach(sec=>{
+      const box=document.getElementById("impBox_"+sec); if(!box) return;
+      const imp=ex && this.impedimentoAtivo(ex, sec), nome=this.SECAO_LABEL[sec];
+      if(imp){
+        const pode=ex.status==="andamento" && this.podeExcluir(ex);
+        box.innerHTML=`<div class="orient warn" style="margin:0 0 10px;"><b>Impedimento declarado</b> por ${esc(imp.porNome||"?")}${imp.porMat?" (matrícula "+esc(imp.porMat)+")":""} em ${fmtTs(imp.em)} — motivo: ${esc(imp.motivo||"")}<br>A seção de ${nome} e as entrevistas de ${nome} (e as da Equipe) deste avaliado passaram à cobertura regional da Superintendência.
+          ${pode?`<div class="btnrow" style="margin-top:8px;"><button class="btn sm ghost" type="button" onclick="App.avisarImpedimentoEmail('${sec}')">✉ Enviar o e-mail de novo</button> <button class="btn sm ghost" type="button" onclick="App.desfazerImpedimento('${sec}')">Desfazer impedimento</button></div>`:""}</div>`;
+        /* Centro / cobertura abriu o exame: o aviso sai do sininho */
+        const chave=this.impVistoChave(ex, sec);
+        if(this.avisadoDoImpedimento(ex, sec) && !this.impVistos().includes(chave)){
+          try{ localStorage.setItem("impedimentosVistos", JSON.stringify([...this.impVistos(), chave].slice(-300))); }catch(e){}
+          this.atualizarNotificacoes();
+        }
+      } else if(ex && ex.status==="andamento" && this.agendaRestrita() && this.secaoExclusiva()===sec){
+        box.innerHTML=`<label style="display:flex; align-items:center; gap:6px; margin:2px 0 4px; font-size:12.5px;">
+            <input type="checkbox" id="impChk_${sec}" style="width:15px; height:15px;" onchange="App.declararImpedimento('${sec}', this)">
+            <span>Declaro-me impedido(a) de atender este avaliado</span></label>
+          <p class="note" style="margin:0 0 10px;">Ao marcar, informe o motivo: a seção e as entrevistas de ${nome} deste avaliado passam à cobertura regional, e o Centro e a profissional de cobertura são avisados (sistema e e-mail).</p>`;
+      } else box.innerHTML="";
+    });
+  },
+  declararImpedimento(sec, chk){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    if(!ex || ex.status!=="andamento" || this.secaoExclusiva()!==sec){ chk.checked=false; return; }
+    const motivo=prompt("Motivo do impedimento para atender "+ex.nome+" (vai para o Centro e para a cobertura regional e fica no histórico do exame):");
+    if(motivo===null || !motivo.trim()){ if(motivo!==null) alert("Informe o motivo."); chk.checked=false; return; }
+    if(!confirm("Declarar-se impedido(a) de atender "+ex.nome+"?\n\nA seção de "+this.SECAO_LABEL[sec]+" e as entrevistas da sua área deste avaliado passam à cobertura regional da Superintendência, e você deixa de editá-las. Só a SR ou o DPP pode desfazer.")){ chk.checked=false; return; }
+    const msg=document.getElementById("salvoMsg");
+    msg.style.color="var(--mut)"; msg.textContent="Gravando…";
+    this.gravarExame(ex,{acao:"declarouImpedimento", impedimento:{sec, motivo:motivo.trim()},
+        alteracoes:[{campo:"impedida."+sec, rotulo:"Impedimento — "+this.SECAO_LABEL[sec], antes:"não", depois:"impedido(a) — "+motivo.trim()}], secoes:["Impedimento"]}).then(()=>{
+      msg.style.color="var(--ok)"; msg.textContent="✓ Impedimento registrado: o exame passou à cobertura regional. Confira o e-mail e clique em Enviar.";
+      this.avisarImpedimentoEmail(sec);
+    }).catch(e=>{ chk.checked=false; msg.style.color="#B4232B"; msg.textContent="⚠ O impedimento não foi gravado: "+e.message; });
+  },
+  desfazerImpedimento(sec){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    if(!ex || !this.impedimentoAtivo(ex, sec)) return;
+    if(!this.podeExcluir(ex)){ alert("Somente a Superintendência Regional ou o DPP desfaz o impedimento."); return; }
+    const motivo=(prompt("Motivo para desfazer o impedimento (fica registrado no histórico):")||"").trim();
+    if(!motivo){ alert("Cancelado: o motivo é obrigatório."); return; }
+    const msg=document.getElementById("salvoMsg");
+    this.gravarExame(ex,{acao:"desfezImpedimento", impedimento:{sec}, motivo,
+        alteracoes:[{campo:"impedida."+sec, rotulo:"Impedimento — "+this.SECAO_LABEL[sec], antes:"impedido(a) — "+(ex.impedida[sec].motivo||""), depois:"não"}], secoes:["Impedimento"]}).then(()=>{
+      msg.style.color="var(--ok)"; msg.textContent="✓ Impedimento desfeito: a seção e as entrevistas voltaram à unidade.";
+    }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ Não foi desfeito: "+e.message; });
+  },
+  avisarImpedimentoEmail(sec){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId); if(!ex) return;
+    const imp=this.impedimentoAtivo(ex, sec)||{}, nome=this.SECAO_LABEL[sec], cob=sec==="psi"?"SR_PSICOLOGIA":"SR_SOCIAL";
+    const lim=this.prazoLimite(ex);
+    this.abrirEmailModal("Impedimento: avisar o Centro e a cobertura regional", c=>c.sr===ex.sr && (c.perfil==="SR" || c.perfil===cob),
+      "Impedimento ("+nome+") — exame criminológico de "+ex.nome+(ex.mat?" (IPEN "+ex.mat+")":""),
+      ["Prezados(as),","",
+       (imp.porNome||(this._meuPerfil||{}).nome||"A profissional da unidade")+" ("+nome+" — "+(ex.unid||"unidade")+") declarou-se impedido(a) de atender o avaliado abaixo. A seção de "+nome+" e as entrevistas da área passam à cobertura regional da Superintendência.","",
+       "Avaliado: "+ex.nome+(ex.mat?" — IPEN "+ex.mat:""), "Unidade: "+(ex.unid||"—"), lim?"Prazo do exame: "+lim.toLocaleDateString("pt-BR"):null,
+       "Motivo do impedimento: "+(imp.motivo||""),"",
+       "Acesse: https://criminologico.web.app (o exame aparece no sininho e, no Calendário, em \"Entrevistas a agendar\").","","Atenciosamente,",(this._meuPerfil&&this._meuPerfil.nome)||""].filter(l=>l!==null).join("\n"),
+      "Ninguém do Centro ou da cobertura regional desta Superintendência tem conta com e-mail no sistema — o aviso ficou só no sistema; avise por outro meio.");
+  },
   /* ---------- aviso à CPEN da unidade (depois de concluído) ----------
      quem conclui (SR/DPP) avisa: fica gravado no exame — aparece no sininho da CPEN da unidade até ela
      abrir o exame (guardado neste navegador) — e abre o e-mail pronto para as contas CPEN da unidade. Vale
@@ -3835,7 +3924,7 @@ Continuar mesmo assim (sem salvar)?`);
     }).catch(e=>alert("Não foi excluído: "+e.message));
   },
   /* ---------- histórico e versões fechadas ---------- */
-  ROTULO_ACAO: { criou:"criou o exame", alterou:"alterou", concluiu:"concluiu (versão fechada)", reabriu:"reabriu", excluiu:"excluiu", peticionou:"registrou o peticionamento no SEEU", desfezPeticao:"desfez o registro de peticionamento no SEEU", avisouCpen:"avisou a CPEN da unidade (exame concluído)", cpenCiente:"marcou ciente do aviso de exame concluído (CPEN)" },
+  ROTULO_ACAO: { criou:"criou o exame", alterou:"alterou", concluiu:"concluiu (versão fechada)", reabriu:"reabriu", excluiu:"excluiu", peticionou:"registrou o peticionamento no SEEU", desfezPeticao:"desfez o registro de peticionamento no SEEU", avisouCpen:"avisou a CPEN da unidade (exame concluído)", declarouImpedimento:"declarou impedimento para atender o avaliado", desfezImpedimento:"desfez o impedimento", cpenCiente:"marcou ciente do aviso de exame concluído (CPEN)" },
   valorHist(v){
     if(v===null || v===undefined || v==="") return '<span class="muted">(vazio)</span>';
     if(typeof v==="boolean") return v?"sim":"não";
@@ -3913,10 +4002,12 @@ Continuar mesmo assim (sem salvar)?`);
     const deUnidade=["USUARIO","PSICOLOGIA","SOCIAL","CPEN","DIR","SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil); /* Centro: exames novos da regional */
     const novos = deUnidade && p.avisosVistoEm ? this.data.exames.filter(e=>this.exameNovoPara(e,p)) : [];
     const pend=[];
-    if(p.matricula){
+    const secCob={SR_PSICOLOGIA:"psi", SR_SOCIAL:"soc"}[p.perfil];
+    if(p.matricula || secCob){
       this.data.exames.filter(e=>e.status==="andamento").forEach(e=>{
         const eq=e.equipe||{}, relOk=e.relOk||{}, sup=e.sup||{};
-        const secoes=Object.keys(this.SECAO_EQ).filter(k=>!relOk[k] && !sup[k] && matIgual(this.matDaEquipe(eq,this.SECAO_EQ[k]), p.matricula));
+        const secoes=Object.keys(this.SECAO_EQ).filter(k=>!relOk[k] && !sup[k] && ((p.matricula && matIgual(this.matDaEquipe(eq,this.SECAO_EQ[k]), p.matricula))
+          || (k===secCob && this.impedimentoAtivo(e, k)))); /* cobertura: seção da área com impedimento da unidade */
         if(secoes.length) pend.push({e, secoes});
       });
     }
@@ -5851,10 +5942,15 @@ const ExamesFS = {
     }else if(o.acao === "avisouCpen"){
       /* exame concluído: aviso à CPEN da unidade, ligado à versão fechada atual */
       payload = { ...meta, avisoCpen: { versao: ex.versaoFinal || null, por: quem.uid, porNome: quem.nome, em: agora } };
+    }else if(o.acao === "declarouImpedimento" || o.acao === "desfezImpedimento"){
+      /* impedimento da psicóloga / assistente social da unidade: só o campo impedida.<seção> */
+      payload = { ...meta, impedida: { [o.impedimento.sec]: o.acao === "desfezImpedimento" ? null
+        : { motivo: o.impedimento.motivo, por: quem.uid, porNome: quem.nome, porMat: meuPerfilDoc?.matricula || "", porPerfil: quem.perfil, em: agora } } };
     }else if(o.acao === "excluiu"){
       payload = { ...meta, status: "excluido", excluidoBy: quem.uid, excluidoByNome: quem.nome, excluidoAt: agora, motivoExclusao: o.motivo };
     }else{
       payload = { ...ex, ...meta, unidade: ex.unid || null, sr: srDaUnidade(ex.unid) || meuPerfilDoc?.sr || null };
+      delete payload.impedida; /* o impedimento só muda pelas ações próprias acima */
       if(!o.base){ Object.assign(payload, { createdBy: quem.uid, createdByNome: quem.nome, createdAt: agora, status: "andamento" }); }
       /* registro eletrônico de autoria: quem concluiu cada seção (matrícula da conta, hora do servidor)
          e a versão da seção — cada nova conclusão depois de uma alteração gera V2, V3...; ao desmarcar,
