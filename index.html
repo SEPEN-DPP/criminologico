@@ -4182,9 +4182,17 @@ Continuar mesmo assim (sem salvar)?`);
       return;
     }
     let contatos=[];
-    try{ contatos=await window.ContaFS.contatos(); }
+    try{ contatos=await window.ContaFS.contasParaAviso(); }
     catch(e){ corpo.innerHTML=`<p class="note" style="color:var(--crit);">Não foi possível buscar os e-mails (erro: ${esc(e.message||e)}).</p>`; return; }
-    membros.forEach(m=>{ m.contato = m.mat ? contatos.find(c=>matIgual(c.matricula, m.mat)) : null; });
+    /* primeiro pela matrícula; se não achar, pelo nome completo igual, desde que só uma pessoa tenha esse nome */
+    const nomeLimpo=n=>String(n||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/\s+/g," ").trim();
+    membros.forEach(m=>{
+      m.contato = m.mat ? contatos.find(c=>matIgual(c.matricula, m.mat)) : null;
+      if(!m.contato && nomeLimpo(m.nome)){
+        const xarás=contatos.filter(c=>nomeLimpo(c.nome)===nomeLimpo(m.nome));
+        if(new Set(xarás.map(c=>c.email)).size===1){ m.contato=xarás[0]; m.peloNome=true; }
+      }
+    });
     const comEmail=membros.filter(m=>m.contato), semEmail=membros.filter(m=>!m.contato);
     const emails=[...new Set(comEmail.map(m=>m.contato.email))];
     const nome=document.getElementById("e_nome").value.trim()||"(sem nome)";
@@ -4220,11 +4228,11 @@ Continuar mesmo assim (sem salvar)?`);
     const gmail="https://mail.google.com/mail/?view=cm&fs=1&to="+encodeURIComponent(emails.join(","))+"&su="+encodeURIComponent(assunto)+"&body="+encodeURIComponent(texto);
     corpo.innerHTML=
       (assinatura && !sgpe?`<p class="note" style="color:var(--warn);"><b>O número do SGPE não está preenchido</b> (aba Identificação) — preencha e salve antes de avisar, para o número ir no e-mail.</p>`:"")
-      +(comEmail.length?`<p><b>Vai para:</b></p><ul>${comEmail.map(m=>`<li>${esc(m.nome)} <span class="muted">— ${esc(m.funcao)} — ${esc(m.contato.email)}</span></li>`).join("")}</ul>`
-        :`<p class="note" style="color:var(--warn);">Ninguém da equipe tem conta no sistema com matrícula cadastrada, então não há para quem enviar.</p>`)
-      +(semEmail.length?`<p class="note" style="color:var(--warn);"><b>Sem e-mail no sistema</b> (sem conta, a conta não tem matrícula cadastrada, ou a matrícula na equipe está vazia) — avise por outro meio:</p>
+      +(comEmail.length?`<p><b>Vai para:</b></p><ul>${comEmail.map(m=>`<li>${esc(m.nome)} <span class="muted">— ${esc(m.funcao)} — ${esc(m.contato.email)}${m.peloNome?" (achado pelo nome: confira)":""}</span></li>`).join("")}</ul>`
+        :`<p class="note" style="color:var(--warn);">Não foi encontrada no sistema a conta de ninguém da equipe. Abra o Gmail abaixo e digite os e-mails.</p>`)
+      +(semEmail.length?`<p class="note" style="color:var(--warn);"><b>Conta não encontrada no sistema</b> (sem conta, ou com matrícula e nome diferentes dos daqui) — confira os dados ou digite o e-mail no Gmail:</p>
         <ul class="note">${semEmail.map(m=>`<li>${esc(m.nome)} — ${esc(m.funcao)}${m.mat?"":" (sem matrícula na equipe)"}</li>`).join("")}</ul>`:"")
-      +(comEmail.length?`<label class="f" style="margin-top:10px;">Assunto</label><input type="text" readonly value="${esc(assunto)}">
+      +(`<label class="f" style="margin-top:10px;">Assunto</label><input type="text" readonly value="${esc(assunto)}">
         <label class="f" style="margin-top:10px;">Texto</label><textarea readonly style="min-height:200px;">${esc(texto)}</textarea>
         <div class="btnrow" style="margin-top:12px;">
           <a class="btn" href="${esc(gmail)}" target="_blank" rel="noopener" onclick="setTimeout(()=>App.fecharAviso(),500)">Abrir no Gmail</a>
@@ -4232,7 +4240,7 @@ Continuar mesmo assim (sem salvar)?`);
           <button class="btn ghost" type="button" onclick="App.copiarAviso('texto')">Copiar texto</button>
         </div>
         <p class="note" id="avisoCopiado"></p>
-        <p class="note">"Abrir no Gmail" abre uma nova aba do Gmail com a mensagem pronta — confira e clique em Enviar. Se você tiver mais de uma conta Google, confira se a mensagem saiu da conta certa. Para usar outro e-mail, copie os endereços e o texto e cole lá.</p>`:"");
+        <p class="note">"Abrir no Gmail" abre uma nova aba do Gmail com a mensagem pronta — confira e clique em Enviar. Se você tiver mais de uma conta Google, confira se a mensagem saiu da conta certa. Para usar outro e-mail, copie os endereços e o texto e cole lá.</p>`);
   },
   copiarAviso(o){
     const a=this._aviso; if(!a) return;
@@ -5633,6 +5641,22 @@ const ContaFS = {
       return snap.docs.map(d=>({ uid:d.id, ...d.data() }));
     }
     return (await this.contatos()).map(c=>({ ...c, status:"ATIVO" }));
+  },
+  /* aviso à equipe: os contatos e, para quem pode ler o cadastro (DPP, SR, DIR, CPEN), também as contas ativas
+     que ainda não publicaram contato (sem matrícula, ou que não entraram depois de cadastrá-la) */
+  async contasParaAviso(){
+    const contatos = await this.contatos();
+    const p = meuPerfilDoc?.perfil;
+    let q = null;
+    if(p==="DPP") q = collection(db,"usuarios");
+    else if(p==="SR") q = query(collection(db,"usuarios"), where("sr","==", meuPerfilDoc.sr));
+    else if(p==="DIR" || p==="CPEN") q = query(collection(db,"usuarios"), where("unidade","==", meuPerfilDoc.unidade));
+    if(!q) return contatos;
+    try{
+      const contas = (await getDocs(q)).docs.map(d=>d.data()).filter(u=>u.status==="ATIVO" && u.email);
+      const ja = new Set(contatos.map(c=>c.email));
+      return [...contatos, ...contas.filter(u=>!ja.has(u.email))];
+    }catch(e){ console.warn("Cadastro indisponível para o aviso:", e); return contatos; }
   },
   async publicarContato(){
     const p = meuPerfilDoc;
