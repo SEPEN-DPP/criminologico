@@ -118,10 +118,37 @@ service cloud.firestore {
       allow read: if ativo();
       allow create, update, delete: if ehDPP();
     }
+    function equipePadraoAlcance(cocId, eu) {
+      return eu.status == 'ATIVO' && eu.get('sr', null) is string && eu.sr.replace('SR0', 'coc') == cocId
+        && (eu.perfil in ['SR_PSICOLOGIA','SR_SOCIAL']
+            || (eu.perfil in ['DIR','CPEN','USUARIO'] && eu.get('unidade', null) is string));
+    }
+    function equipePadraoUnidadesOk(mudadas, eu) {
+      return eu.perfil in ['SR_PSICOLOGIA','SR_SOCIAL'] || mudadas.hasOnly([eu.unidade]);
+    }
+    function equipePadraoCriaOk(cocId, eu) {
+      let n = request.resource.data;
+      return equipePadraoAlcance(cocId, eu)
+        && n.keys().hasOnly(['equipesUnidade','atualizadoEm','atualizadoPor'])
+        && n.atualizadoPor == request.auth.uid && n.atualizadoEm == request.time
+        && equipePadraoUnidadesOk(n.equipesUnidade.keys().toSet(), eu);
+    }
+    function equipePadraoAtualizaOk(cocId, eu) {
+      let n = request.resource.data;
+      let d = n.get('equipesUnidade', {}).diff(resource.data.get('equipesUnidade', {}));
+      return equipePadraoAlcance(cocId, eu)
+        && n.diff(resource.data).affectedKeys().hasOnly(['equipesUnidade','atualizadoEm','atualizadoPor'])
+        && n.atualizadoPor == request.auth.uid && n.atualizadoEm == request.time
+        && equipePadraoUnidadesOk(d.affectedKeys(), eu);
+    }
     match /centros/{cocId} {
       allow read: if ativo();
       allow create, update: if ehDPP()
         || (ehSR() && perfilAtual().sr.replace('SR0', 'coc') == cocId);
+      // Equipe padrao: a cobertura regional grava a de qualquer unidade da propria regional; as contas
+      // DIR, CPEN e USUARIO, so a da propria unidade. Nada mais do Centro muda por este caminho.
+      allow create: if autenticado() && equipePadraoCriaOk(cocId, perfilAtual());
+      allow update: if autenticado() && equipePadraoAtualizaOk(cocId, perfilAtual());
       allow delete: if ehDPP();
     }
     // Trilha de auditoria dos exames. Toda gravacao em exames/{id}:

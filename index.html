@@ -712,7 +712,7 @@
       <label class="f" style="margin-top:10px;">Outros chefes de serviço <button class="btn sm ghost" style="float:right;" type="button" onclick="App.addChefeExtra()">+ adicionar chefe de serviço</button></label>
       <div id="chefesExtraBox" style="margin-top:8px;"></div>
       <p class="note">Os nomes acima vêm pré-preenchidos com a equipe padrão da unidade prisional escolhida na aba Identificação — ajuste se este exame tiver outra equipe.</p>
-      <div class="btnrow" id="eqGravarPadraoRow" style="margin-top:6px;"><button class="btn sm ghost" type="button" onclick="App.gravarEquipeComoPadrao()">Gravar estes nomes como equipe padrão da unidade</button></div>
+      <div class="btnrow" id="eqGravarPadraoRow" style="margin-top:6px;"><button class="btn sm ghost" type="button" onclick="App.gravarEquipeComoPadrao()">Gravar estes nomes como equipe padrão da unidade</button> <button class="btn sm ghost" type="button" onclick="App.excluirEquipePadrao()">Excluir a equipe padrão da unidade</button></div>
       <p class="note">Vedações: profissionais temporários contratados só para exames; integrantes de eAPP; referência técnica do próprio avaliado (art. 5º, §§ 2º a 4º, da Portaria). Aplicam-se também as regras de impedimento e suspeição do CPP aos integrantes da equipe (art. 5º, §6º, da Portaria; art. 4º da Res. CNPCP 36/2024).</p>
       <label style="display:flex; align-items:flex-start; gap:8px; margin-top:10px; font-size:13.5px;">
         <input type="checkbox" id="q_semPsq" style="width:18px; height:18px; margin-top:2px; flex-shrink:0;" onchange="App.syncRespNomes()">
@@ -1876,7 +1876,8 @@ const App = {
     });
     return podeDesignarEquipe;
   },
-  podeGravarEquipePadrao(){ const p=this._meuPerfil; return !p || p.perfil==="DPP" || p.perfil==="SR"; },
+  /* equipe padrão: DPP, regional e as contas da unidade (estas, só a da própria unidade; ver firestore.rules, centros) */
+  podeGravarEquipePadrao(){ const p=this._meuPerfil; return !p || ["DPP","SR","SR_PSICOLOGIA","SR_SOCIAL","DIR","CPEN","USUARIO"].includes(p.perfil); },
   aplicarEscopoPerfil(perfil){
     this._meuPerfil = perfil;
     /* reseta os controles que podem ter ficado escondidos numa aplicação anterior
@@ -1900,7 +1901,7 @@ const App = {
     if(ehHctp){ this.tab("hctp"); return; }
 
     /* Equipe examinadora (art. 5º): preenchida pela unidade (DIR/CPEN/USUARIO), pela regional ou pelo DPP.
-       A equipe padrão da unidade continua gravada só por SR/DPP (firestore.rules, centros). */
+       A equipe padrão: ver podeGravarEquipePadrao. */
     const podeDesignarEquipe = this.aplicarPermEquipe();
     const notaEquipe=document.getElementById("eqSomenteLeituraNota");
     if(notaEquipe) notaEquipe.style.display = podeDesignarEquipe ? "none" : "block";
@@ -5323,12 +5324,56 @@ Continuar mesmo assim (sem salvar)?`);
     if(!unid){ alert("Selecione a unidade prisional na aba Identificação antes de gravar a equipe padrão."); return; }
     const c=this.cocDaUnidade(unid);
     if(!c){ alert("Não foi possível identificar o Centro de Observação desta unidade."); return; }
-    if(!this.podeEditarCoc(c.id)){ alert("Somente o DPP ou a Superintendência Regional desta unidade pode alterar a equipe padrão."); return; }
+    if(!this.alcanceEquipePadrao(c, unid)) return;
     const nova=this.lerEquipeCampos();
     if(!this.EQ_KEYS.some(k=>nova[k])){ alert("Preencha ao menos um nome da equipe antes de gravar."); return; }
     if(!confirm("Gravar estes nomes como equipe padrão de "+unid+"?\n\nEles passarão a vir preenchidos nos exames desta unidade, para todos os usuários.")) return;
-    c.equipesUnidade={...(c.equipesUnidade||{}), [unid]:nova};
-    this.persistCoc(c).then(ok=>{ if(ok){ alert("Equipe padrão gravada para "+unid+"."); this.renderConfig(); this.renderEqBanner(); } });
+    /* grava só a equipe desta unidade, sem mexer nas outras nem no resto do Centro */
+    window.CentrosFS.salvarEquipeUnidade(c.id, unid, nova).then(()=>{
+      c.equipesUnidade={...(c.equipesUnidade||{}), [unid]:nova};
+      this.persist();
+      alert("Equipe padrão gravada para "+unid+".");
+      if(this.podeEditarCoc(c.id)) this.renderConfig();
+      this.renderEqBanner();
+    }).catch(e=>{
+      console.error("Falha ao gravar a equipe padrão:", e);
+      alert("Não foi possível gravar a equipe padrão ("+(e.code||e.message)+"). Verifique a conexão e tente de novo.");
+    });
+  },
+  /* a conta alcança a equipe padrão desta unidade? (avisa quando não) */
+  alcanceEquipePadrao(c, unid){
+    const p=this._meuPerfil||{};
+    const daRegional=["SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil);
+    if(!this.podeGravarEquipePadrao() || (daRegional && "coc"+Number(String(p.sr).slice(2))!==c.id) || (["DIR","CPEN","USUARIO"].includes(p.perfil) && p.unidade!==unid)){
+      alert("Sua conta só altera a equipe padrão da própria "+(daRegional?"regional":"unidade")+".");
+      return false;
+    }
+    return true;
+  },
+  /* botão ao lado de "Gravar": os próximos exames da unidade deixam de vir preenchidos; os exames já feitos não mudam */
+  excluirEquipePadrao(){
+    const unid=this.getUnidadeValor();
+    if(!unid){ alert("Selecione a unidade prisional na aba Identificação."); return; }
+    const c=this.cocDaUnidade(unid);
+    if(!c){ alert("Não foi possível identificar o Centro de Observação desta unidade."); return; }
+    if(!this.alcanceEquipePadrao(c, unid)) return;
+    const atual=this.equipeDaUnidade(unid);
+    if(!this.EQ_KEYS.some(k=>atual[k])){ alert("Esta unidade não tem equipe padrão gravada."); return; }
+    if(!confirm("Excluir a equipe padrão de "+unid+"?\n\nOs próximos exames desta unidade deixam de vir preenchidos. Os exames já cadastrados não mudam, e os nomes que estão nesta tela continuam aqui.")) return;
+    /* equipe só no formato antigo (equipePadrao do Centro): grava vazia, senão ela voltaria a valer */
+    const soAntiga=!(c.equipesUnidade||{})[unid];
+    window.CentrosFS.excluirEquipeUnidade(c.id, unid, soAntiga).then(()=>{
+      const resto={...(c.equipesUnidade||{})};
+      if(soAntiga) resto[unid]={}; else delete resto[unid];
+      c.equipesUnidade=resto;
+      this.persist();
+      alert("Equipe padrão de "+unid+" excluída.");
+      if(this.podeEditarCoc(c.id)) this.renderConfig();
+      this.renderEqBanner();
+    }).catch(e=>{
+      console.error("Falha ao excluir a equipe padrão:", e);
+      alert("Não foi possível excluir a equipe padrão ("+(e.code||e.message)+"). Verifique a conexão e tente de novo.");
+    });
   },
   addUnidade(id){
     const inp=document.getElementById("novaUnid_"+id);
@@ -5440,7 +5485,7 @@ import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
   onAuthStateChanged, sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import {
+import { deleteField,
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where,
   getDocs, onSnapshot, serverTimestamp, writeBatch, runTransaction,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
@@ -6209,6 +6254,12 @@ const CentrosFS = {
     /* mergeFields substitui cada campo inteiro (merge:true mesclaria o mapa
        equipesUnidade e uma unidade removida continuaria no servidor) */
     await setDoc(doc(db,"centros", c.id), payload, { mergeFields: Object.keys(payload) });
+  },
+  async excluirEquipeUnidade(cocId, unid, soAntiga){
+    await setDoc(doc(db,"centros", cocId), { equipesUnidade: { [unid]: soAntiga ? {} : deleteField() }, atualizadoEm: serverTimestamp(), atualizadoPor: meuUid || null }, { merge: true });
+  },
+  async salvarEquipeUnidade(cocId, unid, equipe){
+    await setDoc(doc(db,"centros", cocId), { equipesUnidade: { [unid]: equipe }, atualizadoEm: serverTimestamp(), atualizadoPor: meuUid || null }, { merge: true });
   },
   async carregar(){
     let snap;
