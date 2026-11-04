@@ -144,7 +144,9 @@ service cloud.firestore {
         || minhaUnidade(d.unidade)
         || (ehNivelUnidade() && d.unidade == perfilAtual().unidade)
         // HCTP (psiquiatra): so os exames com pedido ao HCTP ativo ou realizado (hctpPedido, ligado pelo Centro)
-        || (ativo() && perfilAtual().perfil == 'HCTP' && d.get('hctpPedido', false) == true);
+        || (ativo() && perfilAtual().perfil == 'HCTP' && d.get('hctpPedido', false) == true)
+        // apoio: psicologo(a)/assistente social de outra unidade da regional, indicado(a) pela SR/DPP neste exame
+        || (ativo() && perfilAtual().perfil in ['PSICOLOGIA','SOCIAL'] && request.auth.uid in d.get('apoioUids', []));
     }
     function ehSROuDPPDo(d) { return ehDPP() || minhaSR(d.sr); }
     // concluir e excluir: DPP ou qualquer perfil regional da propria SR
@@ -227,7 +229,8 @@ service cloud.firestore {
       return regionalOuDPP(d, eu)
         || (eu.status == 'ATIVO' && eu.perfil in ['USUARIO','PSICOLOGIA','SOCIAL','DIR','CPEN']
             && eu.get('unidade', null) != null && eu.get('unidade', null) == d.get('unidade', null))
-        || (eu.status == 'ATIVO' && eu.perfil == 'HCTP' && d.get('hctpPedido', false) == true);
+        || (eu.status == 'ATIVO' && eu.perfil == 'HCTP' && d.get('hctpPedido', false) == true)
+        || (eu.status == 'ATIVO' && eu.perfil in ['PSICOLOGIA','SOCIAL'] && request.auth.uid in d.get('apoioUids', []));
     }
     // Entrevistas (etapas ent1/ent2/entConv e as opcionais ent3 e entFam): as contas de Psicologia e Servico Social da unidade
     // agendam, alteram e desmarcam so as da propria area ou da Equipe (area vazia), sem trocar a area.
@@ -261,18 +264,25 @@ service cloud.firestore {
         && v.get('por', null) == request.auth.uid
         && v.get('em', null) == request.time;
     }
+    // Apoio de outra unidade da mesma regional: a SR/DPP indica, exame a exame, uma conta de Psicologia ou
+    // Servico Social de outra unidade (campos apoio e apoioUids, que so a SR/DPP grava). Ela ve o exame e edita
+    // so a propria secao e as entrevistas da area, como a profissional da unidade; o impedimento da unidade
+    // nao a atinge, e ela nao declara impedimento (se nao puder atender, a SR/DPP retira a indicacao).
+    function apoioFormatoOk(n) { return n.get('apoioUids', []) is list && n.get('apoioUids', []).size() <= 2; }
     function edicaoPorSecaoOk(n, a, eu) {
       let p = eu.perfil;
-      return regionalOuDPP(a, eu) ? true
-        : p in ['PSICOLOGIA','SOCIAL'] && mudouEm(n, a, 'impedida').size() > 0 ? impedimentoOk(n, a, secaoDoPerfil(p))
+      let souApoio = request.auth.uid in a.get('apoioUids', []);
+      return regionalOuDPP(a, eu) ? apoioFormatoOk(n)
+        : p in ['PSICOLOGIA','SOCIAL'] && mudouEm(n, a, 'impedida').size() > 0 ? (!souApoio && impedimentoOk(n, a, secaoDoPerfil(p)))
         : p in ['PSICOLOGIA','SOCIAL','HCTP'] ? (
-            !impedidaDe(a, p)
+            (!impedidaDe(a, p) || souApoio)
             && n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt','numCrim','etapas'])
             && entrevistasOk(n, a, areaDoPerfil(p))
             && mudouEm(n, a, 'rel').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOk').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOkPor').hasOnly([secaoDoPerfil(p)]))
         : mudouEm(n, a, 'impedida').size() == 0
+          && !n.diff(a).affectedKeys().hasAny(['apoio','apoioUids'])
           && !mudouEm(n, a, 'rel').hasAny(['psi','soc'])
           && !mudouEm(n, a, 'relOk').hasAny(['psi','soc'])
           && !mudouEm(n, a, 'relOkPor').hasAny(['psi','soc']);
@@ -321,9 +331,10 @@ service cloud.firestore {
     }
     function criacaoPorSecaoOk(n, eu) {
       let p = eu.perfil;
-      return regionalOuDPP(n, eu) ? true
+      return regionalOuDPP(n, eu) ? apoioFormatoOk(n)
         : p in ['PSICOLOGIA','SOCIAL','HCTP'] ? false
-        : n.get('rel', {}).get('psi', '') == '' && n.get('rel', {}).get('soc', '') == ''
+        : !('apoio' in n) && !('apoioUids' in n)
+          && n.get('rel', {}).get('psi', '') == '' && n.get('rel', {}).get('soc', '') == ''
           && n.get('relOk', {}).get('psi', false) == false && n.get('relOk', {}).get('soc', false) == false;
     }
     // Contadores (numero do oficio de comunicacao ao Juizo, por Centro e ano):

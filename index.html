@@ -705,6 +705,7 @@
       <div class="eq-linha"><label class="f">Assistente social</label>
         <select id="q_as_quadro" class="eq-quadro" onchange="App.escolherDoQuadro('as', this)"></select>
         <div class="eq-campos"><input type="text" id="q_as" placeholder="Nome completo" oninput="App.syncRespNomes()"><input type="text" id="q_as_mat" placeholder="Matrícula"></div></div>
+      <div id="apoioBox" style="margin-top:12px;"></div>
       <label class="f" style="margin-top:10px;">Outros chefes de serviço <button class="btn sm ghost" style="float:right;" type="button" onclick="App.addChefeExtra()">+ adicionar chefe de serviço</button></label>
       <div id="chefesExtraBox" style="margin-top:8px;"></div>
       <p class="note">Os nomes acima vêm pré-preenchidos com a equipe padrão da unidade prisional escolhida na aba Identificação — ajuste se este exame tiver outra equipe.</p>
@@ -1776,7 +1777,9 @@ function matBase(m){
 function matIgual(a,b){
   const x=matBase(a), y=matBase(b);
   if(!x || !y) return false;
-  return x===y || (x.length===y.length+1 && x.startsWith(y)) || (y.length===x.length+1 && y.startsWith(x));
+  /* uma pode trazer colado o dígito e/ou o vínculo: "381241301" = "381241-3-01" = "3812413" */
+  const [longa, curta] = x.length>=y.length ? [x,y] : [y,x];
+  return longa.startsWith(curta) && longa.length-curta.length<=3 && curta.length>=5;
 }
 const hoje = ()=> new Date(new Date().toDateString());
 /* data de hoje (horário local) no formato dos campos de data: aaaa-mm-dd */
@@ -1998,6 +2001,10 @@ const App = {
         if(this.impedimentoAtivo(e, sec) && this.avisadoDoImpedimento(e, sec) && !this.impVistos().includes(this.impVistoChave(e, sec))) it.push({chave:"im:"+this.impVistoChave(e, sec),
           txt:`Impedimento (${this.SECAO_LABEL[sec]}): <b>${esc(e.nome)}</b> — ${esc(e.unid||"")} — passou à cobertura regional`, plano:"Impedimento ("+this.SECAO_LABEL[sec]+"): "+e.nome+" — "+(e.unid||""), acao:`App.abrir('${e.id}')`});
       }));
+    /* apoio de outra unidade: a indicação fica no sininho até a pessoa abrir o exame */
+    if(this.agendaRestrita())
+      this.data.exames.filter(e=>e.status==="andamento" && this.souApoio(e) && !this.apoioVistos().includes(this.apoioVistoChave(e))).forEach(e=>it.push({chave:"ap:"+this.apoioVistoChave(e),
+        txt:`Apoio a outra unidade: <b>${esc(e.nome)}</b> — ${esc(e.unid||"")} — seção de ${this.SECAO_LABEL[this.secaoExclusiva()]}`, plano:"Apoio a outra unidade: "+e.nome+" — "+(e.unid||""), acao:`App.abrir('${e.id}')`}));
     if(this.ehHctp()){
       (this.data.hctp||[]).filter(h=>h.status==="solicitado"||h.novidadeParaHctp).forEach(h=>it.push({chave:"hh:"+h.id+":"+h.status+":"+(h.eventos||[]).length,
         txt:h.status==="solicitado"?`Pedido de agendamento: <b>${esc(h.nome)}</b> — ${esc(h.cocNome||"")}`:`${esc(h.cocNome||"Centro")}: ${esc(this.HCTP_STATUS[h.status]||h.status)} — <b>${esc(h.nome)}</b>`,
@@ -2064,7 +2071,7 @@ const App = {
     exs.forEach(e=>entrevistasDo(e.etapas).forEach(k=>{
       const et=(e.etapas||{})[k]||{}, a=et.area||"";
       if(et.data || et.ok) return;
-      if(this.agendaRestrita() && (et.srPedido || this.minhaUnidadeImpedida(e))) return; /* impedida: foi pedida à Superintendência */
+      if(this.agendaRestrita() && !this.souApoio(e) && (et.srPedido || this.minhaUnidadeImpedida(e))) return; /* impedida: foi pedida à Superintendência */
       if(cobertura && !et.srPedido && !naEquipe(e) && !impArea(e)) return;
       if(area && a!=="" && a!==area) return;
       if(!area && this.calFiltroArea && a!==this.calFiltroArea) return;
@@ -3463,6 +3470,7 @@ Continuar mesmo assim (sem salvar)?`);
     this.renderHctpExame();
     this._arquivoImportado=null; this.renderAnexos();
     if(this.ehHctp()){ this.novoTab("quesitos"); this.relTab("psq"); } /* HCTP: direto na seção de Psiquiatria */
+    else if(this.souApoio(ex)){ this.novoTab("quesitos"); this.relTab(this.secaoExclusiva()); } /* apoio de outra unidade: direto na própria seção */
     document.getElementById("salvoMsg").textContent="";
     document.getElementById("verifInline").innerHTML="";
     this.triagem();
@@ -3475,7 +3483,7 @@ Continuar mesmo assim (sem salvar)?`);
      entrada exames/{id}/historico/{rev} no mesmo lote (as regras do Firestore
      exigem). _base guarda a versão do servidor em que o formulário aberto se
      apoia: é contra ela que se calcula o "antes/depois" e o número da versão. */
-  META_EXAME: ["id","coc","status","criadoEm","unidade","sr","rev","createdBy","createdByNome","createdAt","updatedBy","updatedByNome","updatedAt",
+  META_EXAME: ["apoio","apoioUids","id","coc","status","criadoEm","unidade","sr","rev","createdBy","createdByNome","createdAt","updatedBy","updatedByNome","updatedAt",
     "finalizedBy","finalizedByNome","finalizedAt","versaoFinal","excluidoBy","excluidoByNome","excluidoAt","motivoExclusao","relOkPor","numCrim","peticionado","avisoCpen","impedida"],
   conteudoExame(ex){
     const out={};
@@ -3599,7 +3607,7 @@ Continuar mesmo assim (sem salvar)?`);
       if((doFormulario && ex.id===this.editId) || (criando && o.doFormulario && o.formSeq===this._formSeq)) this._relOkRemarcadas=new Set();
       if(criando && o.doFormulario && o.formSeq===this._formSeq) this.editId=ex.id;
       if(ex.id===this.editId){
-        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: ["reabriu","excluiu","peticionou","desfezPeticao","avisouCpen","declarouImpedimento","desfezImpedimento"].includes(o.acao) ? base.conteudo : this.conteudoExame(ex) };
+        this._base={ rev:r.rev, versaoFinal:r.versaoFinal, conteudo: ["reabriu","excluiu","peticionou","desfezPeticao","avisouCpen","declarouImpedimento","desfezImpedimento","indicouApoio","retirouApoio"].includes(o.acao) ? base.conteudo : this.conteudoExame(ex) };
         this._avisoConflito=null;
         const vivo=this.data.exames.find(x=>x.id===ex.id);
         if(vivo) this.atualizarEstadoExame(vivo);
@@ -3670,6 +3678,7 @@ Continuar mesmo assim (sem salvar)?`);
     this.atualizarPeticao(ex);
     this.atualizarAvisoCpen(ex);
     this.renderImpedimento(ex);
+    this.renderApoio(ex);
     const linhas=[];
     if(ex){
       linhas.push(ex.createdBy ? "Criado por "+esc(ex.createdByNome||"?")+" em "+fmtTs(ex.createdAt) : "Criado antes da trilha de auditoria"+(ex.criadoEm?" (em "+fmtTs(ex.criadoEm)+")":""));
@@ -3773,7 +3782,7 @@ Continuar mesmo assim (sem salvar)?`);
   SEC_DA_AREA: {psi:"psi", social:"soc"},
   impedimentoAtivo(ex, sec){ const i=((ex||{}).impedida||{})[sec]; return i && i.por ? i : null; },
   impedidaNaArea(ex, area){ return area ? this.impedimentoAtivo(ex, this.SEC_DA_AREA[area]) : (this.impedimentoAtivo(ex,"psi") || this.impedimentoAtivo(ex,"soc")); },
-  minhaUnidadeImpedida(ex){ const sx=this.agendaRestrita() && this.secaoExclusiva(); return !!(sx && ex && this.impedimentoAtivo(ex, sx)); },
+  minhaUnidadeImpedida(ex){ const sx=this.agendaRestrita() && this.secaoExclusiva(); return !!(sx && ex && this.impedimentoAtivo(ex, sx) && !this.souApoio(ex)); },
   avisadoDoImpedimento(ex, sec){ const p=this._meuPerfil||{}; return !!ex && ex.sr===p.sr && (p.perfil==="SR" || p.perfil===(sec==="psi"?"SR_PSICOLOGIA":"SR_SOCIAL")); },
   impVistoChave(ex, sec){ const i=this.impedimentoAtivo(ex, sec)||{}; return ex.id+":"+sec+":"+((i.em&&i.em.seconds)||""); },
   impVistos(){ try{ return JSON.parse(localStorage.getItem("impedimentosVistos")||"[]"); }catch(e){ return []; } },
@@ -3791,6 +3800,8 @@ Continuar mesmo assim (sem salvar)?`);
           try{ localStorage.setItem("impedimentosVistos", JSON.stringify([...this.impVistos(), chave].slice(-300))); }catch(e){}
           this.atualizarNotificacoes();
         }
+      } else if(ex && this.souApoio(ex)){
+        box.innerHTML="";
       } else if(ex && ex.status==="andamento" && this.agendaRestrita() && this.secaoExclusiva()===sec){
         box.innerHTML=`<label style="display:flex; align-items:center; gap:6px; margin:2px 0 4px; font-size:12.5px;">
             <input type="checkbox" id="impChk_${sec}" style="width:15px; height:15px;" onchange="App.declararImpedimento('${sec}', this)">
@@ -3837,6 +3848,103 @@ Continuar mesmo assim (sem salvar)?`);
        "Motivo do impedimento: "+(imp.motivo||""),"",
        "Acesse: https://criminologico.web.app (o exame aparece no sininho e, no Calendário, em \"Entrevistas a agendar\").","","Atenciosamente,",(this._meuPerfil&&this._meuPerfil.nome)||""].filter(l=>l!==null).join("\n"),
       "Ninguém do Centro ou da cobertura regional desta Superintendência tem conta com e-mail no sistema — o aviso ficou só no sistema; avise por outro meio.");
+  },
+  /* ---------- apoio de outra unidade da mesma regional ----------
+     A SR ou o DPP indica, exame a exame, uma conta de Psicologia ou de Serviço Social de outra unidade da
+     regional. Ela passa a ver só esse exame (além dos da própria unidade), edita só a própria seção e agenda
+     as entrevistas da área, como a profissional da unidade (ver firestore.rules). Uma pessoa por seção. */
+  APOIO_PERFIL: {psi:"PSICOLOGIA", soc:"SOCIAL"},
+  apoioAtivo(ex, sec){ const a=((ex||{}).apoio||{})[sec]; return a && a.uid ? a : null; },
+  souApoio(ex){
+    const p=this._meuPerfil||{};
+    return !!ex && ["PSICOLOGIA","SOCIAL"].includes(p.perfil) && (ex.apoioUids||[]).includes(p.uid) && (ex.unidade||ex.unid)!==p.unidade;
+  },
+  apoioVistoChave(ex){ return ex.id+":"+(((this.apoioAtivo(ex, this.secaoExclusiva())||{}).em||{}).seconds||""); },
+  apoioVistos(){ try{ return JSON.parse(localStorage.getItem("apoiosVistos")||"[]"); }catch(e){ return []; } },
+  renderApoio(ex){
+    const box=document.getElementById("apoioBox"); if(!box) return;
+    /* quem é apoio abriu o exame: o aviso sai do sininho */
+    if(this.souApoio(ex) && !this.apoioVistos().includes(this.apoioVistoChave(ex))){
+      try{ localStorage.setItem("apoiosVistos", JSON.stringify([...this.apoioVistos(), this.apoioVistoChave(ex)].slice(-300))); }catch(e){}
+      this.atualizarNotificacoes();
+    }
+    if(!ex){ box.innerHTML=""; this._apoioAberto=null; return; }
+    const pode=ex.status==="andamento" && this.podeExcluir(ex);
+    const atuais=["psi","soc"].filter(s=>this.apoioAtivo(ex, s));
+    if(!pode && !atuais.length){ box.innerHTML=""; return; }
+    /* a escolha aberta não pode sumir quando chega uma atualização do exame */
+    if(this._apoioAberto && this._apoioAberto.exId===ex.id && pode) return;
+    this._apoioAberto=null;
+    const linha=s=>{
+      const a=this.apoioAtivo(ex, s), nome=this.SECAO_LABEL[s];
+      if(a) return `<div style="margin:6px 0;"><b>${nome}:</b> ${esc(a.nome||"?")}${a.mat?" (matrícula "+esc(a.mat)+")":""} — ${esc(a.unidade||"")} <span class="muted">· indicado(a) por ${esc(a.porNome||"?")} em ${fmtTs(a.em)}</span>${pode?` <button class="btn sm ghost" type="button" onclick="App.retirarApoio('${s}')">Retirar acesso</button>`:""}</div>`;
+      return pode ? `<div style="margin:6px 0;"><b>${nome}:</b> <button class="btn sm ghost" type="button" onclick="App.escolherApoio('${s}')">Indicar profissional de outra unidade</button></div>` : "";
+    };
+    box.innerHTML=`<div class="orient" style="margin:0;"><b>Apoio de outra unidade da regional</b>
+      ${pode?`<p class="note" style="margin:4px 0;">A profissional indicada passa a ver este exame e edita só a própria seção e as entrevistas da área. Isso não muda a equipe examinadora acima.</p>`:""}
+      ${["psi","soc"].map(linha).join("")}<div id="apoioForm"></div></div>`;
+  },
+  async escolherApoio(sec){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    if(!ex || !this.podeExcluir(ex)) return;
+    const form=document.getElementById("apoioForm");
+    this._apoioAberto={exId:ex.id, sec};
+    form.innerHTML=`<p class="note">Procurando as contas da regional…</p>`;
+    let contatos=[];
+    try{ contatos=await window.ContaFS.contatos(); }
+    catch(e){ form.innerHTML=`<p class="note" style="color:var(--crit);">Não foi possível buscar as contas (erro: ${esc(e.message||e)}).</p>`; this._apoioAberto=null; return; }
+    const lista=contatos.filter(c=>c.uid && c.perfil===this.APOIO_PERFIL[sec] && c.unidade && c.unidade!==ex.unid && (UNIDADES_INFO[c.unidade]||{}).sr===ex.sr)
+      .sort((a,b)=>(a.unidade+a.nome).localeCompare(b.unidade+b.nome,"pt-BR"));
+    this._apoioLista=lista;
+    if(!lista.length){
+      form.innerHTML=`<p class="note" style="color:var(--warn);">Nenhuma conta de ${this.SECAO_LABEL[sec]} de outra unidade desta regional com matrícula cadastrada. A pessoa precisa ter conta ativa e informar a matrícula no sistema.</p><button class="btn sm ghost" type="button" onclick="App.fecharApoio()">Fechar</button>`;
+      return;
+    }
+    const unidades=[...new Set(lista.map(c=>c.unidade))];
+    form.innerHTML=`<label class="f" style="margin-top:8px;">${this.SECAO_LABEL[sec]}: quem vai ajudar neste exame?</label>
+      <select id="apoioSel"><option value="">Selecionar…</option>${unidades.map(u=>`<optgroup label="${esc(u)}">${lista.map((c,i)=>c.unidade===u?`<option value="${i}">${esc(c.nome)} · ${esc(c.matricula)}</option>`:"").join("")}</optgroup>`).join("")}</select>
+      <div class="btnrow" style="margin-top:6px;"><button class="btn sm" type="button" onclick="App.confirmarApoio('${sec}')">Liberar acesso a este exame</button> <button class="btn sm ghost" type="button" onclick="App.fecharApoio()">Cancelar</button></div>`;
+  },
+  fecharApoio(){
+    this._apoioAberto=null;
+    this.renderApoio(this.editId && this.data.exames.find(x=>x.id===this.editId));
+  },
+  confirmarApoio(sec){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    const val=document.getElementById("apoioSel").value;
+    const c=val==="" ? null : (this._apoioLista||[])[Number(val)];
+    if(!ex || !this.podeExcluir(ex)) return;
+    if(!c){ alert("Selecione a profissional."); return; }
+    const nome=this.SECAO_LABEL[sec];
+    if(!confirm(c.nome+" ("+c.unidade+") vai ver todo o exame de "+ex.nome+" e editar a seção de "+nome+".\n\nLiberar o acesso?")) return;
+    const outra=this.apoioAtivo(ex, sec==="psi"?"soc":"psi");
+    const msg=document.getElementById("salvoMsg");
+    msg.style.color="var(--mut)"; msg.textContent="Gravando…";
+    this.gravarExame(ex,{acao:"indicouApoio", apoio:{sec, uids:[...(outra?[outra.uid]:[]), c.uid], uid:c.uid, nome:c.nome, mat:c.matricula, unidade:c.unidade},
+        alteracoes:[{campo:"apoio."+sec, rotulo:"Apoio de outra unidade — "+nome, antes:"ninguém", depois:c.nome+" ("+c.unidade+")"}], secoes:["Apoio"]}).then(()=>{
+      msg.style.color="var(--ok)"; msg.textContent="✓ Acesso liberado: "+c.nome+" já vê este exame. Confira o e-mail e clique em Enviar.";
+      this.fecharApoio();
+      this.abrirEmailModal("Avisar a profissional de apoio", x=>x.uid===c.uid,
+        "Apoio ao exame criminológico de "+ex.nome+(ex.mat?" (IPEN "+ex.mat+")":""),
+        ["Prezado(a) "+c.nome+",","","Você foi indicado(a) para apoiar a seção de "+nome+" do exame criminológico abaixo:","",
+         "Avaliado: "+ex.nome+(ex.mat?" — IPEN "+ex.mat:""),"Unidade: "+(ex.unid||"—"),
+         this.prazoLimite(ex)?"Prazo do exame: "+this.prazoLimite(ex).toLocaleDateString("pt-BR"):null,"",
+         "Acesse: https://sepen-dpp.github.io/criminologico/ (o exame aparece no sininho e em \"Minhas pendências\", no Painel).","","Atenciosamente,",(this._meuPerfil&&this._meuPerfil.nome)||""].filter(l=>l!==null).join("\n"),
+        "Esta conta não tem e-mail no sistema — avise por outro meio.");
+    }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ O acesso não foi liberado: "+e.message; });
+  },
+  retirarApoio(sec){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    const a=ex && this.apoioAtivo(ex, sec);
+    if(!a || !this.podeExcluir(ex)) return;
+    if(!confirm("Retirar o acesso de "+a.nome+" a este exame?\n\nO que já foi escrito na seção continua no exame.")) return;
+    const outra=this.apoioAtivo(ex, sec==="psi"?"soc":"psi");
+    const msg=document.getElementById("salvoMsg");
+    msg.style.color="var(--mut)"; msg.textContent="Gravando…";
+    this.gravarExame(ex,{acao:"retirouApoio", apoio:{sec, uids:outra?[outra.uid]:[]},
+        alteracoes:[{campo:"apoio."+sec, rotulo:"Apoio de outra unidade — "+this.SECAO_LABEL[sec], antes:a.nome+" ("+(a.unidade||"")+")", depois:"ninguém"}], secoes:["Apoio"]}).then(()=>{
+      msg.style.color="var(--ok)"; msg.textContent="✓ Acesso retirado: "+a.nome+" não vê mais este exame.";
+    }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ O acesso não foi retirado: "+e.message; });
   },
   /* ---------- aviso à CPEN da unidade (depois de concluído) ----------
      quem conclui (SR/DPP) avisa: fica gravado no exame — aparece no sininho da CPEN da unidade até ela
@@ -3924,7 +4032,7 @@ Continuar mesmo assim (sem salvar)?`);
     }).catch(e=>alert("Não foi excluído: "+e.message));
   },
   /* ---------- histórico e versões fechadas ---------- */
-  ROTULO_ACAO: { criou:"criou o exame", alterou:"alterou", concluiu:"concluiu (versão fechada)", reabriu:"reabriu", excluiu:"excluiu", peticionou:"registrou o peticionamento no SEEU", desfezPeticao:"desfez o registro de peticionamento no SEEU", avisouCpen:"avisou a CPEN da unidade (exame concluído)", declarouImpedimento:"declarou impedimento para atender o avaliado", desfezImpedimento:"desfez o impedimento", cpenCiente:"marcou ciente do aviso de exame concluído (CPEN)" },
+  ROTULO_ACAO: { criou:"criou o exame", alterou:"alterou", concluiu:"concluiu (versão fechada)", reabriu:"reabriu", excluiu:"excluiu", peticionou:"registrou o peticionamento no SEEU", desfezPeticao:"desfez o registro de peticionamento no SEEU", avisouCpen:"avisou a CPEN da unidade (exame concluído)", declarouImpedimento:"declarou impedimento para atender o avaliado", desfezImpedimento:"desfez o impedimento", indicouApoio:"indicou profissional de apoio de outra unidade", retirouApoio:"retirou o acesso da profissional de apoio", cpenCiente:"marcou ciente do aviso de exame concluído (CPEN)" },
   valorHist(v){
     if(v===null || v===undefined || v==="") return '<span class="muted">(vazio)</span>';
     if(typeof v==="boolean") return v?"sim":"não";
@@ -4003,11 +4111,13 @@ Continuar mesmo assim (sem salvar)?`);
     const novos = deUnidade && p.avisosVistoEm ? this.data.exames.filter(e=>this.exameNovoPara(e,p)) : [];
     const pend=[];
     const secCob={SR_PSICOLOGIA:"psi", SR_SOCIAL:"soc"}[p.perfil];
-    if(p.matricula || secCob){
+    const secApoio=this.agendaRestrita() ? this.secaoExclusiva() : null; /* apoio de outra unidade: a própria seção nos exames indicados */
+    if(p.matricula || secCob || secApoio){
       this.data.exames.filter(e=>e.status==="andamento").forEach(e=>{
         const eq=e.equipe||{}, relOk=e.relOk||{}, sup=e.sup||{};
         const secoes=Object.keys(this.SECAO_EQ).filter(k=>!relOk[k] && !sup[k] && ((p.matricula && matIgual(this.matDaEquipe(eq,this.SECAO_EQ[k]), p.matricula))
-          || (k===secCob && this.impedimentoAtivo(e, k)))); /* cobertura: seção da área com impedimento da unidade */
+          || (k===secCob && this.impedimentoAtivo(e, k)) /* cobertura: seção da área com impedimento da unidade */
+          || (k===secApoio && this.souApoio(e))));
         if(secoes.length) pend.push({e, secoes});
       });
     }
@@ -5915,6 +6025,21 @@ const ExamesFS = {
     else if(perfil.perfil === "HCTP") q = query(collection(db,"exames"), where("hctpPedido","==", true)); /* só os exames com pedido ao HCTP (seção de Psiquiatria) */
     else if(perfil.perfil === "SR" || PERFIS_SR_COBERTURA.includes(perfil.perfil)) q = query(collection(db,"exames"), where("sr","==", perfil.sr));
     else q = query(collection(db,"exames"), where("unidade","==", perfil.unidade));
+    /* Psicologia/Serviço Social da unidade: também os exames de outras unidades em que foi indicado(a) como apoio */
+    if(["PSICOLOGIA","SOCIAL"].includes(perfil.perfil)){
+      let daUnidade=[], deApoio=[];
+      const juntar=()=>{
+        const m=new Map();
+        [...daUnidade, ...deApoio].forEach(e=>m.set(e.id,e));
+        window.App.data.exames=[...m.values()].filter(e=>e.status!=="excluido");
+        window.App.aoSincronizarExames();
+      };
+      const lerDocs=snap=>snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      const u1=onSnapshot(q, (snap)=>{ daUnidade=lerDocs(snap); juntar(); }, (err)=>{ console.error("Falha ao sincronizar exames:", err); });
+      const u2=onSnapshot(query(collection(db,"exames"), where("apoioUids","array-contains", auth.currentUser.uid)), (snap)=>{ deApoio=lerDocs(snap); juntar(); }, (err)=>{ console.error("Falha ao sincronizar exames de apoio:", err); });
+      unsubscribeExames=()=>{ u1(); u2(); };
+      return;
+    }
     unsubscribeExames = onSnapshot(q, (snap)=>{
       /* exclusão é lógica: o exame excluído continua no banco (com histórico), só some das telas */
       window.App.data.exames = snap.docs.map(d=>({ id:d.id, ...d.data() })).filter(e=>e.status!=="excluido");
@@ -5946,11 +6071,17 @@ const ExamesFS = {
       /* impedimento da psicóloga / assistente social da unidade: só o campo impedida.<seção> */
       payload = { ...meta, impedida: { [o.impedimento.sec]: o.acao === "desfezImpedimento" ? null
         : { motivo: o.impedimento.motivo, por: quem.uid, porNome: quem.nome, porMat: meuPerfilDoc?.matricula || "", porPerfil: quem.perfil, em: agora } } };
+    }else if(o.acao === "indicouApoio" || o.acao === "retirouApoio"){
+      /* apoio de outra unidade (só SR/DPP): quem pode ver o exame fica em apoioUids; os dados, em apoio.<seção> */
+      const a = o.apoio;
+      payload = { ...meta, apoioUids: a.uids, apoio: { [a.sec]: o.acao === "retirouApoio" ? null
+        : { uid: a.uid, nome: a.nome, mat: a.mat || "", unidade: a.unidade, por: quem.uid, porNome: quem.nome, em: agora } } };
     }else if(o.acao === "excluiu"){
       payload = { ...meta, status: "excluido", excluidoBy: quem.uid, excluidoByNome: quem.nome, excluidoAt: agora, motivoExclusao: o.motivo };
     }else{
       payload = { ...ex, ...meta, unidade: ex.unid || null, sr: srDaUnidade(ex.unid) || meuPerfilDoc?.sr || null };
       delete payload.impedida; /* o impedimento só muda pelas ações próprias acima */
+      delete payload.apoio; delete payload.apoioUids; /* idem para o apoio de outra unidade */
       if(!o.base){ Object.assign(payload, { createdBy: quem.uid, createdByNome: quem.nome, createdAt: agora, status: "andamento" }); }
       /* registro eletrônico de autoria: quem concluiu cada seção (matrícula da conta, hora do servidor)
          e a versão da seção — cada nova conclusão depois de uma alteração gera V2, V3...; ao desmarcar,
