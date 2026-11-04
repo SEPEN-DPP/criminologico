@@ -3890,20 +3890,36 @@ Continuar mesmo assim (sem salvar)?`);
     const form=document.getElementById("apoioForm");
     this._apoioAberto={exId:ex.id, sec};
     form.innerHTML=`<p class="note">Procurando as contas da regional…</p>`;
-    let contatos=[];
-    try{ contatos=await window.ContaFS.contatos(); }
+    let contas=[];
+    try{ contas=await window.ContaFS.contasParaApoio(ex.sr); }
     catch(e){ form.innerHTML=`<p class="note" style="color:var(--crit);">Não foi possível buscar as contas (erro: ${esc(e.message||e)}).</p>`; this._apoioAberto=null; return; }
-    const lista=contatos.filter(c=>c.uid && c.perfil===this.APOIO_PERFIL[sec] && c.unidade && c.unidade!==ex.unid && (UNIDADES_INFO[c.unidade]||{}).sr===ex.sr)
-      .sort((a,b)=>(a.unidade+a.nome).localeCompare(b.unidade+b.nome,"pt-BR"));
+    const daRegional=contas.filter(c=>c.uid && ((UNIDADES_INFO[c.unidade]||{}).sr||c.sr)===ex.sr);
+    const ordem=(a,b)=>((a.unidade||"")+a.nome).localeCompare((b.unidade||"")+b.nome,"pt-BR");
+    const perfilSec=this.APOIO_PERFIL[sec];
+    const lista=daRegional.filter(c=>c.status==="ATIVO" && c.perfil===perfilSec && c.unidade && c.unidade!==ex.unid).sort(ordem);
     this._apoioLista=lista;
+    /* quem é da regional e não pode ser escolhido, com o motivo: para ninguém ficar procurando sem saber por quê */
+    const motivo=c=>{
+      if(lista.includes(c)) return null;
+      if(c.status==="PENDENTE") return c.perfilSolicitado===perfilSec ? "cadastro aguardando aprovação" : null;
+      if(c.status!=="ATIVO") return c.perfil===perfilSec ? "conta não está ativa" : null;
+      if(c.perfil===perfilSec) return "é da unidade deste exame e já tem acesso";
+      if(c.perfil==="SR_PSICOLOGIA"||c.perfil==="SR_SOCIAL"||c.perfil==="SR") return "conta da Superintendência: já tem acesso a todos os exames da regional";
+      if(c.perfil==="USUARIO") return "perfil "+(PERFIL_LABEL[c.perfil]||c.perfil)+": para indicar, o perfil da conta precisa ser "+PERFIL_LABEL[perfilSec];
+      return null;
+    };
+    const fora=daRegional.map(c=>({c, m:motivo(c)})).filter(x=>x.m).sort((a,b)=>ordem(a.c,b.c));
+    const blocoFora=fora.length ? `<details style="margin-top:8px;"><summary style="cursor:pointer; font-size:12.5px;">Não encontrou a pessoa? Veja as contas da regional que não podem ser escolhidas (${fora.length})</summary>
+      <ul class="note" style="margin:6px 0;">${fora.map(x=>`<li>${esc(x.c.nome||"?")}${x.c.unidade?" — "+esc(x.c.unidade):""}: ${esc(x.m)}</li>`).join("")}</ul></details>`
+      : (this._meuPerfil||{}).perfil==="SR"||(this._meuPerfil||{}).perfil==="DPP" ? "" : `<p class="note" style="margin:6px 0;">Aqui aparecem só as contas com matrícula cadastrada. Se faltar alguém, peça à SR ou ao DPP para indicar.</p>`;
     if(!lista.length){
-      form.innerHTML=`<p class="note" style="color:var(--warn);">Nenhuma conta de ${this.SECAO_LABEL[sec]} de outra unidade desta regional com matrícula cadastrada. A pessoa precisa ter conta ativa e informar a matrícula no sistema.</p><button class="btn sm ghost" type="button" onclick="App.fecharApoio()">Fechar</button>`;
+      form.innerHTML=`<p class="note" style="color:var(--warn);">Nenhuma conta de ${this.SECAO_LABEL[sec]} de outra unidade desta regional pode ser escolhida.</p>${blocoFora}<button class="btn sm ghost" type="button" onclick="App.fecharApoio()">Fechar</button>`;
       return;
     }
     const unidades=[...new Set(lista.map(c=>c.unidade))];
     form.innerHTML=`<label class="f" style="margin-top:8px;">${this.SECAO_LABEL[sec]}: quem vai ajudar neste exame?</label>
-      <select id="apoioSel"><option value="">Selecionar…</option>${unidades.map(u=>`<optgroup label="${esc(u)}">${lista.map((c,i)=>c.unidade===u?`<option value="${i}">${esc(c.nome)} · ${esc(c.matricula)}</option>`:"").join("")}</optgroup>`).join("")}</select>
-      <div class="btnrow" style="margin-top:6px;"><button class="btn sm" type="button" onclick="App.confirmarApoio('${sec}')">Liberar acesso a este exame</button> <button class="btn sm ghost" type="button" onclick="App.fecharApoio()">Cancelar</button></div>`;
+      <select id="apoioSel"><option value="">Selecionar…</option>${unidades.map(u=>`<optgroup label="${esc(u)}">${lista.map((c,i)=>c.unidade===u?`<option value="${i}">${esc(c.nome)} · ${esc(c.matricula||"sem matrícula")}</option>`:"").join("")}</optgroup>`).join("")}</select>
+      <div class="btnrow" style="margin-top:6px;"><button class="btn sm" type="button" onclick="App.confirmarApoio('${sec}')">Liberar acesso a este exame</button> <button class="btn sm ghost" type="button" onclick="App.fecharApoio()">Cancelar</button></div>${blocoFora}`;
   },
   fecharApoio(){
     this._apoioAberto=null;
@@ -3930,7 +3946,7 @@ Continuar mesmo assim (sem salvar)?`);
          "Avaliado: "+ex.nome+(ex.mat?" — IPEN "+ex.mat:""),"Unidade: "+(ex.unid||"—"),
          this.prazoLimite(ex)?"Prazo do exame: "+this.prazoLimite(ex).toLocaleDateString("pt-BR"):null,"",
          "Acesse: https://sepen-dpp.github.io/criminologico/ (o exame aparece no sininho e em \"Minhas pendências\", no Painel).","","Atenciosamente,",(this._meuPerfil&&this._meuPerfil.nome)||""].filter(l=>l!==null).join("\n"),
-        "Esta conta não tem e-mail no sistema — avise por outro meio.");
+        "O acesso foi liberado, mas o e-mail desta pessoa só fica disponível depois que ela entrar no sistema com a matrícula cadastrada — avise por outro meio.");
     }).catch(e=>{ msg.style.color="#B4232B"; msg.textContent="⚠ O acesso não foi liberado: "+e.message; });
   },
   retirarApoio(sec){
@@ -5607,6 +5623,16 @@ const ContaFS = {
   async contatos(){
     const snap = await getDocs(collection(db,"contatos"));
     return snap.docs.map(d=>d.data()).filter(c=>c.email && c.matricula);
+  },
+  /* apoio de outra unidade: SR e DPP leem as contas da regional (inclui quem ainda não cadastrou matrícula);
+     a cobertura regional não lê usuarios, então usa os contatos (só contas com matrícula) */
+  async contasParaApoio(sr){
+    const p = meuPerfilDoc?.perfil;
+    if(p==="DPP" || p==="SR"){
+      const snap = await getDocs(p==="SR" ? query(collection(db,"usuarios"), where("sr","==", meuPerfilDoc.sr)) : collection(db,"usuarios"));
+      return snap.docs.map(d=>({ uid:d.id, ...d.data() }));
+    }
+    return (await this.contatos()).map(c=>({ ...c, status:"ATIVO" }));
   },
   async publicarContato(){
     const p = meuPerfilDoc;
