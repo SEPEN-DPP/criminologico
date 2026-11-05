@@ -4637,7 +4637,7 @@ Continuar mesmo assim (sem salvar)?`);
     const dias=Math.floor((lim-hoje())/86400000);
     if(ex.status==="concluido") return {cls:"b-ok", txt:"concluído"};
     if(dias<0)  return {cls:"b-crit", txt:"vencido há "+Math.abs(dias)+"d"};
-    if(dias<=7) return {cls:"b-crit", txt:dias+"d restantes"};
+    if(dias<=5) return {cls:"b-crit", txt:dias+"d restantes"};
     if(dias<=15)return {cls:"b-warn", txt:dias+"d restantes"};
     return {cls:"b-ok", txt:dias+"d restantes"};
   },
