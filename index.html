@@ -2641,7 +2641,7 @@ const App = {
     document.getElementById("kpis").innerHTML=`
       <div class="card kpi navy" onclick="App.filtrarPainel('andamento','')"><b>${totals.and}</b><span>exames em andamento (estado)</span></div>
       <div class="card kpi crit" onclick="App.filtrarPainel('andamento','b-crit')"><b>${totals.crit}</b><span>prazo crítico / vencido</span></div>
-      <div class="card kpi warn" onclick="App.filtrarPainel('andamento','b-warn')"><b>${totals.warn}</b><span>atenção (≤ 15 dias)</span></div>
+      <div class="card kpi warn" onclick="App.filtrarPainel('andamento','b-warn')"><b>${totals.warn}</b><span>atenção (≤ 10 dias)</span></div>
       <div class="card kpi ok" onclick="App.filtrarPainel('concluido','')"><b>${totals.conc}</b><span>concluídos</span></div>`;
     document.getElementById("orientBox").innerHTML=""; /* sem a linha "Priorize": os números já estão nos indicadores acima */
     document.getElementById("prazosBox").innerHTML = `
@@ -4655,7 +4655,7 @@ Continuar mesmo assim (sem salvar)?`);
     if(ex.status==="concluido") return {cls:"b-ok", txt:"concluído"};
     if(dias<0)  return {cls:"b-crit", txt:"vencido há "+Math.abs(dias)+"d"};
     if(dias<=5) return {cls:"b-crit", txt:dias+"d restantes"};
-    if(dias<=15)return {cls:"b-warn", txt:dias+"d restantes"};
+    if(dias<=10)return {cls:"b-warn", txt:dias+"d restantes"};
     return {cls:"b-ok", txt:dias+"d restantes"};
   },
 
@@ -4715,7 +4715,7 @@ Continuar mesmo assim (sem salvar)?`);
     document.getElementById("kpis").innerHTML=`
       <div class="card kpi navy" onclick="App.filtrarPainel('andamento','')"><b>${and.length}</b><span>exames em andamento</span></div>
       <div class="card kpi crit" onclick="App.filtrarPainel('andamento','b-crit')"><b>${crit.length}</b><span>prazo crítico / vencido</span></div>
-      <div class="card kpi warn" onclick="App.filtrarPainel('andamento','b-warn')"><b>${warn.length}</b><span>atenção (≤ 15 dias)</span></div>
+      <div class="card kpi warn" onclick="App.filtrarPainel('andamento','b-warn')"><b>${warn.length}</b><span>atenção (≤ 10 dias)</span></div>
       <div class="card kpi ok" onclick="App.filtrarPainel('concluido','')"><b>${exs.filter(e=>e.status==="concluido").length}</b><span>concluídos</span></div>`;
     document.getElementById("orientBox").innerHTML=""; /* sem o quadro "Priorize hoje": os números já estão nos indicadores acima */
 
@@ -4757,7 +4757,7 @@ Continuar mesmo assim (sem salvar)?`);
      PRAZO_FILTRO_LABEL mapeia o filtro de prazo (cls de prazoInfo) pro texto do chip.
      abrirListaTudo() é usado pelo botão de navegação "Exames" (limpa tudo); os
      cartões do painel chamam filtrarPainel() com o status/prazo específicos. */
-  PRAZO_FILTRO_LABEL: {"b-crit":"prazo crítico/vencido", "b-warn":"atenção (≤ 15 dias)"},
+  PRAZO_FILTRO_LABEL: {"b-crit":"prazo crítico/vencido", "b-warn":"atenção (≤ 10 dias)"},
   dashPrazoFiltro: "",
   filtrarPainel(status, prazoCls){
     document.getElementById("fStatus").value = status||"";
