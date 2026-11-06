@@ -772,6 +772,7 @@
     <div id="modalNote" class="lawbox" style="display:none;">
       Videoconferência admitida quando o deslocamento da equipe for inviável ou excessivamente oneroso, considerada a distância, a disponibilidade dos profissionais e a necessidade de atendimento tempestivo (art. 9º, §1º, da Portaria). O ambiente deve ser reservado, com identificação dos participantes, privacidade, sigilo e autonomia técnica assegurados; a adoção da modalidade deve constar expressamente no relatório (art. 9º, §2º).
     </div>
+    <div id="etapasNota" class="orient" style="display:none; margin-bottom:10px;"></div>
     <div id="etapasBox" onchange="App.modalChange()"></div>
     <div id="hctpExameBox" style="margin-top:14px;"></div>
 
@@ -2542,7 +2543,12 @@ const App = {
        exame estiver aberto no formulário, só as etapas da tela são atualizadas */
     return this.gravarExame(ex,{acao:"alterou", base:this.baseDoServidor(exServidor)})
       .then(()=>{
-        if(this.editId===exServidor.id) this.renderEtapas(ex.etapas);
+        if(this.editId===exServidor.id){
+          /* o formulário aberto só fica "com alterações não salvas" se já estava assim antes */
+          const limpo = this._formFoto==null || jsonEstavel(this.lerFormulario())===this._formFoto;
+          this.renderEtapas(ex.etapas);
+          if(limpo) this.marcarFormularioLimpo();
+        }
         this.calFecharForm(true);
         this.renderCalendario();
         alert(msgOk);
@@ -2973,6 +2979,17 @@ const App = {
         ${e.data?`<input type="date" class="et-data" value="${v.data||""}">`:""}
       </div>`;
     }).join("");
+    /* Psicologia/Serviço Social da unidade (e HCTP): as entrevistas não se editam aqui — a psicóloga e a
+       assistente social marcam pelo Calendário. Os campos ficam travados também quando a etapa é
+       redesenhada depois de um agendamento (antes voltavam liberados e a data digitada se perdia ao salvar). */
+    const nota=document.getElementById("etapasNota");
+    if(this.secaoExclusiva()){
+      box.querySelectorAll("input, select, textarea").forEach(el=>el.disabled=true);
+      document.querySelectorAll('[id^="et_"][id$="_usar"]').forEach(el=>el.disabled=true);
+      if(nota){ nota.style.display=""; nota.innerHTML = this.agendaRestrita()
+        ? `As datas das entrevistas não são digitadas aqui: marque, altere ou desmarque pelo <a href="#" onclick="App.tab('cal');return false;"><b>Calendário</b></a> (lista "Entrevistas a agendar", no topo). Seu perfil agenda as entrevistas da sua área ou da Equipe.`
+        : `As datas das entrevistas são marcadas pelo Centro.`; }
+    } else if(nota){ nota.style.display="none"; nota.innerHTML=""; }
     this.modalChange();
   },
   etUsar(k){
@@ -5027,6 +5044,7 @@ Continuar mesmo assim (sem salvar)?`);
     window.print();
   },
   irParaEtapas(){
+    if(this.agendaRestrita()){ this.tab("cal"); return; } /* Psicologia/Serviço Social: as datas se marcam pelo Calendário */
     this.novoTab("quesitos");
     const box=document.getElementById("etapasBox"); if(box) box.scrollIntoView({behavior:"smooth", block:"start"});
   },
