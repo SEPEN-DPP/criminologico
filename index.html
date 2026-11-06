@@ -4737,7 +4737,7 @@ Continuar mesmo assim (sem salvar)?`);
         const euCrit=euAnd.filter(e=>this.prazoInfo(e).cls==="b-crit");
         const euWarn=euAnd.filter(e=>this.prazoInfo(e).cls==="b-warn");
         return {u, i:unidadesDoCentro.indexOf(u), and:euAnd.length, crit:euCrit.length, warn:euWarn.length, conc:eu.length-euAnd.length};
-      }).filter(r=>!/HCTP|Monitoramento Eletr/i.test(r.u)); /* HCTP e Monitoramento Eletrônico não entram nesta lista */
+      }).filter(r=>!/HCTP|Monitoramento Eletr/i.test(r.u) || r.and || r.conc); /* HCTP e Monitoramento Eletrônico só entram nesta lista quando têm exame (senão o total não bate com as linhas) */
       const semUnidade=exsCentro.filter(e=>!e.unid || !unidadesDoCentro.includes(e.unid));
       document.getElementById("painelUnidadesBox").innerHTML = `
         <table><tr><th>Unidade prisional</th><th>Em andamento</th><th>Prazo crítico</th><th>Atenção</th><th>Concluídos</th><th></th></tr>
@@ -4751,7 +4751,8 @@ Continuar mesmo assim (sem salvar)?`);
         </tr>`).join("")}
         ${(()=>{ const and=exsCentro.filter(e=>e.status!=="concluido"); const t=c=>and.filter(e=>this.prazoInfo(e).cls===c).length;
           return `<tr style="border-top:2px solid var(--navy);" onclick="App.alternarListaPainel()"><td><b>Total do centro</b></td><td><b>${and.length}</b></td><td>${t("b-crit")?`<span class="badge b-crit">${t("b-crit")}</span>`:"0"}</td><td>${t("b-warn")?`<span class="badge b-warn">${t("b-warn")}</span>`:"0"}</td><td>${exsCentro.length-and.length}</td><td class="right"><span class="badge b-navy">${this.dashVerTodos?"ocultar lista ↑":"ver lista ↓"}</span></td></tr>`; })()}
-        ${semUnidade.length?`<tr onclick="App.abrirUnidadePainel('_semunidade')"><td><i>Sem unidade definida</i></td><td>${semUnidade.filter(e=>e.status!=="concluido").length}</td><td colspan="2">—</td><td>${semUnidade.filter(e=>e.status==="concluido").length}</td><td class="right"><span class="badge b-navy">abrir →</span></td></tr>`:""}
+        ${semUnidade.length?`<tr onclick="App.abrirUnidadePainel('_semunidade')"><td><i>Sem unidade definida</i></td>${(()=>{ const sa=semUnidade.filter(e=>e.status!=="concluido"); const t=c=>sa.filter(e=>this.prazoInfo(e).cls===c).length;
+          return `<td>${sa.length}</td><td>${t("b-crit")?`<span class="badge b-crit">${t("b-crit")}</span>`:"0"}</td><td>${t("b-warn")?`<span class="badge b-warn">${t("b-warn")}</span>`:"0"}</td>`; })()}<td>${semUnidade.filter(e=>e.status==="concluido").length}</td><td class="right"><span class="badge b-navy">abrir →</span></td></tr>`:""}
         </table>`;
     } else {
       painelCard.style.display="none";
