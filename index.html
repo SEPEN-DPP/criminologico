@@ -2603,7 +2603,7 @@ const App = {
   renderListasExames(exs, unidFiltro, unidLabel, onde){
     document.getElementById("acompTitle").innerHTML = `Andamento dos exames${unidFiltro?(" — "+esc(unidLabel)):""} <span class="muted" style="font-weight:normal;font-size:12.5px;">— seções do relatório: <span class="sec ok">✓ concluída</span> <span class="sec na">✓ não se aplica</span> <span class="sec">pendente</span> · linha verde = exame com todas as seções prontas (passe o mouse numa seção para ver o responsável)</span>`;
     /* em andamento aqui (menos prontos no topo); os concluídos ficam numa lista própria, logo abaixo */
-    const acomp=exs.filter(e=>e.status!=="concluido").sort((a,b)=>this.progressoRelOk(a.relOk,a.sup).feitas - this.progressoRelOk(b.relOk,b.sup).feitas);
+    const acomp=exs.filter(e=>e.status!=="concluido").sort((a,b)=>this.progressoRelOk(a.relOk,this.supPainel(a)).feitas - this.progressoRelOk(b.relOk,this.supPainel(b)).feitas);
     const concl=exs.filter(e=>e.status==="concluido").sort((a,b)=>this.tsMs(b.finalizedAt)-this.tsMs(a.finalizedAt));
     document.getElementById("acompCard").style.display = "";
     document.getElementById("conclCard").style.display = "";
@@ -2615,7 +2615,7 @@ const App = {
       : `<div class="empty">Nenhum exame concluído${unidFiltro?" nesta unidade":onde} ainda.</div>`;
     document.getElementById("acompBox").innerHTML = acomp.length ?
       `<table><tr><th>Avaliado</th>${unidFiltro?"":"<th>Unidade</th>"}<th>Prazo</th><th>Seções do relatório</th><th>Situação</th></tr>`+
-      acomp.map(e=>{const p=this.prazoInfo(e); const ro=this.progressoRelOk(e.relOk,e.sup); const pronto=this.examePronto(e);
+      acomp.map(e=>{const p=this.prazoInfo(e); const ro=this.progressoRelOk(e.relOk,this.supPainel(e)); const pronto=this.examePronto(e);
         const situ = e.status==="concluido" ? `<span class="badge b-ok">✓ exame concluído</span>`
           : pronto ? `<span class="badge b-ok">✓ seções prontas — falta finalizar</span>`
           : `<span class="badge b-warn">${ro.feitas}/${ro.total} seções</span>`;
@@ -3278,18 +3278,22 @@ Continuar mesmo assim (sem salvar)?`);
     const feitas=this.REL_OK_KEYS.filter(k=>relOk[k]||sup[k]).length;
     return {feitas, total};
   },
+  /* seções que não se aplicam, para o Painel: "sem psiquiatra na equipe" (aba Equipe examinadora) conta
+     como Psiquiatria resolvida, igual a marcar "não se aplica" */
+  supPainel(e){ const s={...((e&&e.sup)||{})}; if(((e&&e.equipe)||{}).semPsq) s.psq=true; return s; },
   /* exame "pronto": todas as seções concluídas (ou não se aplicam) — ou já finalizado */
   examePronto(e){
     if(e.status==="concluido") return true;
-    const ro=this.progressoRelOk(e.relOk, e.sup);
+    const ro=this.progressoRelOk(e.relOk, this.supPainel(e));
     return ro.feitas===ro.total;
   },
   SECAO_CURTA: {coord:"Metod.", direcao:"Direção", chefiaSeg:"Seg.", execPenal:"Exec. Penal", ativLab:"Laboral", ensino:"Ensino", psq:"Psiq.", psi:"Psic.", soc:"Serv. Social", sin:"Síntese"},
   chipsSecoes(e){
-    const relOk=e.relOk||{}, sup=e.sup||{}, eq=e.equipe||{};
+    const relOk=e.relOk||{}, sup=this.supPainel(e), eq=e.equipe||{};
     return `<div class="secs">${this.REL_OK_KEYS.map(k=>{
-      const cls = sup[k] ? "na" : relOk[k] ? "ok" : "";
-      const situ = sup[k] ? "não se aplica" : relOk[k] ? "concluída" : "pendente";
+      const semPsq = k==="psq" && !!eq.semPsq && !(e.sup||{}).psq; /* sem psiquiatra na equipe: verde, como concluída */
+      const cls = semPsq ? "ok" : sup[k] ? "na" : relOk[k] ? "ok" : "";
+      const situ = semPsq ? "sem psiquiatra na equipe" : sup[k] ? "não se aplica" : relOk[k] ? "concluída" : "pendente";
       const quem = this.separarMatricula(eq[this.SECAO_EQ[k]], eq[this.SECAO_EQ[k]+"Mat"]).nome || "";
       const tip = this.SECAO_LABEL[k]+" — "+situ+(quem?" — responsável: "+quem:"");
       return `<span class="sec ${cls}" title="${esc(tip)}">${relOk[k]||sup[k]?"✓ ":""}${this.SECAO_CURTA[k]}</span>`;
@@ -4153,7 +4157,7 @@ Continuar mesmo assim (sem salvar)?`);
     const secApoio=this.agendaRestrita() ? this.secaoExclusiva() : null; /* apoio de outra unidade: a própria seção nos exames indicados */
     if(p.matricula || secCob || secApoio){
       this.data.exames.filter(e=>e.status==="andamento").forEach(e=>{
-        const eq=e.equipe||{}, relOk=e.relOk||{}, sup=e.sup||{};
+        const eq=e.equipe||{}, relOk=e.relOk||{}, sup=this.supPainel(e);
         const secoes=Object.keys(this.SECAO_EQ).filter(k=>!relOk[k] && !sup[k] && ((p.matricula && matIgual(this.matDaEquipe(eq,this.SECAO_EQ[k]), p.matricula))
           || (k===secCob && this.impedimentoAtivo(e, k)) /* cobertura: seção da área com impedimento da unidade */
           || (k===secApoio && this.souApoio(e))));
@@ -4815,7 +4819,7 @@ Continuar mesmo assim (sem salvar)?`);
     const selosAgend = e=>{const a=agend(e);
         return [["psi","Psi","Psicologia"],["social","Social","Serviço Social"],["conv","Convívio","pessoa do convívio"]].map(([k,curto,nome])=>
           `<span class="badge ${a[k]?"b-ok":"b-mut"}" style="padding:2px 7px;" title="${a[k]?"Entrevista agendada":"Falta agendar"}: ${nome}">${a[k]?"✓":"–"} ${curto}</span>`).join(" ");};
-    const linha = e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{}); const ro=this.progressoRelOk(e.relOk,e.sup);
+    const linha = e=>{const p=this.prazoInfo(e); const pr=this.progresso(e.etapas||{}); const ro=this.progressoRelOk(e.relOk,this.supPainel(e));
         const fin={progressao:"Progressão",judicial:"Judicial",dpp:"Req. DPP"}[e.tipo]||"—";
         return `<tr class="${this.examePronto(e)?"ex-pronto":""}" onclick="App.abrir('${e.id}')"><td><b>${esc(e.nome)}</b>${e.crimeSexual?' <span class="badge b-crime" title="Condenação por crime sexual">crime sexual</span>':""}${e.status==="concluido"?" "+this.seloPeticao(e):""}</td><td>${esc(e.mat)||"—"}</td><td>${fin}</td><td>${esc(e.sgpe)||"—"}</td><td><span class="badge ${p.cls}">${p.txt}</span></td><td style="white-space:nowrap;">${selosAgend(e)}</td><td><div class="prog"><i style="width:${pr}%"></i></div></td><td><span class="badge ${ro.feitas===ro.total?"b-ok":"b-warn"}" title="Seções do relatório marcadas como concluídas pelo(a) responsável">${ro.feitas}/${ro.total} seções</span></td></tr>`;};
     let corpo;
