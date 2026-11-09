@@ -5921,7 +5921,8 @@ const UsuariosUI = {
     const u = this._cache.find(x=>x.id===id); if(!u) return;
     this._editandoId = id;
     this._novoPerfil = novoPerfil || null;
-    const perfilAlvo = novoPerfil || u.perfil;
+    /* conta pendente ainda não tem perfil: vale o que a pessoa pediu (o DPP corrige a unidade antes de aprovar) */
+    const perfilAlvo = novoPerfil || u.perfil || u.perfilSolicitado;
     document.getElementById("editUsuarioEmail").textContent = u.email;
     document.getElementById("editUsuarioNome").value = u.nome||"";
     document.getElementById("editUsuarioCpf").value = u.cpf||"";
@@ -5937,7 +5938,9 @@ const UsuariosUI = {
     }
     document.getElementById("editUsuarioPerfilInfo").innerHTML = novoPerfil
       ? `<b>Mudando o nível de acesso</b> de "${esc(PERFIL_LABEL[u.perfil]||u.perfil||"—")}" para "<b>${esc(PERFIL_LABEL[novoPerfil]||novoPerfil)}</b>". Confira ${temSR?"a Superintendência":temUnidade?"a unidade":"os dados"} acima e clique em Salvar — a mudança vale imediatamente.`
-      : "Nível de acesso: " + esc(PERFIL_LABEL[u.perfil]||u.perfil) + " (altere na coluna da tabela)";
+      : u.status==="PENDENTE" && !u.perfil
+        ? "Solicitação pendente — nível pedido: " + esc(PERFIL_LABEL[u.perfilSolicitado]||u.perfilSolicitado||"—") + ". Corrija a unidade se preciso e depois aprove."
+      : "Nível de acesso: " + esc(PERFIL_LABEL[u.perfil]||u.perfil) + " (altere na coluna da tabela)" + (temUnidade ? ". A unidade prisional pode ser trocada acima." : "");
     document.getElementById("editUsuarioModal").style.display = "flex";
   },
   fecharEdicao(){
