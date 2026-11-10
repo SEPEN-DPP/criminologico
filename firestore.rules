@@ -178,6 +178,8 @@ service cloud.firestore {
     function ehSROuDPPDo(d) { return ehDPP() || minhaSR(d.sr); }
     // concluir e excluir: DPP ou qualquer perfil regional da propria SR
     function ehRegionalOuDPPDo(d) { return ehSROuDPPDo(d) || minhaSRComoCobertura(d.sr); }
+    // excluir tambem: perfil Usuario e CPEN da propria unidade (so exame em andamento)
+    function unidadeExcluiDo(d) { return ativo() && perfilAtual().perfil in ['USUARIO','CPEN'] && d.get('unidade', null) == perfilAtual().unidade; }
     function exameDoc(examId) { return /databases/$(database)/documents/exames/$(examId); }
     function historicoDoc(examId, rev) { return /databases/$(database)/documents/exames/$(examId)/historico/$(string(rev)); }
     function versaoDoc(examId, n) { return /databases/$(database)/documents/exames/$(examId)/versoes/$(string(n)); }
@@ -230,7 +232,7 @@ service cloud.firestore {
             && n.versaoFinal == resource.data.get('versaoFinal', 0) + 1
             && existsAfter(versaoDoc(examId, n.versaoFinal)))
         : para == 'excluido' ? (
-            ehRegionalOuDPPDo(resource.data)
+            (ehRegionalOuDPPDo(resource.data) || unidadeExcluiDo(resource.data))
             && h.acao == 'excluiu' && motivoOk(h)
             && n.excluidoBy == request.auth.uid
             && n.excluidoAt == request.time)

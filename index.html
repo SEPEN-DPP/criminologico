@@ -3686,6 +3686,14 @@ Continuar mesmo assim (sem salvar)?`);
     return p.perfil==="DPP" || (["SR","SR_PSICOLOGIA","SR_SOCIAL"].includes(p.perfil) && ex.sr===p.sr);
   },
   podeConcluir(ex){ return this.podeExcluir(ex); },
+  /* excluir o exame: além do DPP e da regional, o perfil Usuário e a CPEN da própria unidade
+     (só exame em andamento — concluído não é excluído por ninguém; mesma regra do firestore.rules) */
+  podeExcluirExame(ex){
+    const p=this._meuPerfil;
+    if(!p || !ex) return false;
+    if(this.podeExcluir(ex)) return true;
+    return ["USUARIO","CPEN"].includes(p.perfil) && !!p.unidade && (ex.unidade||ex.unid)===p.unidade && ex.status!=="concluido";
+  },
   /* seções técnicas (mesma regra do firestore.rules, edicaoPorSecaoOk): na unidade, a conta de
      Psicologia só edita a seção de Psicologia e a de Serviço Social só a de Serviço Social;
      USUARIO/DIR/CPEN editam o resto, menos essas duas. Regionais e DPP editam tudo. */
@@ -3749,7 +3757,7 @@ Continuar mesmo assim (sem salvar)?`);
     const pode=this.podeReabrir(ex);
     document.getElementById("btnConcluir").style.display = ex && !concl && this.podeConcluir(ex) ? "inline-block" : "none";
     document.getElementById("btnReabrir").style.display = concl && pode ? "inline-block" : "none";
-    document.getElementById("btnExcluir").style.display = ex && !concl && this.podeExcluir(ex) ? "inline-block" : "none";
+    document.getElementById("btnExcluir").style.display = ex && !concl && this.podeExcluirExame(ex) ? "inline-block" : "none";
     document.getElementById("btnHistorico").style.display = ex ? "inline-block" : "none";
     document.querySelectorAll(".btnSalvar").forEach(b=>b.style.display = concl ? "none" : "");
     if(ex) document.getElementById("fichaTitulo").textContent="Exame — "+ex.nome+(concl?" (concluído)":"");
@@ -4118,7 +4126,7 @@ Continuar mesmo assim (sem salvar)?`);
   excluir(){
     if(!this.editId) return;
     const ex=this.data.exames.find(x=>x.id===this.editId); if(!ex) return;
-    if(!this.podeExcluir(ex)){ alert("Somente o DPP ou perfis de nível regional (SR, psicólogo(a) ou assistente social regional) da própria Superintendência podem excluir um exame."); return; }
+    if(!this.podeExcluirExame(ex)){ alert("Somente o DPP, os perfis de nível regional da própria Superintendência ou as contas Usuário e CPEN da própria unidade podem excluir um exame."); return; }
     const motivo=(prompt("Motivo da exclusão (obrigatório — fica registrado no histórico):")||"").trim();
     if(!motivo){ alert("Exclusão cancelada: o motivo é obrigatório."); return; }
     if(!confirm("Excluir o exame de "+ex.nome+"?\n\nEle deixa de aparecer nas listas, mas continua guardado no banco, com todo o histórico.")) return;
