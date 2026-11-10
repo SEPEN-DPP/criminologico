@@ -295,6 +295,9 @@ service cloud.firestore {
     // Servico Social de outra unidade (campos apoio e apoioUids, que so a SR/DPP grava). Ela ve o exame e edita
     // so a propria secao e as entrevistas da area, como a profissional da unidade; o impedimento da unidade
     // nao a atinge, e ela nao declara impedimento (se nao puder atender, a SR/DPP retira a indicacao).
+    // Equipe examinadora: a conta de Psicologia (ou Servico Social) da unidade, ou de apoio, troca so o(a)
+    // profissional da propria area (nome e matricula), que varia de exame para exame. HCTP nao mexe na equipe.
+    function equipeDoPerfil(p) { return p == 'PSICOLOGIA' ? ['psi','psiMat'] : p == 'SOCIAL' ? ['as','asMat'] : []; }
     function apoioFormatoOk(n) { return n.get('apoioUids', []) is list && n.get('apoioUids', []).size() <= 2; }
     function edicaoPorSecaoOk(n, a, eu) {
       let p = eu.perfil;
@@ -303,8 +306,9 @@ service cloud.firestore {
         : p in ['PSICOLOGIA','SOCIAL'] && mudouEm(n, a, 'impedida').size() > 0 ? (!souApoio && impedimentoOk(n, a, secaoDoPerfil(p)))
         : p in ['PSICOLOGIA','SOCIAL','HCTP'] ? (
             (!impedidaDe(a, p) || souApoio)
-            && n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt','numCrim','etapas'])
+            && n.diff(a).affectedKeys().hasOnly(['rel','relOk','relOkPor','rev','updatedBy','updatedByNome','updatedAt','numCrim','etapas','equipe'])
             && entrevistasOk(n, a, areaDoPerfil(p))
+            && mudouEm(n, a, 'equipe').hasOnly(equipeDoPerfil(p))
             && mudouEm(n, a, 'rel').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOk').hasOnly([secaoDoPerfil(p)])
             && mudouEm(n, a, 'relOkPor').hasOnly([secaoDoPerfil(p)]))

@@ -2991,17 +2991,7 @@ const App = {
         ${e.data?`<input type="date" class="et-data" value="${v.data||""}">`:""}
       </div>`;
     }).join("");
-    /* Psicologia/Serviço Social da unidade (e HCTP): as entrevistas não se editam aqui — a psicóloga e a
-       assistente social marcam pelo Calendário. Os campos ficam travados também quando a etapa é
-       redesenhada depois de um agendamento (antes voltavam liberados e a data digitada se perdia ao salvar). */
-    const nota=document.getElementById("etapasNota");
-    if(this.secaoExclusiva()){
-      box.querySelectorAll("input, select, textarea").forEach(el=>el.disabled=true);
-      document.querySelectorAll('[id^="et_"][id$="_usar"]').forEach(el=>el.disabled=true);
-      if(nota){ nota.style.display=""; nota.innerHTML = this.agendaRestrita()
-        ? `As datas das entrevistas não são digitadas aqui: marque, altere ou desmarque pelo <a href="#" onclick="App.tab('cal');return false;"><b>Calendário</b></a> (lista "Entrevistas a agendar", no topo). Seu perfil agenda as entrevistas da sua área ou da Equipe.`
-        : `As datas das entrevistas são marcadas pelo Centro.`; }
-    } else if(nota){ nota.style.display="none"; nota.innerHTML=""; }
+    this.aplicarPermEtapas();
     this.modalChange();
   },
   etUsar(k){
@@ -3393,6 +3383,26 @@ Continuar mesmo assim (sem salvar)?`);
       /* Psicologia/Serviço Social da unidade: grava só a própria seção, sobre a versão do servidor */
       ex.rel={...(exServidor.rel||{}), [sx]:form.rel[sx]};
       ex.relOk={...(exServidor.relOk||{}), [sx]:form.relOk[sx]};
+      /* entrevistas da própria área (ou da Equipe), sem trocar a área; e o(a) profissional da área na equipe */
+      if(this.agendaRestrita()){
+        const ets=JSON.parse(JSON.stringify(exServidor.etapas||{}));
+        let mudouEt=false;
+        entrevistasDo(ets).forEach(k=>{
+          if(!this.podeAgendarEtapa(exServidor, k) || !form.etapas[k]) return;
+          /* só os campos que mudaram de fato (modalidade vazia = a do exame; duração "1h" = 60) */
+          const antes=ets[k]||{}, tela=form.etapas[k];
+          const norm=(f,v)=> f==="modal" ? (v||exServidor.modal||"presencial") : f==="dur" ? (this.calDurMin(v)||"") : f==="ok" ? !!v : (v??"");
+          const mud=Object.keys(tela).filter(f=>f!=="area" && f!=="usar" && String(norm(f,tela[f]))!==String(norm(f,antes[f])));
+          if(!mud.length) return;
+          const novo={...antes}; mud.forEach(f=>{ novo[f]=tela[f]; });
+          ets[k]=this.marcaAgenda(novo, antes.data ? (novo.data ? "alterou" : "desmarcou") : "agendou"); mudouEt=true;
+        });
+        if(mudouEt) ex.etapas=ets;
+        const eqk=this.equipeDaSecao();
+        const eqSrv=exServidor.equipe||{};
+        if(eqk && [eqk, eqk+"Mat"].some(f=>(form.equipe[f]||"")!==(eqSrv[f]||"")))
+          ex.equipe={...eqSrv, [eqk]:form.equipe[eqk], [eqk+"Mat"]:form.equipe[eqk+"Mat"]};
+      }
     } else {
       Object.assign(ex, form);
       /* demais contas da unidade: as seções de Psicologia e Serviço Social ficam como estão no servidor */
@@ -3683,6 +3693,32 @@ Continuar mesmo assim (sem salvar)?`);
     const p=(this._meuPerfil||{}).perfil;
     return p==="PSICOLOGIA" ? "psi" : p==="SOCIAL" ? "soc" : p==="HCTP" ? "psq" : null; /* HCTP: psiquiatra, só nos exames com pedido */
   },
+  /* chave da equipe examinadora que a conta de Psicologia/Serviço Social preenche (o profissional da área varia
+     de exame para exame e a equipe padrão nem sempre corresponde) */
+  equipeDaSecao(){ const p=(this._meuPerfil||{}).perfil; return p==="PSICOLOGIA" ? "psi" : p==="SOCIAL" ? "as" : null; },
+  /* exame aberto, em andamento, sem impedimento da área: a conta da seção pode gravar */
+  podeEditarComoSecao(){
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    return !!ex && ex.status!=="concluido" && !this.minhaUnidadeImpedida(ex);
+  },
+  /* entrevistas no formulário do exame: Psicologia/Serviço Social preenchem as da própria área ou da Equipe
+     (sem trocar a área nem acrescentar entrevista opcional — isso é do Centro); HCTP não mexe. Mesma regra
+     do Calendário e do firestore.rules (entrevistasOk). */
+  aplicarPermEtapas(){
+    const sx=this.secaoExclusiva(), nota=document.getElementById("etapasNota");
+    if(!sx){ if(nota){ nota.style.display="none"; nota.innerHTML=""; } return; }
+    const ex=this.editId && this.data.exames.find(x=>x.id===this.editId);
+    const pode=this.agendaRestrita() && this.podeEditarComoSecao();
+    ETAPAS.forEach(e=>{
+      const d=document.getElementById("et_"+e.k); if(!d) return;
+      const libera = pode && this.podeAgendarEtapa(ex, e.k);
+      d.querySelectorAll("input, select, textarea").forEach(el=>{ el.disabled = !libera || el.dataset.field==="area"; });
+      const u=document.getElementById("et_"+e.k+"_usar"); if(u) u.disabled=true;
+    });
+    if(nota){ nota.style.display=""; nota.innerHTML = !this.agendaRestrita() ? "As datas das entrevistas são marcadas pelo Centro."
+      : !pode ? "As entrevistas deste exame não podem ser alteradas pelo seu perfil."
+      : `Preencha aqui (ou pelo <a href="#" onclick="App.tab(\x27cal\x27);return false;"><b>Calendário</b></a>) as entrevistas da sua área ou da Equipe e clique em <b>Salvar</b>. As de outra área ficam travadas; a área de cada entrevista e as entrevistas extras são definidas pelo Centro.`; }
+  },
   secoesBloqueadas(){
     return ["USUARIO","DIR","CPEN"].includes((this._meuPerfil||{}).perfil) ? ["psi","soc"] : [];
   },
@@ -3698,7 +3734,11 @@ Continuar mesmo assim (sem salvar)?`);
       });
       const livres=/relTab|novoTab|salvar|imprimir\(|Historico|fecharAviso|avisarEquipe|toggleEditarPreview|irParaEtapas|copiarAviso|baixarAnexo|Impedimento/;
       document.querySelectorAll("#v-novo button").forEach(b=>{ if(!livres.test(b.getAttribute("onclick")||"")) b.disabled=true; });
+      /* Psicologia/Serviço Social: também o(a) profissional da própria área na equipe examinadora */
+      const eqk=this.equipeDaSecao();
+      if(eqk && this.podeEditarComoSecao()) ["q_"+eqk,"q_"+eqk+"_mat","q_"+eqk+"_quadro"].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=false; });
     }
+    this.aplicarPermEtapas();
     this.secoesBloqueadas().forEach(k=>{
       ["r_"+k,"relok_"+k].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=true; });
     });
